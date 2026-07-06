@@ -2,6 +2,5 @@ requests
 pandas
 beautifulsoup4
 openpyxl
-vnstock==3.2.2
+vnstock
 pyarrow
-pytz
