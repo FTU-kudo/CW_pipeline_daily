@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CW Dashboard – YSVN</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f7f5;--surface:#fff;--surface2:#f2f2ef;
+  --text:#0b0b0b;--text2:#52514e;--text3:#898781;
+  --border:rgba(11,11,11,.1);--border2:rgba(11,11,11,.18);
+  --green:#1baf7a;--red:#e34948;--amber:#eda100;--blue:#2a78d6;
+  --violet:#4a3aa7;--coral:#eb6834;--pink:#e87ba4;
+  --bg-green:#eaf3de;--text-green:#3b6d11;
+  --bg-red:#fcebeb;--text-red:#a32d2d;
+  --bg-amber:#faeeda;--text-amber:#854f0b;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111110;--surface:#1a1a19;--surface2:#222221;
+  --text:#fff;--text2:#c3c2b7;--text3:#898781;
+  --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.18);
+  --bg-green:#173404;--text-green:#c0dd97;
+  --bg-red:#501313;--text-red:#f09595;
+  --bg-amber:#412402;--text-amber:#fac775;
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+a{color:inherit;text-decoration:none}
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;background:var(--surface);border-bottom:0.5px solid var(--border);position:sticky;top:0;z-index:100}
+.topbar h1{font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
+.topbar h1 svg{width:18px;height:18px;opacity:.7}
+.meta{font-size:12px;color:var(--text3)}
+.tabs{display:flex;gap:0;padding:0 1.5rem;background:var(--surface);border-bottom:0.5px solid var(--border)}
+.tab{padding:.6rem 1.1rem;font-size:13px;cursor:pointer;background:transparent;border:none;color:var(--text2);border-bottom:2px solid transparent;font-weight:400;font-family:inherit}
+.tab.on{color:var(--text);border-bottom-color:var(--text);font-weight:500}
+/* FILTERS */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:.6rem 1.5rem;background:var(--surface2);border-bottom:0.5px solid var(--border)}
+.filters label{font-size:12px;color:var(--text3)}
+.filters select{font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);height:28px;cursor:pointer}
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:1rem 1.5rem}
+.kpi{background:var(--surface2);border-radius:8px;padding:.75rem 1rem}
+.kpi-lbl{font-size:11px;color:var(--text3);margin-bottom:3px}
+.kpi-val{font-size:22px;font-weight:500}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:2px}
+/* SECTIONS */
+.sec{padding:0 1.5rem 1.25rem}
+.sec-title{font-size:12px;font-weight:500;color:var(--text2);padding-top:.75rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:.75rem 1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:12px;color:var(--text2)}
+.legend span{display:flex;align-items:center;gap:4px}
+.ld{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--surface2);padding:6px 10px;text-align:left;font-weight:500;color:var(--text2);border-bottom:0.5px solid var(--border);white-space:nowrap;position:sticky;top:0}
+tbody td{padding:6px 10px;border-bottom:0.5px solid var(--border);color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface2)}
+/* PILLS */
+.pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
+.itm{background:var(--bg-green);color:var(--text-green)}
+.otm{background:var(--bg-red);color:var(--text-red)}
+.atm{background:var(--bg-amber);color:var(--text-amber)}
+.active-badge{background:var(--bg-green);color:var(--text-green)}
+.expired-badge{background:var(--surface2);color:var(--text3)}
+/* DRILL */
+.drill-header{display:flex;align-items:center;gap:10px;padding:1rem 1.5rem .5rem}
+.drill-header label{font-size:13px;color:var(--text2)}
+.drill-header select{font-size:13px;padding:5px 10px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);min-width:200px;cursor:pointer}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.info-item{background:var(--surface2);border-radius:6px;padding:.5rem .75rem}
+.info-item .lbl{font-size:10px;color:var(--text3)}
+.info-item .val{font-size:13px;font-weight:500}
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:999}
+#loading p{color:var(--text2);font-size:13px}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+/* SORTABLE */
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{background:var(--border)}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Đang tải dữ liệu CW...</p>
+</div>
+
+<div id="app" class="hidden">
+  <div class="topbar">
+    <h1>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>
+      CW Dashboard — YSVN
+    </h1>
+    <div class="meta" id="meta-text">—</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab('overview',this)">Tổng quan</button>
+    <button class="tab" onclick="switchTab('drilldown',this)">Drill-down</button>
+  </div>
+
+  <div class="filters">
+    <label>Underlying</label>
+    <select id="f-under"><option value="">Tất cả</option></select>
+    <label>Nhà phát hành</label>
+    <select id="f-issuer"><option value="">Tất cả</option></select>
+    <label>Moneyness</label>
+    <select id="f-money">
+      <option value="">Tất cả</option>
+      <option>ITM</option><option>OTM</option><option>ATM</option>
+    </select>
+    <label>Trạng thái</label>
+    <select id="f-status">
+      <option value="">Tất cả</option>
+      <option value="active">Active</option>
+      <option value="expired">Expired</option>
+    </select>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="pane-overview">
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-lbl">Tổng CW</div><div class="kpi-val" id="k-total">—</div><div class="kpi-sub">active + expired</div></div>
+      <div class="kpi"><div class="kpi-lbl">CW active</div><div class="kpi-val" id="k-active" style="color:var(--green)">—</div><div class="kpi-sub">còn giao dịch</div></div>
+      <div class="kpi"><div class="kpi-lbl">Premium TB</div><div class="kpi-val" id="k-prem">—</div><div class="kpi-sub">CW active ITM+ATM</div></div>
+      <div class="kpi"><div class="kpi-lbl">Đòn bẩy TB</div><div class="kpi-val" id="k-lev">—</div><div class="kpi-sub">hiệu quả ×Delta</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Premium (%) trung bình theo Underlying</div>
+      <div class="card">
+        <div class="legend" id="leg-prem"></div>
+        <div style="position:relative;height:220px"><canvas id="c-prem"></canvas></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="grid2">
+        <div>
+          <div class="sec-title">Phân bố Moneyness</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-money"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec-title">Đòn bẩy hiệu quả theo nhà phát hành</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-lev"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Bảng so sánh CW</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th class="sortable" data-col="ticker">Mã CW</th>
+            <th class="sortable" data-col="underlying">Underlying</th>
+            <th>Nhà PH</th>
+            <th class="sortable" data-col="price">Giá CW</th>
+            <th>Giá TH</th>
+            <th>Tỷ lệ CD</th>
+            <th class="sortable" data-col="premium">Premium %</th>
+            <th class="sortable" data-col="eff_lev">Đòn bẩy</th>
+            <th class="sortable" data-col="breakeven">Break-even</th>
+            <th>Đáo hạn</th>
+            <th>Moneyness</th>
+            <th>Trạng thái</th>
+          </tr></thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRILLDOWN -->
+  <div id="pane-drilldown" class="hidden">
+    <div class="drill-header">
+      <label>Chọn mã CW:</label>
+      <select id="sel-cw"></select>
+    </div>
+    <div class="sec">
+      <div class="info-grid" id="drill-info"></div>
+      <div class="sec-title">Giá đóng cửa — lịch sử OHLCV</div>
+      <div class="card">
+        <div class="legend">
+          <span><span class="ld" style="background:var(--blue)"></span>Giá CW (close)</span>
+          <span><span class="ld" style="background:var(--green)"></span>Underlying / Tỷ lệ CD (quy đổi)</span>
+        </div>
+        <div style="position:relative;height:260px"><canvas id="c-drill"></canvas></div>
+      </div>
+      <div class="sec-title" style="margin-top:10px">Premium (%) theo ngày</div>
+      <div class="card">
+        <div style="position:relative;height:160px"><canvas id="c-prem-hist"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS=['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#e87ba4','#eb6834','#008300'];
+const isDark=matchMedia('(prefers-color-scheme:dark)').matches;
+const GRID=isDark?'#2c2c2a':'#e1e0d9';
+const TICK=isDark?'#898781':'#898781';
+const charts={};
+let allData=[], ohlcvData={}, filtered=[], sortCol='', sortDir=1;
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// ── Load data.json ────────────────────────────────────────────────
+async function loadData(){
+  try{
+    const r=await fetch('data.json?t='+Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const json=await r.json();
+    allData=json.cw_list||[];
+    ohlcvData=json.ohlcv||{};
+    document.getElementById('meta-text').textContent=
+      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW`;
+    populateFilters();
+    applyFilters();
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+  }catch(e){
+    document.querySelector('#loading p').textContent='Lỗi tải dữ liệu: '+e.message;
+  }
+}
+
+// ── Filters ───────────────────────────────────────────────────────
+function populateFilters(){
+  const unders=[...new Set(allData.map(d=>d.underlying))].sort();
+  const issuers=[...new Set(allData.map(d=>d.issuer))].sort();
+  const fu=document.getElementById('f-under');
+  const fi=document.getElementById('f-issuer');
+  unders.forEach(u=>{const o=document.createElement('option');o.value=o.textContent=u;fu.appendChild(o);});
+  issuers.forEach(i=>{const o=document.createElement('option');o.value=o.textContent=i;fi.appendChild(o);});
+}
+
+function applyFilters(){
+  const u=document.getElementById('f-under').value;
+  const is=document.getElementById('f-issuer').value;
+  const m=document.getElementById('f-money').value;
+  const st=document.getElementById('f-status').value;
+  filtered=allData.filter(d=>
+    (!u||d.underlying===u)&&(!is||d.issuer===is)&&
+    (!m||d.moneyness===m)&&(!st||d.status===st)
+  );
+  renderOverview();
+}
+['f-under','f-issuer','f-money','f-status'].forEach(id=>
+  document.getElementById(id).addEventListener('change',applyFilters));
+
+// ── KPI ──────────────────────────────────────────────────────────
+function updateKPI(){
+  const act=filtered.filter(d=>d.status==='active');
+  document.getElementById('k-total').textContent=filtered.length;
+  document.getElementById('k-active').textContent=act.length;
+  const pr=act.filter(d=>d.moneyness!=='OTM').map(d=>d.premium);
+  document.getElementById('k-prem').textContent=pr.length?(pr.reduce((a,b)=>a+b,0)/pr.length).toFixed(1)+'%':'—';
+  const lv=act.map(d=>d.eff_lev);
+  document.getElementById('k-lev').textContent=lv.length?(lv.reduce((a,b)=>a+b,0)/lv.length).toFixed(2)+'×':'—';
+}
+
+// ── Chart: Premium by Underlying ─────────────────────────────────
+function drawPrem(){
+  destroyChart('prem');
+  const act=filtered.filter(d=>d.status==='active');
+  const g={};
+  act.forEach(d=>{if(!g[d.underlying])g[d.underlying]=[];g[d.underlying].push(d.premium);});
+  const labels=Object.keys(g).sort();
+  const vals=labels.map(u=>+(g[u].reduce((a,b)=>a+b,0)/g[u].length).toFixed(1));
+  const ctx=document.getElementById('c-prem').getContext('2d');
+  charts['prem']=new Chart(ctx,{type:'bar',data:{labels,datasets:[{
+    data:vals,backgroundColor:labels.map((_,i)=>CATS[i%CATS.length]+'cc'),
+    borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{x:{grid:{display:false},ticks:{color:TICK}},
+        y:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'%'}}}}});
+  document.getElementById('leg-prem').innerHTML=labels.map((l,i)=>
+    `<span><span class="ld" style="background:${CATS[i%CATS.length]}"></span>${l}: ${vals[i]}%</span>`).join('');
+}
+
+// ── Chart: Moneyness ─────────────────────────────────────────────
+function drawMoney(){
+  destroyChart('money');
+  const act=filtered.filter(d=>d.status==='active');
+  const counts=[act.filter(d=>d.moneyness==='ITM').length,act.filter(d=>d.moneyness==='OTM').length,act.filter(d=>d.moneyness==='ATM').length];
+  charts['money']=new Chart(document.getElementById('c-money').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['ITM','OTM','ATM'],datasets:[{data:counts,
+      backgroundColor:['#1baf7a','#e34948','#eda100'],borderWidth:2,borderColor:'transparent'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},color:TICK,boxWidth:12}}}}});
+}
+
+// ── Chart: Leverage by Issuer ─────────────────────────────────────
+function drawLev(){
+  destroyChart('lev');
+  const act=filtered.filter(d=>d.status==='active');
+  const g={};
+  act.forEach(d=>{if(!g[d.issuer])g[d.issuer]=[];g[d.issuer].push(d.eff_lev);});
+  const labels=Object.keys(g).sort();
+  const vals=labels.map(i=>+(g[i].reduce((a,b)=>a+b,0)/g[i].length).toFixed(2));
+  charts['lev']=new Chart(document.getElementById('c-lev').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:'#2a78d6cc',borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(2)+'×'}}},
+      scales:{x:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'×'}},y:{grid:{display:false},ticks:{color:TICK}}}}});
+}
+
+// ── Table ─────────────────────────────────────────────────────────
+function drawTable(){
+  let data=[...filtered];
+  if(sortCol) data.sort((a,b)=>{
+    const va=a[sortCol],vb=b[sortCol];
+    return (typeof va==='string'?va.localeCompare(vb):va-vb)*sortDir;
+  });
+  const mp={ITM:'itm',OTM:'otm',ATM:'atm'};
+  document.getElementById('tbl-body').innerHTML=data.map(d=>`
+    <tr>
+      <td><strong>${d.ticker}</strong></td>
+      <td>${d.underlying}</td>
+      <td style="font-size:11px">${d.issuer}</td>
+      <td>${d.price.toFixed(2)}</td>
+      <td>${(d.exercise/1000).toFixed(1)}k</td>
+      <td>${d.ratio}:1</td>
+      <td style="color:${d.premium>0?'var(--green)':'var(--red)'}">${d.premium>0?'+':''}${d.premium}%</td>
+      <td>${d.eff_lev}×</td>
+      <td>${d.breakeven}k</td>
+      <td style="font-size:11px">${d.maturity}</td>
+      <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
+      <td><span class="pill ${d.status==='active'?'active-badge':'expired-badge'}">${d.status==='active'?'Active':'Expired'}</span></td>
+    </tr>`).join('');
+}
+
+// Sortable headers
+document.querySelectorAll('th.sortable').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
+    drawTable();
+  });
+});
+
+// ── Overview ─────────────────────────────────────────────────────
+function renderOverview(){updateKPI();drawPrem();drawMoney();drawLev();drawTable();}
+
+// ── Drill-down ────────────────────────────────────────────────────
+function initDrill(){
+  const sel=document.getElementById('sel-cw');
+  sel.innerHTML=filtered.map(d=>`<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
+  sel.onchange=()=>renderDrill(sel.value);
+  if(filtered.length) renderDrill(filtered[0].ticker);
+}
+
+function renderDrill(ticker){
+  const cw=allData.find(d=>d.ticker===ticker); if(!cw) return;
+  const ohlcv=ohlcvData[ticker]||{dates:[],close:[],underlying_close:[]};
+
+  document.getElementById('drill-info').innerHTML=[
+    {l:'Underlying',v:cw.underlying},{l:'Nhà phát hành',v:cw.issuer},
+    {l:'Giá thực hiện',v:(cw.exercise/1000).toFixed(1)+'k'},
+    {l:'Tỷ lệ CD',v:cw.ratio+':1'},{l:'Đáo hạn',v:cw.maturity},
+    {l:'Moneyness',v:cw.moneyness},{l:'Premium',v:cw.premium+'%'},
+    {l:'Đòn bẩy HQ',v:cw.eff_lev+'×'},{l:'Break-even',v:cw.breakeven+'k'},
+  ].map(i=>`<div class="info-item"><div class="lbl">${i.l}</div><div class="val">${i.v}</div></div>`).join('');
+
+  destroyChart('drill'); destroyChart('prem-hist');
+
+  // Underlying quy đổi về đơn vị CW
+  const uAdj=ohlcv.underlying_close.map(p=>+(p/cw.ratio/1000).toFixed(3));
+  const premHist=ohlcv.close.map((p,i)=>{
+    const S=ohlcv.underlying_close[i]||0;
+    const intrinsic=Math.max(S-cw.exercise,0)/cw.ratio/1000;
+    return S>0?+(((p-intrinsic)/(S/1000))*100).toFixed(1):0;
+  });
+
+  charts['drill']=new Chart(document.getElementById('c-drill').getContext('2d'),{
+    type:'line',data:{labels:ohlcv.dates,datasets:[
+      {label:'Giá CW',data:ohlcv.close,borderColor:'#2a78d6',borderWidth:2,pointRadius:0,tension:0.3,fill:false},
+      {label:'Underlying/CD',data:uAdj,borderColor:'#1baf7a',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.3,fill:false}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:{display:false},ticks:{color:TICK,maxTicksLimit:8}},y:{grid:{color:GRID},ticks:{color:TICK}}}}});
+
+  charts['prem-hist']=new Chart(document.getElementById('c-prem-hist').getContext('2d'),{
+    type:'line',data:{labels:ohlcv.dates,datasets:[
+      {label:'Premium %',data:premHist,borderColor:'#eda100',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'#eda10018'}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{x:{grid:{display:false},ticks:{color:TICK,maxTicksLimit:8}},
+        y:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'%'}}}}});
+}
+
+// ── Tab ───────────────────────────────────────────────────────────
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('pane-overview').classList.toggle('hidden',tab!=='overview');
+  document.getElementById('pane-drilldown').classList.toggle('hidden',tab!=='drilldown');
+  if(tab==='drilldown') initDrill();
+}
+
+loadData();
+</script>
+</body>
+</html>
