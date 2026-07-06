@@ -27,7 +27,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install requests pandas beautifulsoup4 openpyxl "vnstock==3.2.2" pyarrow
+        run: |
+          pip install --no-cache-dir pytz
+          pip install --no-cache-dir requests pandas beautifulsoup4 openpyxl pyarrow
+          pip install --no-cache-dir --force-reinstall "vnstock==3.2.2"
 
       - name: Run pipeline
         env:
