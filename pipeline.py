@@ -437,14 +437,16 @@ def step4_export_excel(df_ohlcv_filtered, df_vietstock, valid_tickers, last_trad
     p_cols  = [c for c in priority_cols if c in df_info.columns]
     rest    = [c for c in df_info.columns if c not in p_cols]
     df_info = df_info[p_cols + rest]
-    df_info.rename(columns=column_rename, inplace=True)
-    df_info = df_info.merge(
-        last_trading_day.rename(columns={"Ticker": "Ticker"}),
-        left_on="Ticker", right_on="Ticker", how="left"
-    )
+
     today_ts = pd.Timestamp(date.today())
-    df_info_active  = df_info[df_info["last_trading_date"] >= today_ts].drop(columns=["last_trading_date"])
-    df_info_expired = df_info[df_info["last_trading_date"] <  today_ts].drop(columns=["last_trading_date"])
+    df_info["_last_gd_dt"] = pd.to_datetime(
+        df_info["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce"
+    )
+
+    df_info.rename(columns=column_rename, inplace=True)
+
+    df_info_active  = df_info[df_info["_last_gd_dt"] >= today_ts].drop(columns=["_last_gd_dt"])
+    df_info_expired = df_info[df_info["_last_gd_dt"] <  today_ts].drop(columns=["_last_gd_dt"])
     df_info_active.sort_values("Ticker",  inplace=True)
     df_info_expired.sort_values("Ticker", inplace=True)
 
