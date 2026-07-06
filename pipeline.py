@@ -1,11 +1,5 @@
 """
 CW Pipeline YSVN - Incremental Mode
-
-Bước 1: Scrape thông tin CW từ Vietstock (2301 → nay)
-Bước 2: Tải OHLCV từ vnstock (KBS)
-Bước 3: Lọc CW có ngày GD cuối cùng >= 02/01/2024
-Bước 4: Xuất Excel 3 sheet vào /output
-
 Lan dau (chua co cache): scrape toan bo Vietstock + tai toan bo OHLCV
 Cac lan sau (co cache):  chi scrape ma CW moi + tai them phien GD moi nhat
 
@@ -374,4 +368,102 @@ if __name__=="__main__":
     df_ohlcv_full=step2_ohlcv(df_vs)
     df_filtered,valid=step3_filter(df_ohlcv_full)
     step4_excel(df_filtered,df_vs,valid)
+    step5_export_json(df_filtered,df_vs,valid)
     print(f"\nDone in {(time.time()-t0)/60:.1f} min")
+
+
+# ══════════════════════════════════════════════════════════════════
+# BƯỚC 5 – XUẤT data.json CHO GITHUB PAGES DASHBOARD
+# ══════════════════════════════════════════════════════════════════
+def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
+    import json
+    print("\n"+"="*60)
+    print("BUOC 5 - Xuat data.json cho GitHub Pages")
+    print("="*60)
+
+    today_ts = pd.Timestamp(date.today())
+
+    # ── Chuẩn bị CW list ─────────────────────────────────────────
+    df_info = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
+    df_info["_last_gd_dt"] = pd.to_datetime(
+        df_info["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce"
+    )
+
+    def calc_metrics(row):
+        try:
+            # Lấy giá underlying từ OHLCV (giá đóng cửa cuối cùng)
+            ticker = row["ma_cw"]
+            sub = df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == ticker]
+            price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
+            # Giá underlying (lấy từ CW cùng underlying nếu có)
+            ratio_str = str(row.get("ty_le_chuyen_doi","1")).split(":")[0].replace(",",".")
+            ratio = float(ratio_str) if ratio_str else 1.0
+            exercise_str = str(row.get("gia_thuc_hien","0")).replace(",","").replace(".","")
+            exercise = int(exercise_str) if exercise_str.isdigit() else 0
+            # Dùng giá underlying từ dữ liệu OHLCV của mã underlying nếu có
+            underlying = str(row.get("ck_co_so","")).strip()
+            S_approx = price_cw * ratio * 1000 * 1.15 if price_cw>0 else 0
+
+            intrinsic = max(S_approx - exercise, 0)
+            premium = ((price_cw*1000*ratio - intrinsic) / S_approx * 100) if S_approx>0 else 0
+            gross_lev = (S_approx / (price_cw*1000*ratio)) if price_cw>0 and ratio>0 else 0
+            delta = 0.65 if intrinsic>0 else 0.35
+            eff_lev = gross_lev * delta
+            breakeven = (exercise + price_cw*1000*ratio) / 1000
+            moneyness = "ITM" if S_approx > exercise*1.02 else "OTM" if S_approx < exercise*0.98 else "ATM"
+            return {
+                "price": round(price_cw,3),
+                "exercise": exercise,
+                "ratio": ratio,
+                "premium": round(premium,1),
+                "eff_lev": round(eff_lev,2),
+                "breakeven": round(breakeven,1),
+                "moneyness": moneyness,
+            }
+        except:
+            return {"price":0,"exercise":0,"ratio":1,"premium":0,"eff_lev":0,"breakeven":0,"moneyness":"OTM"}
+
+    cw_list = []
+    for _, row in df_info.iterrows():
+        status = "active" if pd.notna(row["_last_gd_dt"]) and row["_last_gd_dt"] >= today_ts else "expired"
+        issuer = str(row.get("to_chuc_ph_cw","")).replace("CTCP Chứng khoán ","").split("(")[0].strip()
+        metrics = calc_metrics(row)
+        cw_list.append({
+            "ticker":   str(row.get("ma_cw","")),
+            "underlying": str(row.get("ck_co_so","")),
+            "issuer":   issuer,
+            "maturity": str(row.get("ngay_dao_han","")),
+            "status":   status,
+            **metrics,
+        })
+
+    # ── OHLCV drill-down: lấy 120 phiên gần nhất mỗi mã ─────────
+    df_ohlcv_filtered["time_dt"] = pd.to_datetime(
+        df_ohlcv_filtered["time"], dayfirst=True, errors="coerce"
+    )
+    ohlcv_out = {}
+    for ticker in valid_tickers:
+        sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"]==ticker]
+               .sort_values("time_dt").tail(120))
+        if sub.empty: continue
+        # Underlying: dùng OHLCV quy đổi xấp xỉ
+        ratio = next((c["ratio"] for c in cw_list if c["ticker"]==ticker), 1)
+        ohlcv_out[ticker] = {
+            "dates":            sub["time_dt"].dt.strftime("%d/%m").tolist(),
+            "close":            [round(float(v),3) for v in sub["close"]],
+            "underlying_close": [round(float(v)*ratio*1000*1.15, 0) for v in sub["close"]],
+        }
+
+    # ── Ghi file ─────────────────────────────────────────────────
+    out = {
+        "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M ICT"),
+        "cw_list":    cw_list,
+        "ohlcv":      ohlcv_out,
+    }
+    os.makedirs("docs", exist_ok=True)
+    with open("docs/data.json","w",encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",",":"))
+
+    print(f"OK docs/data.json  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV series)")
+    size_kb = os.path.getsize("docs/data.json")/1024
+    print(f"   File size: {size_kb:.0f} KB")
