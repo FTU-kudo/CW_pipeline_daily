@@ -27,7 +27,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install requests pandas beautifulsoup4 openpyxl vnstock pyarrow
+        run: pip install requests pandas beautifulsoup4 openpyxl "vnstock==3.2.2" pyarrow
 
       - name: Run pipeline
         env:
