@@ -216,12 +216,22 @@ def step1_vietstock():
 # BUOC 2 - OHLCV (INCREMENTAL)
 # ══════════════════════════════════════════════════════════════════
 def fetch_one(symbol, start_str, end_str):
-    from vnstock import Quote
+    from vnstock import Vnstock
     for attempt in range(1,MAX_RETRIES+1):
         try:
-            df=Quote(symbol=symbol,source="KBS").history(start=start_str,end=end_str,interval="d")
+            stock = Vnstock().stock(symbol=symbol, source="VCI")
+            # Chuyển DD/MM/YYYY → YYYY-MM-DD cho API mới
+            def fmt(s):
+                d,m,y = s.split("/"); return f"{y}-{m}-{d}"
+            df = stock.quote.history(start=fmt(start_str), end=fmt(end_str), interval="1D")
             if df is None or df.empty: return pd.DataFrame()
-            df["Ticker"]=symbol; return df
+            # Chuẩn hoá tên cột về lowercase
+            df.columns = [c.lower() for c in df.columns]
+            # Đổi tên cột time nếu cần
+            for alt in ["date","trading_date","datetime"]:
+                if alt in df.columns and "time" not in df.columns:
+                    df.rename(columns={alt:"time"}, inplace=True); break
+            df["Ticker"] = symbol; return df
         except Exception as e:
             msg=str(e); is_rl=any(k in msg.lower() for k in ["rate limit","429","too many","quota","throttle"])
             wait=RETRY_DELAY*attempt if is_rl else RETRY_DELAY
