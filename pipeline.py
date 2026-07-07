@@ -9,9 +9,10 @@ Cache:
 
 Output:
   output/cw_master.xlsx  (ghi de moi ngay)
+  docs/data.json         (cho GitHub Pages dashboard)
 """
 
-import os, re, time, threading, requests, pandas as pd
+import os, re, time, threading, requests, pandas as pd, json
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date, timedelta
@@ -32,7 +33,7 @@ MAX_WORKERS  = 10
 TIMEOUT      = 12
 DELAY        = 0.1
 
-OHLCV_START_DATE = "01/01/2023"
+OHLCV_START_DATE = "2023-01-01"   # YYYY-MM-DD (dung cho API moi)
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 5
 RETRY_DELAY      = 5.0
@@ -49,15 +50,15 @@ OUTPUT_FILE     = "output/cw_master.xlsx"
 def load_cache(path):
     if os.path.exists(path):
         df = pd.read_parquet(path)
-        print(f"   Đọc cache: {path}  ({len(df):,} dòng)")
+        print(f"   Doc cache: {path}  ({len(df):,} dong)")
         return df
-    print(f"   Chưa có cache: {path}")
+    print(f"   Chua co cache: {path}")
     return None
 
 def save_cache(df, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     df.to_parquet(path, index=False)
-    print(f"   Lưu cache: {path}  ({len(df):,} dòng)")
+    print(f"   Luu cache: {path}  ({len(df):,} dong)")
 
 # ══════════════════════════════════════════════════════════════════
 # VIETSTOCK SCRAPER
@@ -78,7 +79,14 @@ _ALL_TABLE_LABELS = sorted([
     "TLCD dieu chinh","Gia TH dieu chinh","Ty le chuyen doi",
     "Ngay phat hanh","Ngay niem yet","Ngay dao han",
     "Gia phat hanh","Gia thuc hien","CK co so","Thoi han","Tai lieu",
-    # UTF-8 originals
+    "To chuc phat hanh CKCS","To chuc phat hanh CW",
+    "Phuong thuc thuc hien quyen","Ngay giao dich cuoi cung",
+    "Ngay giao dich dau tien","Khoi luong Niem yet",
+    "Khoi luong luu hanh","Loai chung quyen","Kieu thuc hien",
+    "TLCD dieu chinh","Gia TH dieu chinh","Ty le chuyen doi",
+    "Ngay phat hanh","Ngay niem yet","Ngay dao han",
+    "Gia phat hanh","Gia thuc hien","CK co so","Thoi han","Tai lieu",
+    # UTF-8
     "Tổ chức phát hành CKCS","Tổ chức phát hành CW",
     "Phương thức thực hiện quyền","Ngày giao dịch cuối cùng",
     "Ngày giao dịch đầu tiên","Khối lượng Niêm yết",
@@ -213,107 +221,197 @@ def step1_vietstock():
     return df_cache
 
 # ══════════════════════════════════════════════════════════════════
-# BUOC 2 - OHLCV (INCREMENTAL)
+# BUOC 2 - OHLCV (INCREMENTAL) - dung vnstock API moi
 # ══════════════════════════════════════════════════════════════════
+def _to_ymd(s):
+    """Chuyen DD/MM/YYYY hoac YYYY-MM-DD sang YYYY-MM-DD"""
+    s = str(s).strip()
+    if re.match(r'\d{2}/\d{2}/\d{4}', s):
+        d,m,y = s.split("/"); return f"{y}-{m}-{d}"
+    return s  # da la YYYY-MM-DD
+
+def _normalise_ohlcv(df, symbol):
+    """Chuan hoa DataFrame OHLCV ve dung schema: time(DD/MM/YYYY), open, high, low, close, volume, Ticker"""
+    df = df.copy()
+    df.columns = [c.lower() for c in df.columns]
+    # Doi ten cot time
+    for alt in ["date","trading_date","datetime","time"]:
+        if alt in df.columns:
+            df.rename(columns={alt:"time"}, inplace=True); break
+    # Doi ten cot volume
+    for alt in ["volume","vol","klgd"]:
+        if alt in df.columns and alt != "volume":
+            df.rename(columns={alt:"volume"}, inplace=True); break
+    # Doi ten cot gia
+    for src,dst in [("open","open"),("high","high"),("low","low"),("close","close")]:
+        if src not in df.columns:
+            for alt in [f"{src}_price",f"gia_{src}"]:
+                if alt in df.columns: df.rename(columns={alt:dst},inplace=True); break
+    # Chuan hoa cot time sang DD/MM/YYYY
+    if "time" in df.columns:
+        df["time"] = pd.to_datetime(df["time"], errors="coerce").dt.strftime("%d/%m/%Y")
+    df["Ticker"] = symbol
+    # Chi giu cac cot can thiet
+    keep = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
+    return df[keep].dropna(subset=["time"])
+
 def fetch_one(symbol, start_str, end_str):
-    from vnstock import Vnstock
-    for attempt in range(1,MAX_RETRIES+1):
+    """
+    Tai OHLCV 1 ma CW voi retry.
+    start_str/end_str: YYYY-MM-DD hoac DD/MM/YYYY deu duoc.
+    Tra ve DataFrame da chuan hoa, DataFrame rong, hoac None (that bai hoan toan).
+    """
+    start = _to_ymd(start_str)
+    end   = _to_ymd(end_str)
+
+    for attempt in range(1, MAX_RETRIES+1):
         try:
-            stock = Vnstock().stock(symbol=symbol, source="VCI")
-            # Chuyển DD/MM/YYYY → YYYY-MM-DD cho API mới
-            def fmt(s):
-                d,m,y = s.split("/"); return f"{y}-{m}-{d}"
-            df = stock.quote.history(start=fmt(start_str), end=fmt(end_str), interval="1D")
-            if df is None or df.empty: return pd.DataFrame()
-            # Chuẩn hoá tên cột về lowercase
-            df.columns = [c.lower() for c in df.columns]
-            # Đổi tên cột time nếu cần
-            for alt in ["date","trading_date","datetime"]:
-                if alt in df.columns and "time" not in df.columns:
-                    df.rename(columns={alt:"time"}, inplace=True); break
-            df["Ticker"] = symbol; return df
+            # ── Dung API moi cua vnstock 4.x ──────────────────────
+            import vnai
+            api_key = os.environ.get("VNSTOCK_API","")
+            if api_key:
+                vnai.setup_api_key(api_key)
+
+            from vnstock.api.quote import Quote
+            q  = Quote(symbol=symbol, source="VCI")
+            df = q.history(start=start, end=end, interval="1D")
+
+            if df is None or df.empty:
+                return pd.DataFrame()
+
+            return _normalise_ohlcv(df, symbol)
+
         except Exception as e:
-            msg=str(e); is_rl=any(k in msg.lower() for k in ["rate limit","429","too many","quota","throttle"])
-            wait=RETRY_DELAY*attempt if is_rl else RETRY_DELAY
-            print(f"      {'RL' if is_rl else 'ERR'} {symbol} #{attempt} wait {wait:.0f}s | {msg[:50]}")
-            if attempt<MAX_RETRIES: time.sleep(wait)
-    return None
+            msg = str(e)
+            is_rl = any(k in msg.lower() for k in
+                        ["rate limit","429","too many","quota","throttle"])
+            is_403 = "403" in msg or "forbidden" in msg.lower()
+            wait = RETRY_DELAY * attempt if is_rl else RETRY_DELAY
+
+            if is_403 and attempt == 1:
+                # Thu fallback sang KBS neu VCI bi 403
+                try:
+                    from vnstock.api.quote import Quote as Q2
+                    q2 = Q2(symbol=symbol, source="KBS")
+                    df2 = q2.history(start=start, end=end, interval="1D")
+                    if df2 is not None and not df2.empty:
+                        return _normalise_ohlcv(df2, symbol)
+                except Exception:
+                    pass
+
+            tag = "RL" if is_rl else "403" if is_403 else "ERR"
+            print(f"      {tag} {symbol} #{attempt} wait {wait:.0f}s | {msg[:60]}")
+            if attempt < MAX_RETRIES:
+                time.sleep(wait)
+
+    return None  # that bai hoan toan sau MAX_RETRIES
 
 def step2_ohlcv(df_vs):
-    from vnstock import register_user
-    api_key=os.environ.get("VNSTOCK_API","")
-    if api_key: register_user(api_key); print("OK Vnstock API key registered.")
-    else: print("WARN: no VNSTOCK_API env var.")
     print("\n"+"="*60)
     print("BUOC 2 - OHLCV (incremental)")
     print("="*60)
-    today=date.today().strftime("%d/%m/%Y")
-    tickers=df_vs["ma_cw"].dropna().unique().tolist()
-    df_cache=load_cache(OHLCV_CACHE)
+
+    api_key = os.environ.get("VNSTOCK_API","")
+    if api_key:
+        try:
+            import vnai; vnai.setup_api_key(api_key)
+            print("   OK Vnstock API key registered.")
+        except Exception as e:
+            print(f"   WARN: setup_api_key failed: {e}")
+    else:
+        print("   WARN: no VNSTOCK_API env var.")
+
+    today     = date.today().strftime("%Y-%m-%d")
+    tickers   = df_vs["ma_cw"].dropna().unique().tolist()
+    df_cache  = load_cache(OHLCV_CACHE)
 
     if df_cache is None:
-        # Full load
+        # ── Full load ────────────────────────────────────────────
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
         rows=[]; failed=[]; skipped=[]
         for i,sym in enumerate(tickers,1):
-            df_r=fetch_one(sym,OHLCV_START_DATE,today)
-            if df_r is None: failed.append(sym); print(f"  [{i:>4}/{len(tickers)}] FAIL {sym}")
-            elif df_r.empty: skipped.append(sym); print(f"  [{i:>4}/{len(tickers)}] EMPTY {sym}")
-            else: rows.append(df_r); print(f"  [{i:>4}/{len(tickers)}] OK {sym} ({len(df_r)} phien)")
+            df_r = fetch_one(sym, OHLCV_START_DATE, today)
+            if df_r is None:
+                failed.append(sym)
+                print(f"  [{i:>4}/{len(tickers)}] FAIL {sym}")
+            elif df_r.empty:
+                skipped.append(sym)
+                print(f"  [{i:>4}/{len(tickers)}] EMPTY {sym}")
+            else:
+                rows.append(df_r)
+                print(f"  [{i:>4}/{len(tickers)}] OK {sym} ({len(df_r)} phien)")
             time.sleep(REQUEST_DELAY)
-        df_out=pd.concat(rows,ignore_index=True) if rows else pd.DataFrame()
+        df_out = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
         print(f"   OK:{len(rows)}  Empty:{len(skipped)}  Fail:{len(failed)}")
         if failed: print(f"   Failed: {failed}")
-        save_cache(df_out,OHLCV_CACHE); return df_out
+        save_cache(df_out, OHLCV_CACHE)
+        return df_out
 
-    # Incremental
-    df_cache["time_dt"]=pd.to_datetime(df_cache["time"],dayfirst=True,errors="coerce")
-    last_dt=df_cache.groupby("Ticker")["time_dt"].max()
-    cached=set(last_dt.index)
-    total=len(tickers); new_rows=[]; failed=[]; skipped=[]
+    # ── Incremental ──────────────────────────────────────────────
+    # Cache co the luu time theo DD/MM/YYYY — chuan hoa sang datetime de tinh last_dt
+    df_cache["time_dt"] = pd.to_datetime(df_cache["time"], dayfirst=True, errors="coerce")
+    last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
+    cached   = set(last_dt.index)
+    total    = len(tickers)
+    new_rows = []; failed = []; skipped = []
 
     for i,sym in enumerate(tickers,1):
         if sym in cached:
-            start_dt=last_dt[sym]+timedelta(days=1)
-            if start_dt.date()>date.today():
-                print(f"  [{i:>4}/{total}] SKIP {sym} (da cap nhat den {last_dt[sym].strftime('%d/%m/%Y')})")
+            next_dt  = last_dt[sym] + timedelta(days=1)
+            if next_dt.date() > date.today():
+                print(f"  [{i:>4}/{total}] SKIP {sym} (cap nhat den {last_dt[sym].strftime('%d/%m/%Y')})")
                 continue
-            start_str=start_dt.strftime("%d/%m/%Y"); lbl=f"+tu {start_str}"
+            start_str = next_dt.strftime("%Y-%m-%d")
+            lbl = f"+tu {next_dt.strftime('%d/%m/%Y')}"
         else:
-            start_str=OHLCV_START_DATE; lbl="new full"
-        df_r=fetch_one(sym,start_str,today)
-        if df_r is None: failed.append(sym); print(f"  [{i:>4}/{total}] FAIL {sym}")
-        elif df_r.empty: skipped.append(sym); print(f"  [{i:>4}/{total}] NO_NEW {sym} ({lbl})")
-        else: new_rows.append(df_r); print(f"  [{i:>4}/{total}] OK {sym} +{len(df_r)} phien ({lbl})")
+            start_str = OHLCV_START_DATE
+            lbl = "new full"
+
+        df_r = fetch_one(sym, start_str, today)
+        if df_r is None:
+            failed.append(sym)
+            print(f"  [{i:>4}/{total}] FAIL {sym}")
+        elif df_r.empty:
+            skipped.append(sym)
+            print(f"  [{i:>4}/{total}] NO_NEW {sym} ({lbl})")
+        else:
+            new_rows.append(df_r)
+            print(f"  [{i:>4}/{total}] OK {sym} +{len(df_r)} phien ({lbl})")
         time.sleep(REQUEST_DELAY)
 
-    df_cache.drop(columns=["time_dt"],inplace=True)
+    df_cache.drop(columns=["time_dt"], inplace=True)
     if new_rows:
-        df_add=pd.concat(new_rows,ignore_index=True)
-        df_merged=pd.concat([df_cache,df_add],ignore_index=True)
-        df_merged.drop_duplicates(subset=["time","Ticker"],keep="last",inplace=True)
+        df_add    = pd.concat(new_rows, ignore_index=True)
+        df_merged = pd.concat([df_cache, df_add], ignore_index=True)
+        df_merged.drop_duplicates(subset=["time","Ticker"], keep="last", inplace=True)
         print(f"   Them {len(df_add):,} dong moi")
-        save_cache(df_merged,OHLCV_CACHE); return df_merged
+        save_cache(df_merged, OHLCV_CACHE)
+        return df_merged
     else:
         print("   Khong co du lieu moi.")
         if failed: print(f"   Failed: {failed}")
-        save_cache(df_cache,OHLCV_CACHE); return df_cache
+        save_cache(df_cache, OHLCV_CACHE)
+        return df_cache
 
 # ══════════════════════════════════════════════════════════════════
 # BUOC 3 - LOC + SORT
 # ══════════════════════════════════════════════════════════════════
 def step3_filter(df_full):
-    print("\n"+"="*60+"BUOC 3 - Loc & sort\n"+"="*60)
-    df_full["time_dt"]=pd.to_datetime(df_full["time"],dayfirst=True,errors="coerce")
-    ltd=df_full.groupby("Ticker")["time_dt"].max().reset_index().rename(columns={"time_dt":"ltd"})
-    ts=pd.Timestamp(FILTER_DATE)
-    valid=ltd.loc[ltd["ltd"]>=ts,"Ticker"].tolist()
-    removed=ltd.loc[ltd["ltd"]<ts,"Ticker"].tolist()
+    print("\n"+"="*60)
+    print("BUOC 3 - Loc & sort")
+    print("="*60)
+    df_full["time_dt"] = pd.to_datetime(df_full["time"], dayfirst=True, errors="coerce")
+    ltd  = df_full.groupby("Ticker")["time_dt"].max().reset_index().rename(columns={"time_dt":"ltd"})
+    ts   = pd.Timestamp(FILTER_DATE)
+    valid   = ltd.loc[ltd["ltd"]>=ts,"Ticker"].tolist()
+    removed = ltd.loc[ltd["ltd"]<ts,"Ticker"].tolist()
     print(f"   Tong ma: {len(ltd)}  |  Hop le: {len(valid)}  |  Loai: {len(removed)}")
-    df=df_full[df_full["Ticker"].isin(valid)&(df_full["time_dt"]>=ts)].copy()
-    df.sort_values(["time_dt","Ticker"],inplace=True); df.reset_index(drop=True,inplace=True)
-    df["time"]=df["time_dt"].dt.strftime("%d/%m/%Y"); df.drop(columns=["time_dt"],inplace=True)
-    cols=[c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
+    df = df_full[df_full["Ticker"].isin(valid) & (df_full["time_dt"]>=ts)].copy()
+    df.sort_values(["time_dt","Ticker"], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    df["time"] = df["time_dt"].dt.strftime("%d/%m/%Y")
+    df.drop(columns=["time_dt"], inplace=True)
+    cols = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
     print(f"   Phien GD: {len(df):,}  |  Ngay: {df['time'].nunique()}  |  CW: {df['Ticker'].nunique()}")
     return df[cols], valid
 
@@ -336,10 +434,11 @@ PRIORITY=["ma_cw","ck_co_so","to_chuc_ph_cw","ngay_gd_dau_tien","ngay_gd_cuoi_cu
           "gia_th_dieu_chinh","kl_niem_yet","kl_luu_hanh","loai_cw","kieu_thuc_hien",
           "thoi_han","ngay_phat_hanh","ngay_niem_yet","gia_phat_hanh","gia_hien_tai","trang_thai_cw"]
 
-def fmt_sheet(ws,color):
+def fmt_sheet(ws, color):
     fill=PatternFill("solid",fgColor=color); font=Font(bold=True,color="FFFFFF",size=10)
     aln=Alignment(horizontal="center",vertical="center")
-    brd=Border(left=Side(style="thin"),right=Side(style="thin"),top=Side(style="thin"),bottom=Side(style="thin"))
+    brd=Border(left=Side(style="thin"),right=Side(style="thin"),
+               top=Side(style="thin"),bottom=Side(style="thin"))
     for c in ws[1]: c.fill=fill; c.font=font; c.alignment=aln; c.border=brd
     ws.freeze_panes="A2"
     for col in ws.columns:
@@ -347,7 +446,9 @@ def fmt_sheet(ws,color):
         ws.column_dimensions[get_column_letter(col[0].column)].width=min(w+2,30)
 
 def step4_excel(df_ohlcv, df_vs, valid_tickers):
-    print("\n"+"="*60+"\nBUOC 4 - Xuat Excel\n"+"="*60)
+    print("\n"+"="*60)
+    print("BUOC 4 - Xuat Excel")
+    print("="*60)
     df=df_vs[df_vs["ma_cw"].isin(valid_tickers)].copy()
     p=[c for c in PRIORITY if c in df.columns]
     df=df[p+[c for c in df.columns if c not in p]]
@@ -370,101 +471,93 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     print(f"   OHLCV: {len(df_ohlcv):,} rows | Active: {len(act)} | Expired: {len(exp)}")
 
 # ══════════════════════════════════════════════════════════════════
-# MAIN
+# BUOC 5 - XUAT data.json CHO GITHUB PAGES DASHBOARD
 # ══════════════════════════════════════════════════════════════════
-if __name__=="__main__":
-    t0=time.time()
-    df_vs=step1_vietstock()
-    df_ohlcv_full=step2_ohlcv(df_vs)
-    df_filtered,valid=step3_filter(df_ohlcv_full)
-    step4_excel(df_filtered,df_vs,valid)
-    step5_export_json(df_filtered,df_vs,valid)
-    print(f"\nDone in {(time.time()-t0)/60:.1f} min")
+def _parse_ratio(raw):
+    try: return float(str(raw).split(":")[0].replace(",","."))
+    except: return 1.0
 
+def _parse_exercise(raw):
+    try:
+        s = re.sub(r"[^\d]","", str(raw))
+        return int(s) if s else 0
+    except: return 0
 
-# ══════════════════════════════════════════════════════════════════
-# BƯỚC 5 – XUẤT data.json CHO GITHUB PAGES DASHBOARD
-# ══════════════════════════════════════════════════════════════════
 def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
-    import json
     print("\n"+"="*60)
     print("BUOC 5 - Xuat data.json cho GitHub Pages")
     print("="*60)
 
     today_ts = pd.Timestamp(date.today())
-
-    # ── Chuẩn bị CW list ─────────────────────────────────────────
-    df_info = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
+    df_info  = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
     df_info["_last_gd_dt"] = pd.to_datetime(
         df_info["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce"
     )
 
-    def calc_metrics(row):
-        try:
-            # Lấy giá underlying từ OHLCV (giá đóng cửa cuối cùng)
-            ticker = row["ma_cw"]
-            sub = df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == ticker]
-            price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
-            # Giá underlying (lấy từ CW cùng underlying nếu có)
-            ratio_str = str(row.get("ty_le_chuyen_doi","1")).split(":")[0].replace(",",".")
-            ratio = float(ratio_str) if ratio_str else 1.0
-            exercise_str = str(row.get("gia_thuc_hien","0")).replace(",","").replace(".","")
-            exercise = int(exercise_str) if exercise_str.isdigit() else 0
-            # Dùng giá underlying từ dữ liệu OHLCV của mã underlying nếu có
-            underlying = str(row.get("ck_co_so","")).strip()
-            S_approx = price_cw * ratio * 1000 * 1.15 if price_cw>0 else 0
+    # Index OHLCV theo Ticker de tra cuu nhanh
+    ohlcv_idx = {t: grp for t,grp in df_ohlcv_filtered.groupby("Ticker")}
 
-            intrinsic = max(S_approx - exercise, 0)
-            premium = ((price_cw*1000*ratio - intrinsic) / S_approx * 100) if S_approx>0 else 0
-            gross_lev = (S_approx / (price_cw*1000*ratio)) if price_cw>0 and ratio>0 else 0
-            delta = 0.65 if intrinsic>0 else 0.35
-            eff_lev = gross_lev * delta
-            breakeven = (exercise + price_cw*1000*ratio) / 1000
-            moneyness = "ITM" if S_approx > exercise*1.02 else "OTM" if S_approx < exercise*0.98 else "ATM"
-            return {
-                "price": round(price_cw,3),
-                "exercise": exercise,
-                "ratio": ratio,
-                "premium": round(premium,1),
-                "eff_lev": round(eff_lev,2),
-                "breakeven": round(breakeven,1),
-                "moneyness": moneyness,
-            }
-        except:
-            return {"price":0,"exercise":0,"ratio":1,"premium":0,"eff_lev":0,"breakeven":0,"moneyness":"OTM"}
+    def calc_metrics(row):
+        ticker   = row["ma_cw"]
+        ratio    = _parse_ratio(row.get("ty_le_chuyen_doi", 1))
+        exercise = _parse_exercise(row.get("gia_thuc_hien", 0))
+        sub      = ohlcv_idx.get(ticker, pd.DataFrame())
+        price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
+
+        # Uoc tinh gia underlying (S) tu gia CW va ty le CD
+        # S ~ price_CW * ratio * 1000 * markup (vi CW thuong giao dich discount)
+        # Day la xap xi; de chinh xac hon can nguon gia co phieu rieng
+        S = price_cw * ratio * 1000 * 1.15 if price_cw > 0 else 0
+
+        intrinsic   = max(S - exercise, 0)
+        premium     = ((price_cw*1000*ratio - intrinsic) / S * 100) if S > 0 else 0
+        gross_lev   = (S / (price_cw*1000*ratio)) if price_cw > 0 and ratio > 0 else 0
+        delta       = 0.65 if intrinsic > 0 else 0.35
+        eff_lev     = gross_lev * delta
+        breakeven   = (exercise + price_cw*1000*ratio) / 1000
+        moneyness   = "ITM" if S > exercise*1.02 else "OTM" if S < exercise*0.98 else "ATM"
+        return {
+            "price":    round(price_cw, 3),
+            "exercise": exercise,
+            "ratio":    ratio,
+            "premium":  round(premium, 1),
+            "eff_lev":  round(eff_lev, 2),
+            "breakeven":round(breakeven, 1),
+            "moneyness":moneyness,
+        }
 
     cw_list = []
     for _, row in df_info.iterrows():
         status = "active" if pd.notna(row["_last_gd_dt"]) and row["_last_gd_dt"] >= today_ts else "expired"
         issuer = str(row.get("to_chuc_ph_cw","")).replace("CTCP Chứng khoán ","").split("(")[0].strip()
-        metrics = calc_metrics(row)
         cw_list.append({
-            "ticker":   str(row.get("ma_cw","")),
+            "ticker":     str(row.get("ma_cw","")),
             "underlying": str(row.get("ck_co_so","")),
-            "issuer":   issuer,
-            "maturity": str(row.get("ngay_dao_han","")),
-            "status":   status,
-            **metrics,
+            "issuer":     issuer,
+            "maturity":   str(row.get("ngay_dao_han","")),
+            "status":     status,
+            **calc_metrics(row),
         })
 
-    # ── OHLCV drill-down: lấy 120 phiên gần nhất mỗi mã ─────────
+    # OHLCV drill-down: 120 phien gan nhat moi ma
+    df_ohlcv_filtered = df_ohlcv_filtered.copy()
     df_ohlcv_filtered["time_dt"] = pd.to_datetime(
         df_ohlcv_filtered["time"], dayfirst=True, errors="coerce"
     )
     ohlcv_out = {}
+    ratio_map = {c["ticker"]: c["ratio"] for c in cw_list}
+
     for ticker in valid_tickers:
         sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"]==ticker]
                .sort_values("time_dt").tail(120))
         if sub.empty: continue
-        # Underlying: dùng OHLCV quy đổi xấp xỉ
-        ratio = next((c["ratio"] for c in cw_list if c["ticker"]==ticker), 1)
+        ratio = ratio_map.get(ticker, 1)
         ohlcv_out[ticker] = {
             "dates":            sub["time_dt"].dt.strftime("%d/%m").tolist(),
             "close":            [round(float(v),3) for v in sub["close"]],
             "underlying_close": [round(float(v)*ratio*1000*1.15, 0) for v in sub["close"]],
         }
 
-    # ── Ghi file ─────────────────────────────────────────────────
     out = {
         "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M ICT"),
         "cw_list":    cw_list,
@@ -474,6 +567,17 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
     with open("docs/data.json","w",encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",",":"))
 
-    print(f"OK docs/data.json  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV series)")
-    size_kb = os.path.getsize("docs/data.json")/1024
-    print(f"   File size: {size_kb:.0f} KB")
+    size_kb = os.path.getsize("docs/data.json") / 1024
+    print(f"OK docs/data.json  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV, {size_kb:.0f} KB)")
+
+# ══════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════
+if __name__=="__main__":
+    t0 = time.time()
+    df_vs              = step1_vietstock()
+    df_ohlcv_full      = step2_ohlcv(df_vs)
+    df_filtered, valid = step3_filter(df_ohlcv_full)
+    step4_excel(df_filtered, df_vs, valid)
+    step5_export_json(df_filtered, df_vs, valid)
+    print(f"\nDone in {(time.time()-t0)/60:.1f} min")
