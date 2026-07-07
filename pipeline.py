@@ -266,12 +266,6 @@ def fetch_one(symbol, start_str, end_str):
 
     for attempt in range(1, MAX_RETRIES+1):
         try:
-            # ── Dung API moi cua vnstock 4.x ──────────────────────
-            import vnai
-            api_key = os.environ.get("VNSTOCK_API","")
-            if api_key:
-                vnai.setup_api_key(api_key)
-
             from vnstock.api.quote import Quote
             q  = Quote(symbol=symbol, source="VCI")
             df = q.history(start=start, end=end, interval="1D")
