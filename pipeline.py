@@ -319,10 +319,7 @@ def step2_ohlcv(df_vs):
     tickers   = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache  = load_cache(OHLCV_CACHE)
 
-    if df_cache is not None:
-    df_cache["time"] = df_cache["time"].astype(str)
-
-    if df_cache is None:
+        if df_cache is None:
         # ── Full load ────────────────────────────────────────────
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
         rows=[]; failed=[]; skipped=[]
@@ -343,13 +340,14 @@ def step2_ohlcv(df_vs):
         if failed: print(f"   Failed: {failed}")
         save_cache(df_out, OHLCV_CACHE)
         return df_out
-      
-    # ── FIX: Ensure time is string before processing ──────────────────────
+    
+    # ── Ensure time is string before incremental processing ──────────────────────
     df_cache["time"] = df_cache["time"].astype(str)
-  
+    
     # ── Incremental ──────────────────────────────────────────────
     # Cache co the luu time theo DD/MM/YYYY — chuan hoa sang datetime de tinh last_dt
     df_cache["time_dt"] = pd.to_datetime(df_cache["time"], dayfirst=True, errors="coerce")
+  
     last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
     cached   = set(last_dt.index)
     total    = len(tickers)
