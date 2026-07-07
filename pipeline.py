@@ -57,6 +57,10 @@ def load_cache(path):
 
 def save_cache(df, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    # Ensure time column is string type before saving
+    if "time" in df.columns:
+        df = df.copy()
+        df["time"] = df["time"].astype(str)
     df.to_parquet(path, index=False)
     print(f"   Luu cache: {path}  ({len(df):,} dong)")
 
@@ -319,7 +323,7 @@ def step2_ohlcv(df_vs):
     tickers   = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache  = load_cache(OHLCV_CACHE)
 
-        if df_cache is None:
+    if df_cache is None:
         # ── Full load ────────────────────────────────────────────
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
         rows=[]; failed=[]; skipped=[]
@@ -382,6 +386,8 @@ def step2_ohlcv(df_vs):
         df_add    = pd.concat(new_rows, ignore_index=True)
         df_merged = pd.concat([df_cache, df_add], ignore_index=True)
         df_merged.drop_duplicates(subset=["time","Ticker"], keep="last", inplace=True)
+        # Ensure time column is string type before merging
+        df_merged["time"] = df_merged["time"].astype(str)
         print(f"   Them {len(df_add):,} dong moi")
         save_cache(df_merged, OHLCV_CACHE)
         return df_merged
