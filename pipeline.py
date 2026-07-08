@@ -487,6 +487,50 @@ def _parse_exercise(raw):
         return int(s) if s else 0
     except: return 0
 
+def _fetch_underlying_prices(underlyings: list) -> dict:
+    """
+    Lay gia dong cua moi nhat cua cac ma co phieu co so (ACB, HPG, ...).
+    Tra ve dict {ticker: gia_VND} vd {"ACB": 23800, "HPG": 26100}.
+    Dung vnstock VCI source, fallback ve KBS neu loi.
+    Don vi: VND (khong nhan 1000).
+    """
+    prices = {}
+    today     = date.today().strftime("%Y-%m-%d")
+    week_ago  = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
+
+    for sym in underlyings:
+        for source in ["VCI", "KBS"]:
+            try:
+                from vnstock.api.quote import Quote
+                df = Quote(symbol=sym, source=source).history(
+                    start=week_ago, end=today, interval="1D"
+                )
+                if df is None or df.empty:
+                    continue
+                df.columns = [c.lower() for c in df.columns]
+                # Lay cot close
+                close_col = next((c for c in ["close","close_price"] if c in df.columns), None)
+                if close_col is None:
+                    continue
+                last_close = float(df[close_col].iloc[-1])
+                # vnstock tra ve don vi nghin dong → nhan 1000
+                # Neu gia < 1000 thi dang o don vi nghin, neu >= 1000 thi da la VND
+                if last_close < 1000:
+                    last_close *= 1000
+                prices[sym] = round(last_close)
+                print(f"   underlying {sym}: {last_close:,.0f} VND (source={source})")
+                break
+            except Exception as e:
+                print(f"   WARN underlying {sym} source={source}: {str(e)[:60]}")
+                time.sleep(0.5)
+                continue
+
+        if sym not in prices:
+            print(f"   WARN: khong lay duoc gia {sym}, dung fallback 0")
+            prices[sym] = 0
+
+    return prices
+
 def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
     print("\n"+"="*60)
     print("BUOC 5 - Xuat data.json cho GitHub Pages")
@@ -498,68 +542,123 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
         df_info["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce"
     )
 
-    # Index OHLCV theo Ticker de tra cuu nhanh
-    ohlcv_idx = {t: grp for t,grp in df_ohlcv_filtered.groupby("Ticker")}
+    # ── Lay gia underlying thuc te ───────────────────────────────
+    underlyings = df_info["ck_co_so"].dropna().unique().tolist()
+    underlyings = [u.strip() for u in underlyings if u.strip()]
+    print(f"   Lay gia {len(underlyings)} ma underlying: {underlyings}")
+    underlying_prices = _fetch_underlying_prices(underlyings)
+
+    # ── Index OHLCV theo Ticker ──────────────────────────────────
+    ohlcv_idx = {t: grp for t, grp in df_ohlcv_filtered.groupby("Ticker")}
 
     def calc_metrics(row):
         ticker   = row["ma_cw"]
         ratio    = _parse_ratio(row.get("ty_le_chuyen_doi", 1))
         exercise = _parse_exercise(row.get("gia_thuc_hien", 0))
+        underlying = str(row.get("ck_co_so","")).strip()
+
         sub      = ohlcv_idx.get(ticker, pd.DataFrame())
         price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
 
-        # Uoc tinh gia underlying (S) tu gia CW va ty le CD
-        # S ~ price_CW * ratio * 1000 * markup (vi CW thuong giao dich discount)
-        # Day la xap xi; de chinh xac hon can nguon gia co phieu rieng
-        S = price_cw * ratio * 1000 * 1.15 if price_cw > 0 else 0
+        # S = gia co phieu co so thuc te (VND)
+        S = underlying_prices.get(underlying, 0)
 
-        intrinsic   = max(S - exercise, 0)
-        premium     = ((price_cw*1000*ratio - intrinsic) / S * 100) if S > 0 else 0
-        gross_lev   = (S / (price_cw*1000*ratio)) if price_cw > 0 and ratio > 0 else 0
-        delta       = 0.65 if intrinsic > 0 else 0.35
-        eff_lev     = gross_lev * delta
-        breakeven   = (exercise + price_cw*1000*ratio) / 1000
-        moneyness   = "ITM" if S > exercise*1.02 else "OTM" if S < exercise*0.98 else "ATM"
+        if S <= 0 or price_cw <= 0 or ratio <= 0 or exercise <= 0:
+            return {
+                "price": round(price_cw, 3), "exercise": exercise,
+                "ratio": ratio, "premium": 0, "eff_lev": 0,
+                "breakeven": 0, "moneyness": "N/A",
+            }
+
+        # Gia CW doi ve VND (vnstock tra ve don vi nghin dong)
+        price_cw_vnd = price_cw * 1000
+
+        # Premium = (Gia CW x TL CD - (S - K)) / S x 100%
+        # Voi CW mua (Call): intrinsic = max(S - K, 0)
+        intrinsic = max(S - exercise, 0)
+        cw_value  = price_cw_vnd * ratio          # Gia CW quy doi ve 1 co phieu
+        premium   = (cw_value - intrinsic) / S * 100
+
+        # Don bay gop = S / (Gia CW x TL CD)
+        gross_lev = S / cw_value if cw_value > 0 else 0
+
+        # Delta xap xi: ITM cao hon, OTM thap hon
+        moneyness = "ITM" if S > exercise * 1.02 else "OTM" if S < exercise * 0.98 else "ATM"
+        delta     = 0.70 if moneyness == "ITM" else 0.30 if moneyness == "OTM" else 0.50
+
+        eff_lev   = gross_lev * delta
+
+        # Break-even = (K + Gia CW x TL CD) / 1000 (hien thi don vi nghin)
+        breakeven = (exercise + cw_value) / 1000
+
         return {
-            "price":    round(price_cw, 3),
-            "exercise": exercise,
-            "ratio":    ratio,
-            "premium":  round(premium, 1),
-            "eff_lev":  round(eff_lev, 2),
-            "breakeven":round(breakeven, 1),
-            "moneyness":moneyness,
+            "price":     round(price_cw, 3),
+            "exercise":  exercise,
+            "ratio":     ratio,
+            "premium":   round(premium, 1),
+            "eff_lev":   round(eff_lev, 2),
+            "breakeven": round(breakeven, 1),
+            "moneyness": moneyness,
+            "S":         S,   # gia underlying VND (dung cho debug)
         }
 
     cw_list = []
     for _, row in df_info.iterrows():
         status = "active" if pd.notna(row["_last_gd_dt"]) and row["_last_gd_dt"] >= today_ts else "expired"
         issuer = str(row.get("to_chuc_ph_cw","")).replace("CTCP Chứng khoán ","").split("(")[0].strip()
+        metrics = calc_metrics(row)
+        S_val = metrics.pop("S", 0)   # Khong dua vao JSON cuoi
         cw_list.append({
             "ticker":     str(row.get("ma_cw","")),
             "underlying": str(row.get("ck_co_so","")),
             "issuer":     issuer,
             "maturity":   str(row.get("ngay_dao_han","")),
             "status":     status,
-            **calc_metrics(row),
+            "underlying_price": S_val,   # Them gia underlying vao JSON de dashboard dung
+            **metrics,
         })
 
-    # OHLCV drill-down: 120 phien gan nhat moi ma
+    # ── OHLCV drill-down: 120 phien gan nhat, them gia underlying ─
     df_ohlcv_filtered = df_ohlcv_filtered.copy()
     df_ohlcv_filtered["time_dt"] = pd.to_datetime(
         df_ohlcv_filtered["time"], dayfirst=True, errors="coerce"
     )
+
+    # Build lookup: underlying_symbol -> OHLCV DataFrame (gia underlying theo ngay)
+    # Lay tu ohlcv_filtered neu co, neu khong co thi dung gia hien tai cho toan bo
+    underlying_ohlcv = {}
+    for sym in underlyings:
+        sub_u = df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == sym]
+        if not sub_u.empty:
+            underlying_ohlcv[sym] = sub_u.set_index("time_dt")["close"]
+
     ohlcv_out = {}
-    ratio_map = {c["ticker"]: c["ratio"] for c in cw_list}
+    ratio_map       = {c["ticker"]: c["ratio"]      for c in cw_list}
+    underlying_map  = {c["ticker"]: c["underlying"] for c in cw_list}
 
     for ticker in valid_tickers:
-        sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"]==ticker]
+        sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == ticker]
                .sort_values("time_dt").tail(120))
-        if sub.empty: continue
-        ratio = ratio_map.get(ticker, 1)
+        if sub.empty:
+            continue
+
+        ratio  = ratio_map.get(ticker, 1)
+        und    = underlying_map.get(ticker, "")
+        S_now  = underlying_prices.get(und, 0)
+
+        # Gia underlying theo tung ngay (align theo ngay CW)
+        u_series = underlying_ohlcv.get(und)
+        u_prices = []
+        for dt in sub["time_dt"]:
+            if u_series is not None and dt in u_series.index:
+                u_prices.append(round(float(u_series[dt]) * 1000, 0))
+            else:
+                u_prices.append(S_now)   # fallback ve gia hien tai
+
         ohlcv_out[ticker] = {
             "dates":            sub["time_dt"].dt.strftime("%d/%m").tolist(),
-            "close":            [round(float(v),3) for v in sub["close"]],
-            "underlying_close": [round(float(v)*ratio*1000*1.15, 0) for v in sub["close"]],
+            "close":            [round(float(v), 3) for v in sub["close"]],
+            "underlying_close": u_prices,   # VND, dung de ve tren cung truc voi CW
         }
 
     out = {
@@ -573,6 +672,13 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
 
     size_kb = os.path.getsize("docs/data.json") / 1024
     print(f"OK docs/data.json  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV, {size_kb:.0f} KB)")
+
+    # In kiem tra nhanh 3 CW dau
+    print("\n   Sample metrics (3 CW dau):")
+    for c in cw_list[:3]:
+        print(f"   {c['ticker']:12} S={c.get('underlying_price',0):>8,.0f}  "
+              f"K={c['exercise']:>8,}  Premium={c['premium']:>6.1f}%  "
+              f"Lev={c['eff_lev']:.2f}x  {c['moneyness']}")
 
 # ══════════════════════════════════════════════════════════════════
 # MAIN
