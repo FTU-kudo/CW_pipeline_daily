@@ -1,4 +1,4 @@
-# CW Pipeline – YSVN
+# 🎯 CW Pipeline Daily
 
 Pipeline tự động scrape & tổng hợp dữ liệu Chứng quyền (CW) Việt Nam.
 
