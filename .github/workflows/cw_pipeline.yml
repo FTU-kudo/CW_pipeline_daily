@@ -1,4 +1,4 @@
-name: CW Pipeline - YSVN
+name: CW Pipeline Daily
 
 on:
   workflow_dispatch:
