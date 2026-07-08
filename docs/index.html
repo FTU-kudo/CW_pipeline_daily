@@ -16,6 +16,8 @@
   --bg-green:#eaf3de;--text-green:#3b6d11;
   --bg-red:#fcebeb;--text-red:#a32d2d;
   --bg-amber:#faeeda;--text-amber:#854f0b;
+  --bg-blue:#deeaf8;--text-blue:#1a4f8a;
+  --gold:#f5b700;
 }
 @media(prefers-color-scheme:dark){:root{
   --bg:#111110;--surface:#1a1a19;--surface2:#222221;
@@ -24,10 +26,10 @@
   --bg-green:#173404;--text-green:#c0dd97;
   --bg-red:#501313;--text-red:#f09595;
   --bg-amber:#412402;--text-amber:#fac775;
+  --bg-blue:#0d2340;--text-blue:#7eb8f7;
 }}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
 a{color:inherit;text-decoration:none}
-/* TOP BAR */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;background:var(--surface);border-bottom:0.5px solid var(--border);position:sticky;top:0;z-index:100}
 .topbar h1{font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
 .topbar h1 svg{width:18px;height:18px;opacity:.7}
@@ -35,41 +37,33 @@ a{color:inherit;text-decoration:none}
 .tabs{display:flex;gap:0;padding:0 1.5rem;background:var(--surface);border-bottom:0.5px solid var(--border)}
 .tab{padding:.6rem 1.1rem;font-size:13px;cursor:pointer;background:transparent;border:none;color:var(--text2);border-bottom:2px solid transparent;font-weight:400;font-family:inherit}
 .tab.on{color:var(--text);border-bottom-color:var(--text);font-weight:500}
-/* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:.6rem 1.5rem;background:var(--surface2);border-bottom:0.5px solid var(--border)}
 .filters label{font-size:12px;color:var(--text3)}
 .filters select{font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);height:28px;cursor:pointer}
-/* KPI */
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:1rem 1.5rem}
 .kpi{background:var(--surface2);border-radius:8px;padding:.75rem 1rem}
 .kpi-lbl{font-size:11px;color:var(--text3);margin-bottom:3px}
 .kpi-val{font-size:22px;font-weight:500}
 .kpi-sub{font-size:11px;color:var(--text3);margin-top:2px}
-/* SECTIONS */
 .sec{padding:0 1.5rem 1.25rem}
 .sec-title{font-size:12px;font-weight:500;color:var(--text2);padding-top:.75rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em}
 .card{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:.75rem 1rem}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-/* LEGEND */
 .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:12px;color:var(--text2)}
 .legend span{display:flex;align-items:center;gap:4px}
 .ld{width:10px;height:10px;border-radius:2px;flex-shrink:0}
-/* TABLE */
 .tbl-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:10px}
 table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{background:var(--surface2);padding:6px 10px;text-align:left;font-weight:500;color:var(--text2);border-bottom:0.5px solid var(--border);white-space:nowrap;position:sticky;top:0}
+thead th{background:var(--surface2);padding:6px 10px;text-align:left;font-weight:500;color:var(--text2);border-bottom:0.5px solid var(--border);white-space:nowrap}
 tbody td{padding:6px 10px;border-bottom:0.5px solid var(--border);color:var(--text)}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--surface2)}
-/* PILLS */
 .pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
 .itm{background:var(--bg-green);color:var(--text-green)}
 .otm{background:var(--bg-red);color:var(--text-red)}
 .atm{background:var(--bg-amber);color:var(--text-amber)}
 .active-badge{background:var(--bg-green);color:var(--text-green)}
 .expired-badge{background:var(--surface2);color:var(--text3)}
-/* DRILL */
 .drill-header{display:flex;align-items:center;gap:10px;padding:1rem 1.5rem .5rem}
 .drill-header label{font-size:13px;color:var(--text2)}
 .drill-header select{font-size:13px;padding:5px 10px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);min-width:200px;cursor:pointer}
@@ -77,15 +71,50 @@ tbody tr:hover td{background:var(--surface2)}
 .info-item{background:var(--surface2);border-radius:6px;padding:.5rem .75rem}
 .info-item .lbl{font-size:10px;color:var(--text3)}
 .info-item .val{font-size:13px;font-weight:500}
-/* LOADING */
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:999}
 #loading p{color:var(--text2);font-size:13px}
 .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
-/* SORTABLE */
 thead th.sortable{cursor:pointer;user-select:none}
-thead th.sortable:hover{background:var(--border)}
+thead th.sortable:hover{color:var(--text)}
+
+/* ── CƠ HỘI ĐẦU TƯ ─────────────────────────────────────────── */
+.score-bar-wrap{display:flex;align-items:center;gap:8px;min-width:120px}
+.score-bar{height:6px;border-radius:3px;background:var(--border2);flex:1;overflow:hidden}
+.score-fill{height:100%;border-radius:3px;transition:width .3s}
+.score-num{font-size:12px;font-weight:600;min-width:28px;text-align:right}
+.rank-badge{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.rank-1{background:#f5b700;color:#000}
+.rank-2{background:#adb5bd;color:#000}
+.rank-3{background:#cd7f32;color:#fff}
+.rank-n{background:var(--surface2);color:var(--text3)}
+.criteria-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.criteria-card{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:.6rem .75rem}
+.criteria-card .c-lbl{font-size:10px;color:var(--text3);margin-bottom:2px}
+.criteria-card .c-val{font-size:13px;font-weight:500}
+.criteria-card .c-weight{font-size:10px;color:var(--text3);margin-top:2px}
+.opportunity-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:.75rem 1.5rem;background:var(--surface2);border-bottom:0.5px solid var(--border)}
+.opportunity-filters label{font-size:12px;color:var(--text3)}
+.opportunity-filters select,.opportunity-filters input{font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);height:28px}
+.weight-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:.5rem 1.5rem;background:var(--surface);border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text3)}
+.weight-row label{display:flex;align-items:center;gap:6px;color:var(--text2)}
+.weight-row input[type=range]{width:80px;cursor:pointer}
+.weight-row span{font-weight:600;color:var(--text);min-width:28px}
+.top10-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.top-card{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:.75rem 1rem;display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:border-color .15s}
+.top-card:hover{border-color:var(--blue)}
+.top-card .tc-rank{flex-shrink:0;margin-top:2px}
+.top-card .tc-body{flex:1;min-width:0}
+.top-card .tc-ticker{font-size:14px;font-weight:600;margin-bottom:2px}
+.top-card .tc-sub{font-size:11px;color:var(--text3);margin-bottom:6px}
+.top-card .tc-metrics{display:flex;gap:8px;flex-wrap:wrap}
+.tc-metric{background:var(--surface2);border-radius:4px;padding:2px 6px;font-size:11px}
+.tc-metric span{color:var(--text3);margin-right:3px}
+.signal{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600}
+.signal-strong{background:#deeaf8;color:#1a4f8a}
+.signal-good{background:var(--bg-green);color:var(--text-green)}
+.signal-neutral{background:var(--bg-amber);color:var(--text-amber)}
 </style>
 </head>
 <body>
@@ -105,11 +134,13 @@ thead th.sortable:hover{background:var(--border)}
   </div>
 
   <div class="tabs">
-    <button class="tab on" onclick="switchTab('overview',this)">Tổng quan</button>
-    <button class="tab" onclick="switchTab('drilldown',this)">Drill-down</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
+    <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">Drill-down</button>
   </div>
 
-  <div class="filters">
+  <!-- GLOBAL FILTERS (overview + table only) -->
+  <div class="filters" id="global-filters">
     <label>Underlying</label>
     <select id="f-under"><option value="">Tất cả</option></select>
     <label>Nhà phát hành</label>
@@ -127,7 +158,7 @@ thead th.sortable:hover{background:var(--border)}
     </select>
   </div>
 
-  <!-- OVERVIEW -->
+  <!-- ══ OVERVIEW ══════════════════════════════════════════════ -->
   <div id="pane-overview">
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-lbl">Tổng CW</div><div class="kpi-val" id="k-total">—</div><div class="kpi-sub">active + expired</div></div>
@@ -135,7 +166,6 @@ thead th.sortable:hover{background:var(--border)}
       <div class="kpi"><div class="kpi-lbl">Premium TB</div><div class="kpi-val" id="k-prem">—</div><div class="kpi-sub">CW active ITM+ATM</div></div>
       <div class="kpi"><div class="kpi-lbl">Đòn bẩy TB</div><div class="kpi-val" id="k-lev">—</div><div class="kpi-sub">hiệu quả ×Delta</div></div>
     </div>
-
     <div class="sec">
       <div class="sec-title">Premium (%) trung bình theo Underlying</div>
       <div class="card">
@@ -143,7 +173,6 @@ thead th.sortable:hover{background:var(--border)}
         <div style="position:relative;height:220px"><canvas id="c-prem"></canvas></div>
       </div>
     </div>
-
     <div class="sec">
       <div class="grid2">
         <div>
@@ -156,7 +185,6 @@ thead th.sortable:hover{background:var(--border)}
         </div>
       </div>
     </div>
-
     <div class="sec">
       <div class="sec-title">Bảng so sánh CW</div>
       <div class="tbl-wrap">
@@ -181,7 +209,95 @@ thead th.sortable:hover{background:var(--border)}
     </div>
   </div>
 
-  <!-- DRILLDOWN -->
+  <!-- ══ CƠ HỘI ĐẦU TƯ ════════════════════════════════════════ -->
+  <div id="pane-opportunity" class="hidden">
+
+    <!-- Bộ lọc cơ hội -->
+    <div class="opportunity-filters">
+      <label>Underlying</label>
+      <select id="op-under"><option value="">Tất cả</option></select>
+      <label>Moneyness</label>
+      <select id="op-money">
+        <option value="">Tất cả</option>
+        <option>ITM</option><option>ATM</option><option>OTM</option>
+      </select>
+      <label>Premium tối đa</label>
+      <select id="op-prem-max">
+        <option value="999">Không giới hạn</option>
+        <option value="5">≤ 5%</option>
+        <option value="10">≤ 10%</option>
+        <option value="20">≤ 20%</option>
+        <option value="30">≤ 30%</option>
+      </select>
+      <label>Hiện Top</label>
+      <select id="op-topn">
+        <option value="10">Top 10</option>
+        <option value="20">Top 20</option>
+        <option value="50">Top 50</option>
+      </select>
+    </div>
+
+    <!-- Điều chỉnh trọng số -->
+    <div class="weight-row">
+      <span style="color:var(--text3)">Trọng số:</span>
+      <label>Premium thấp <input type="range" id="w-prem" min="0" max="100" value="40"> <span id="wv-prem">40%</span></label>
+      <label>Đòn bẩy <input type="range" id="w-lev" min="0" max="100" value="25"> <span id="wv-lev">25%</span></label>
+      <label>Thanh khoản <input type="range" id="w-vol" min="0" max="100" value="20"> <span id="wv-vol">20%</span></label>
+      <label>Thời gian còn <input type="range" id="w-time" min="0" max="100" value="15"> <span id="wv-time">15%</span></label>
+      <button onclick="resetWeights()" style="font-size:11px;padding:3px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer">Reset</button>
+    </div>
+
+    <div style="padding:1rem 1.5rem 0">
+      <!-- KPI cơ hội -->
+      <div class="kpi-row" style="padding:0 0 1rem">
+        <div class="kpi"><div class="kpi-lbl">CW đủ điều kiện</div><div class="kpi-val" id="op-k-count" style="color:var(--blue)">—</div><div class="kpi-sub">active, ≥90 ngày còn lại</div></div>
+        <div class="kpi"><div class="kpi-lbl">Premium thấp nhất</div><div class="kpi-val" id="op-k-minprem" style="color:var(--green)">—</div><div class="kpi-sub">trong danh sách lọc</div></div>
+        <div class="kpi"><div class="kpi-lbl">Điểm cao nhất</div><div class="kpi-val" id="op-k-topscore" style="color:var(--amber)">—</div><div class="kpi-sub">/ 100 điểm</div></div>
+        <div class="kpi"><div class="kpi-lbl">Underlying đa dạng</div><div class="kpi-val" id="op-k-unders">—</div><div class="kpi-sub">mã cổ phiếu cơ sở</div></div>
+      </div>
+
+      <!-- Top 10 cards -->
+      <div class="sec-title" style="padding-top:0;margin-bottom:.75rem">🏆 Bảng xếp hạng CW tốt nhất</div>
+      <div class="top10-grid" id="top10-grid"></div>
+
+      <!-- Biểu đồ scatter: Premium vs Đòn bẩy -->
+      <div class="sec-title">Bản đồ cơ hội — Premium thấp & Đòn bẩy cao</div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+          Góc <strong>trái–trên</strong> = underpriced nhất (premium thấp, đòn bẩy cao)
+        </div>
+        <div style="position:relative;height:300px"><canvas id="c-scatter"></canvas></div>
+      </div>
+
+      <!-- Bảng scoring đầy đủ -->
+      <div class="sec-title">Bảng scoring toàn bộ</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Hạng</th>
+            <th>Mã CW</th>
+            <th>Underlying</th>
+            <th>Nhà PH</th>
+            <th>Giá CW</th>
+            <th>Premium %</th>
+            <th>Đòn bẩy</th>
+            <th>Volume TB</th>
+            <th>Ngày còn lại</th>
+            <th>Moneyness</th>
+            <th>Điểm Premium</th>
+            <th>Điểm Đòn bẩy</th>
+            <th>Điểm Thanh khoản</th>
+            <th>Điểm Thời gian</th>
+            <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng điểm</th>
+            <th>Tín hiệu</th>
+          </tr></thead>
+          <tbody id="op-tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DRILL-DOWN ════════════════════════════════════════════ -->
   <div id="pane-drilldown" class="hidden">
     <div class="drill-header">
       <label>Chọn mã CW:</label>
@@ -212,10 +328,11 @@ const GRID=isDark?'#2c2c2a':'#e1e0d9';
 const TICK=isDark?'#898781':'#898781';
 const charts={};
 let allData=[], ohlcvData={}, filtered=[], sortCol='', sortDir=1;
+let scored=[];   // CW da duoc scoring
 
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 
-// ── Load data.json ────────────────────────────────────────────────
+// ── Load data.json ───────────────────────────────────────────────
 async function loadData(){
   try{
     const r=await fetch('data.json?t='+Date.now());
@@ -234,13 +351,16 @@ async function loadData(){
   }
 }
 
-// ── Filters ───────────────────────────────────────────────────────
+// ── Global Filters ───────────────────────────────────────────────
 function populateFilters(){
   const unders=[...new Set(allData.map(d=>d.underlying))].sort();
   const issuers=[...new Set(allData.map(d=>d.issuer))].sort();
   const fu=document.getElementById('f-under');
   const fi=document.getElementById('f-issuer');
-  unders.forEach(u=>{const o=document.createElement('option');o.value=o.textContent=u;fu.appendChild(o);});
+  const ou=document.getElementById('op-under');
+  unders.forEach(u=>{
+    [fu,ou].forEach(el=>{const o=document.createElement('option');o.value=o.textContent=u;el.appendChild(o);});
+  });
   issuers.forEach(i=>{const o=document.createElement('option');o.value=o.textContent=i;fi.appendChild(o);});
 }
 
@@ -258,7 +378,7 @@ function applyFilters(){
 ['f-under','f-issuer','f-money','f-status'].forEach(id=>
   document.getElementById(id).addEventListener('change',applyFilters));
 
-// ── KPI ──────────────────────────────────────────────────────────
+// ── KPI ─────────────────────────────────────────────────────────
 function updateKPI(){
   const act=filtered.filter(d=>d.status==='active');
   document.getElementById('k-total').textContent=filtered.length;
@@ -269,7 +389,6 @@ function updateKPI(){
   document.getElementById('k-lev').textContent=lv.length?(lv.reduce((a,b)=>a+b,0)/lv.length).toFixed(2)+'×':'—';
 }
 
-// ── Chart: Premium by Underlying ─────────────────────────────────
 function drawPrem(){
   destroyChart('prem');
   const act=filtered.filter(d=>d.status==='active');
@@ -289,7 +408,6 @@ function drawPrem(){
     `<span><span class="ld" style="background:${CATS[i%CATS.length]}"></span>${l}: ${vals[i]}%</span>`).join('');
 }
 
-// ── Chart: Moneyness ─────────────────────────────────────────────
 function drawMoney(){
   destroyChart('money');
   const act=filtered.filter(d=>d.status==='active');
@@ -302,7 +420,6 @@ function drawMoney(){
       plugins:{legend:{position:'bottom',labels:{font:{size:11},color:TICK,boxWidth:12}}}}});
 }
 
-// ── Chart: Leverage by Issuer ─────────────────────────────────────
 function drawLev(){
   destroyChart('lev');
   const act=filtered.filter(d=>d.status==='active');
@@ -317,7 +434,6 @@ function drawLev(){
       scales:{x:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'×'}},y:{grid:{display:false},ticks:{color:TICK}}}}});
 }
 
-// ── Table ─────────────────────────────────────────────────────────
 function drawTable(){
   let data=[...filtered];
   if(sortCol) data.sort((a,b)=>{
@@ -342,7 +458,6 @@ function drawTable(){
     </tr>`).join('');
 }
 
-// Sortable headers
 document.querySelectorAll('th.sortable').forEach(th=>{
   th.addEventListener('click',()=>{
     const col=th.dataset.col;
@@ -351,21 +466,256 @@ document.querySelectorAll('th.sortable').forEach(th=>{
   });
 });
 
-// ── Overview ─────────────────────────────────────────────────────
 function renderOverview(){updateKPI();drawPrem();drawMoney();drawLev();drawTable();}
 
-// ── Drill-down ────────────────────────────────────────────────────
-function initDrill(){
+// ══════════════════════════════════════════════════════════════════
+// CƠ HỘI ĐẦU TƯ — SCORING ENGINE
+// ══════════════════════════════════════════════════════════════════
+const MIN_DAYS_LEFT = 90;  // Toi thieu 90 ngay den dao han
+
+function daysLeft(maturityStr){
+  // Maturity dang DD/MM/YYYY
+  if(!maturityStr||maturityStr==='nan') return 0;
+  const parts=maturityStr.split('/');
+  if(parts.length!==3) return 0;
+  const d=new Date(+parts[2],+parts[1]-1,+parts[0]);
+  return Math.round((d-Date.now())/86400000);
+}
+
+function avgVolume(ticker){
+  const ohlcv=ohlcvData[ticker];
+  if(!ohlcv||!ohlcv.close||ohlcv.close.length===0) return 0;
+  // Dung do dai chuoi close lam proxy volume (khong co volume rieng trong ohlcv_out)
+  // Neu co volume field thi dung, neu khong thi fallback
+  if(ohlcv.volume){
+    const v=ohlcv.volume.slice(-20);
+    return v.reduce((a,b)=>a+b,0)/v.length;
+  }
+  return ohlcv.close.length;  // fallback: so phien GD
+}
+
+function normalize(val, min, max, invert=false){
+  if(max===min) return 50;
+  let s=(val-min)/(max-min)*100;
+  s=Math.max(0,Math.min(100,s));
+  return invert ? 100-s : s;
+}
+
+function getWeights(){
+  const wp=+document.getElementById('w-prem').value;
+  const wl=+document.getElementById('w-lev').value;
+  const wv=+document.getElementById('w-vol').value;
+  const wt=+document.getElementById('w-time').value;
+  const total=wp+wl+wv+wt||1;
+  return {wp:wp/total,wl:wl/total,wv:wv/total,wt:wt/total};
+}
+
+function scoreSignal(score){
+  if(score>=75) return '<span class="signal signal-strong">⚡ Rất tốt</span>';
+  if(score>=55) return '<span class="signal signal-good">✓ Tốt</span>';
+  return '<span class="signal signal-neutral">~ Khá</span>';
+}
+
+function runScoring(){
+  const opUnder = document.getElementById('op-under').value;
+  const opMoney = document.getElementById('op-money').value;
+  const opPremMax = +document.getElementById('op-prem-max').value;
+  const topN = +document.getElementById('op-topn').value;
+
+  // Loc: chi CW active, con >= 90 ngay, premium > 0
+  let pool = allData.filter(d=>{
+    if(d.status!=='active') return false;
+    if(daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
+    if(d.premium<=0||d.premium>opPremMax) return false;
+    if(d.price<=0||d.eff_lev<=0) return false;
+    if(opUnder && d.underlying!==opUnder) return false;
+    if(opMoney && d.moneyness!==opMoney) return false;
+    return true;
+  });
+
+  if(pool.length===0){
+    document.getElementById('top10-grid').innerHTML=
+      '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
+    document.getElementById('op-tbl-body').innerHTML='';
+    updateOpKPI([],0);
+    return;
+  }
+
+  // Tinh cac chi so
+  const prems   = pool.map(d=>d.premium);
+  const levs    = pool.map(d=>d.eff_lev);
+  const vols    = pool.map(d=>avgVolume(d.ticker));
+  const days    = pool.map(d=>daysLeft(d.maturity));
+
+  const minP=Math.min(...prems), maxP=Math.max(...prems);
+  const minL=Math.min(...levs),  maxL=Math.max(...levs);
+  const minV=Math.min(...vols),  maxV=Math.max(...vols);
+  const minD=Math.min(...days),  maxD=Math.max(...days);
+
+  const {wp,wl,wv,wt}=getWeights();
+
+  scored = pool.map((d,i)=>{
+    const sp = normalize(prems[i], minP, maxP, true);  // Premium thap = diem cao
+    const sl = normalize(levs[i],  minL, maxL, false); // Don bay cao = diem cao
+    const sv = normalize(vols[i],  minV, maxV, false); // Volume cao  = diem cao
+    const st = normalize(days[i],  minD, maxD, false); // Nhieu ngay  = diem cao
+    const total = sp*wp + sl*wl + sv*wv + st*wt;
+    return {
+      ...d,
+      days_left: days[i],
+      avg_vol:   Math.round(vols[i]),
+      s_prem:    Math.round(sp),
+      s_lev:     Math.round(sl),
+      s_vol:     Math.round(sv),
+      s_time:    Math.round(st),
+      score:     Math.round(total),
+    };
+  }).sort((a,b)=>b.score-a.score);
+
+  updateOpKPI(scored, topN);
+  drawTop10(scored.slice(0, topN));
+  drawScatter(scored.slice(0, Math.min(topN*2, scored.length)));
+  drawOpTable(scored.slice(0, topN));
+}
+
+function updateOpKPI(data, topN){
+  document.getElementById('op-k-count').textContent = data.length;
+  document.getElementById('op-k-minprem').textContent =
+    data.length ? data.reduce((a,b)=>a.premium<b.premium?a:b).premium.toFixed(1)+'%' : '—';
+  document.getElementById('op-k-topscore').textContent =
+    data.length ? data[0].score : '—';
+  document.getElementById('op-k-unders').textContent =
+    data.length ? [...new Set(data.map(d=>d.underlying))].length : '—';
+}
+
+function rankBadge(i){
+  const cls=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+  return `<span class="rank-badge ${cls}">${i+1}</span>`;
+}
+
+function scoreBar(score, color='#2a78d6'){
+  return `<div class="score-bar-wrap">
+    <div class="score-bar"><div class="score-fill" style="width:${score}%;background:${color}"></div></div>
+    <div class="score-num" style="color:${color}">${score}</div>
+  </div>`;
+}
+
+function drawTop10(data){
+  const mp={ITM:'itm',OTM:'otm',ATM:'atm'};
+  document.getElementById('top10-grid').innerHTML = data.map((d,i)=>`
+    <div class="top-card" onclick="jumpToDrill('${d.ticker}')">
+      <div class="tc-rank">${rankBadge(i)}</div>
+      <div class="tc-body">
+        <div class="tc-ticker">${d.ticker} <span class="pill ${mp[d.moneyness]||''}" style="font-size:9px">${d.moneyness}</span></div>
+        <div class="tc-sub">${d.underlying} • ${d.issuer} • Còn ${d.days_left} ngày</div>
+        <div class="tc-metrics">
+          <div class="tc-metric"><span>Premium</span>${d.premium.toFixed(1)}%</div>
+          <div class="tc-metric"><span>Đòn bẩy</span>${d.eff_lev.toFixed(1)}×</div>
+          <div class="tc-metric"><span>Giá CW</span>${d.price.toFixed(2)}</div>
+          <div class="tc-metric"><span>Break-even</span>${d.breakeven}k</div>
+        </div>
+        <div style="margin-top:6px">${scoreBar(d.score, i<3?'#eda100':'#2a78d6')}</div>
+      </div>
+    </div>`).join('');
+}
+
+function drawScatter(data){
+  destroyChart('scatter');
+  const mp={ITM:'#1baf7a',OTM:'#e34948',ATM:'#eda100'};
+  const datasets=[{
+    label:'CW',
+    data: data.map(d=>({x:d.premium, y:d.eff_lev, label:d.ticker, moneyness:d.moneyness, score:d.score})),
+    backgroundColor: data.map(d=>(mp[d.moneyness]||'#2a78d6')+'99'),
+    pointRadius: data.map(d=>Math.max(5, d.score/12)),
+    pointHoverRadius: 8,
+  }];
+  charts['scatter']=new Chart(document.getElementById('c-scatter').getContext('2d'),{
+    type:'scatter',
+    data:{datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label:ctx=>{
+            const p=ctx.raw;
+            return [`${p.label}`,`Premium: ${p.x.toFixed(1)}%`,`Đòn bẩy: ${p.y.toFixed(2)}×`,`Điểm: ${p.score}`];
+          }
+        }}
+      },
+      scales:{
+        x:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'%'},
+           title:{display:true,text:'Premium % (thấp hơn = tốt hơn)',color:TICK,font:{size:11}}},
+        y:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'×'},
+           title:{display:true,text:'Đòn bẩy hiệu quả (cao hơn = tốt hơn)',color:TICK,font:{size:11}}}
+      }
+    }
+  });
+}
+
+function drawOpTable(data){
+  const mp={ITM:'itm',OTM:'otm',ATM:'atm'};
+  document.getElementById('op-tbl-body').innerHTML = data.map((d,i)=>`
+    <tr style="${i<3?'font-weight:500':''}" onclick="jumpToDrill('${d.ticker}')" style="cursor:pointer">
+      <td>${rankBadge(i)}</td>
+      <td><strong>${d.ticker}</strong></td>
+      <td>${d.underlying}</td>
+      <td style="font-size:11px">${d.issuer}</td>
+      <td>${d.price.toFixed(2)}</td>
+      <td style="color:var(--green)">${d.premium.toFixed(1)}%</td>
+      <td>${d.eff_lev.toFixed(2)}×</td>
+      <td>${d.avg_vol>0?d.avg_vol.toLocaleString():'—'}</td>
+      <td>${d.days_left}</td>
+      <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
+      <td>${scoreBar(d.s_prem,'#1baf7a')}</td>
+      <td>${scoreBar(d.s_lev,'#2a78d6')}</td>
+      <td>${scoreBar(d.s_vol,'#4a3aa7')}</td>
+      <td>${scoreBar(d.s_time,'#eb6834')}</td>
+      <td style="background:var(--bg-blue)">${scoreBar(d.score,'#eda100')}</td>
+      <td>${scoreSignal(d.score)}</td>
+    </tr>`).join('');
+}
+
+// Weight sliders
+['prem','lev','vol','time'].forEach(k=>{
+  document.getElementById('w-'+k).addEventListener('input',function(){
+    document.getElementById('wv-'+k).textContent=this.value+'%';
+    runScoring();
+  });
+});
+['op-under','op-money','op-prem-max','op-topn'].forEach(id=>
+  document.getElementById(id).addEventListener('change',runScoring));
+
+function resetWeights(){
+  [['prem',40],['lev',25],['vol',20],['time',15]].forEach(([k,v])=>{
+    document.getElementById('w-'+k).value=v;
+    document.getElementById('wv-'+k).textContent=v+'%';
+  });
+  runScoring();
+}
+
+// ── Drill-down ───────────────────────────────────────────────────
+function jumpToDrill(ticker){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tab')[2].classList.add('on');
+  document.getElementById('pane-overview').classList.add('hidden');
+  document.getElementById('pane-opportunity').classList.add('hidden');
+  document.getElementById('pane-drilldown').classList.remove('hidden');
+  document.getElementById('global-filters').classList.remove('hidden');
+  initDrill(ticker);
+}
+
+function initDrill(preselect){
   const sel=document.getElementById('sel-cw');
-  sel.innerHTML=filtered.map(d=>`<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
+  const pool=allData;
+  sel.innerHTML=pool.map(d=>`<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
   sel.onchange=()=>renderDrill(sel.value);
-  if(filtered.length) renderDrill(filtered[0].ticker);
+  const target=preselect||pool[0]?.ticker;
+  if(target){ sel.value=target; renderDrill(target); }
 }
 
 function renderDrill(ticker){
   const cw=allData.find(d=>d.ticker===ticker); if(!cw) return;
   const ohlcv=ohlcvData[ticker]||{dates:[],close:[],underlying_close:[]};
-
   document.getElementById('drill-info').innerHTML=[
     {l:'Underlying',v:cw.underlying},{l:'Nhà phát hành',v:cw.issuer},
     {l:'Giá thực hiện',v:(cw.exercise/1000).toFixed(1)+'k'},
@@ -373,17 +723,13 @@ function renderDrill(ticker){
     {l:'Moneyness',v:cw.moneyness},{l:'Premium',v:cw.premium+'%'},
     {l:'Đòn bẩy HQ',v:cw.eff_lev+'×'},{l:'Break-even',v:cw.breakeven+'k'},
   ].map(i=>`<div class="info-item"><div class="lbl">${i.l}</div><div class="val">${i.v}</div></div>`).join('');
-
   destroyChart('drill'); destroyChart('prem-hist');
-
-  // Underlying quy đổi về đơn vị CW
   const uAdj=ohlcv.underlying_close.map(p=>+(p/cw.ratio/1000).toFixed(3));
   const premHist=ohlcv.close.map((p,i)=>{
     const S=ohlcv.underlying_close[i]||0;
     const intrinsic=Math.max(S-cw.exercise,0)/cw.ratio/1000;
     return S>0?+(((p-intrinsic)/(S/1000))*100).toFixed(1):0;
   });
-
   charts['drill']=new Chart(document.getElementById('c-drill').getContext('2d'),{
     type:'line',data:{labels:ohlcv.dates,datasets:[
       {label:'Giá CW',data:ohlcv.close,borderColor:'#2a78d6',borderWidth:2,pointRadius:0,tension:0.3,fill:false},
@@ -391,7 +737,6 @@ function renderDrill(ticker){
     ]},options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
       scales:{x:{grid:{display:false},ticks:{color:TICK,maxTicksLimit:8}},y:{grid:{color:GRID},ticks:{color:TICK}}}}});
-
   charts['prem-hist']=new Chart(document.getElementById('c-prem-hist').getContext('2d'),{
     type:'line',data:{labels:ohlcv.dates,datasets:[
       {label:'Premium %',data:premHist,borderColor:'#eda100',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'#eda10018'}
@@ -401,13 +746,16 @@ function renderDrill(ticker){
         y:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'%'}}}}});
 }
 
-// ── Tab ───────────────────────────────────────────────────────────
+// ── Tab ──────────────────────────────────────────────────────────
 function switchTab(tab,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   btn.classList.add('on');
-  document.getElementById('pane-overview').classList.toggle('hidden',tab!=='overview');
-  document.getElementById('pane-drilldown').classList.toggle('hidden',tab!=='drilldown');
-  if(tab==='drilldown') initDrill();
+  document.getElementById('pane-overview').classList.toggle('hidden',    tab!=='overview');
+  document.getElementById('pane-opportunity').classList.toggle('hidden', tab!=='opportunity');
+  document.getElementById('pane-drilldown').classList.toggle('hidden',   tab!=='drilldown');
+  document.getElementById('global-filters').classList.toggle('hidden',   tab==='opportunity');
+  if(tab==='drilldown')   initDrill();
+  if(tab==='opportunity') runScoring();
 }
 
 loadData();
