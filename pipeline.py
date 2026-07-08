@@ -1,5 +1,5 @@
 """
-CW Pipeline YSVN - Incremental Mode
+CW Pipeline - Incremental Mode
 Lan dau (chua co cache): scrape toan bo Vietstock + tai toan bo OHLCV
 Cac lan sau (co cache):  chi scrape ma CW moi + tai them phien GD moi nhat
 
