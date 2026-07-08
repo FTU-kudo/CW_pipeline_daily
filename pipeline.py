@@ -359,15 +359,18 @@ def step2_ohlcv(df_vs):
 
     for i,sym in enumerate(tickers,1):
         if sym in cached:
-            next_dt  = last_dt[sym] + timedelta(days=1)
-            if next_dt.date() > date.today():
-                print(f"  [{i:>4}/{total}] SKIP {sym} (cap nhat den {last_dt[sym].strftime('%d/%m/%Y')})")
-                continue
-            start_str = next_dt.strftime("%Y-%m-%d")
-            lbl = f"+tu {next_dt.strftime('%d/%m/%Y')}"
-        else:
-            start_str = OHLCV_START_DATE
-            lbl = "new full"
+            last = last_dt[sym]
+            # Bo qua neu last_dt la NaT (du lieu loi trong cache)
+            if pd.isna(last):
+                start_str = OHLCV_START_DATE
+                lbl = "cache NaT - reload"
+            else:
+                next_dt = last + timedelta(days=1)
+                if next_dt.date() > date.today():
+                    print(f"  [{i:>4}/{total}] SKIP {sym} (cap nhat den {last.strftime('%d/%m/%Y')})")
+                    continue
+                start_str = next_dt.strftime("%Y-%m-%d")
+                lbl = f"+tu {next_dt.strftime('%d/%m/%Y')}"
 
         df_r = fetch_one(sym, start_str, today)
         if df_r is None:
