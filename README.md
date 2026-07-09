@@ -1,6 +1,6 @@
 # 🎯 CW Pipeline Daily
 
-Pipeline tự động scrape & tổng hợp dữ liệu Chứng quyền (CW) Việt Nam.
+Pipeline tự động scrape & tổng hợp dữ liệu Chứng quyền (CW) Việt Nam. Trải nghiệm phiên bản HTML dễ sử dụng ngay **[tại đây](https://ftu-kudo.github.io/CW_pipeline_daily/)**.
 
 ## Luồng xử lý
 
