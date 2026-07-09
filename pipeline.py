@@ -358,6 +358,7 @@ def step2_ohlcv(df_vs):
     new_rows = []; failed = []; skipped = []
 
     for i,sym in enumerate(tickers,1):
+        lbl = ""
         if sym in cached:
             last = last_dt[sym]
             # Bo qua neu last_dt la NaT (du lieu loi trong cache)
@@ -371,6 +372,10 @@ def step2_ohlcv(df_vs):
                     continue
                 start_str = next_dt.strftime("%Y-%m-%d")
                 lbl = f"+tu {next_dt.strftime('%d/%m/%Y')}"
+        else:
+            # FIX: Handle tickers not in cache (new warrants discovered)
+            start_str = OHLCV_START_DATE
+            lbl = "lan dau (new)"
 
         df_r = fetch_one(sym, start_str, today)
         if df_r is None:
