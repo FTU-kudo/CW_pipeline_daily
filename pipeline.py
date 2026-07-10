@@ -37,8 +37,7 @@ OHLCV_START_DATE = "2023-01-01"   # YYYY-MM-DD (dung cho API moi)
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 5
 RETRY_DELAY      = 5.0
-REQUEST_DELAY    = 1.2    # 1.2s x 5 luong = ~6 req/s = ~360 req/phut → giam xuong
-OHLCV_WORKERS    = 2      # Chi 2 luong song song: 2 req/1.2s = ~100 req/phut (an toan voi 60 limit)
+REQUEST_DELAY    = 1.1    # 1.1s/ma = ~54 req/phut, an toan voi gioi han 60/phut
 
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
@@ -425,30 +424,22 @@ def step2_ohlcv(df_vs):
             to_fetch.append((sym, OHLCV_START_DATE, "lan dau (new)"))
 
     print(f"   SKIP (da cap nhat): {skipped_count} ma")
-    print(f"   Can fetch         : {len(to_fetch)} ma (song song {OHLCV_WORKERS} luong)")
+    print(f"   Can fetch         : {len(to_fetch)} ma (tuan tu, delay {REQUEST_DELAY}s)")
 
-    # Fetch song song
-    new_rows = []; failed = []; lock = threading.Lock(); done_count = [0]
+    # Fetch tuan tu - an toan voi rate limit
+    new_rows = []; failed = []
 
-    def fetch_job(args):
-        sym, start_str, lbl = args
-        time.sleep(REQUEST_DELAY)   # rate-limit nhe
+    for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
         df_r = fetch_one(sym, start_str, today)
-        with lock:
-            done_count[0] += 1
-            i = done_count[0]
-            if df_r is None:
-                failed.append(sym)
-                print(f"  [{i:>4}/{len(to_fetch)}] FAIL    {sym}")
-            elif df_r.empty:
-                print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW  {sym} ({lbl})")
-            else:
-                new_rows.append(df_r)
-                print(f"  [{i:>4}/{len(to_fetch)}] OK      {sym} +{len(df_r)} phien ({lbl})")
-        return df_r
-
-    with ThreadPoolExecutor(max_workers=OHLCV_WORKERS) as ex:
-        list(ex.map(fetch_job, to_fetch))
+        if df_r is None:
+            failed.append(sym)
+            print(f"  [{i:>4}/{len(to_fetch)}] FAIL    {sym}")
+        elif df_r.empty:
+            print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW  {sym} ({lbl})")
+        else:
+            new_rows.append(df_r)
+            print(f"  [{i:>4}/{len(to_fetch)}] OK      {sym} +{len(df_r)} phien ({lbl})")
+        time.sleep(REQUEST_DELAY)
 
     df_cache.drop(columns=["time_dt"], inplace=True)
     if new_rows:
