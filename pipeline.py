@@ -275,12 +275,22 @@ def _normalise_ohlcv(df, symbol):
             for alt in [f"{src}_price",f"gia_{src}"]:
                 if alt in df.columns: df.rename(columns={alt:dst},inplace=True); break
     # Chuan hoa cot time sang DD/MM/YYYY
+    # Thu nhieu format: YYYY-MM-DD, DD/MM/YYYY, timestamp, v.v.
     if "time" in df.columns:
-        df["time"] = pd.to_datetime(df["time"], errors="coerce").dt.strftime("%d/%m/%Y")
+        parsed = pd.to_datetime(df["time"], errors="coerce")
+        # Neu parse that bai (NaT nhieu), thu dayfirst=True
+        if parsed.isna().sum() > len(df) * 0.5:
+            parsed = pd.to_datetime(df["time"], dayfirst=True, errors="coerce")
+        df["time"] = parsed.dt.strftime("%d/%m/%Y")
     df["Ticker"] = symbol
     # Chi giu cac cot can thiet
     keep = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
-    return df[keep].dropna(subset=["time"])
+    result = df[keep].dropna(subset=["time"])
+    # DEBUG: bao cao neu bi drop nhieu dong
+    dropped = len(df) - len(result)
+    if dropped > 0:
+        print(f"      WARN {symbol}: dropped {dropped}/{len(df)} rows (time parse failed)")
+    return result
 
 def fetch_one(symbol, start_str, end_str):
     """
@@ -299,6 +309,15 @@ def fetch_one(symbol, start_str, end_str):
 
             if df is None or df.empty:
                 return pd.DataFrame()
+
+            # DEBUG: in cot goc cua API tra ve (chi cho 5 lan dau)
+            if not hasattr(fetch_one, '_debug_count'):
+                fetch_one._debug_count = 0
+            if fetch_one._debug_count < 5:
+                fetch_one._debug_count += 1
+                print(f"      [DBG] {symbol} raw cols: {df.columns.tolist()[:8]}, shape={df.shape}")
+                if len(df) > 0:
+                    print(f"      [DBG] {symbol} sample time: {df.iloc[0,0]!r}")
 
             return _normalise_ohlcv(df, symbol)
 
