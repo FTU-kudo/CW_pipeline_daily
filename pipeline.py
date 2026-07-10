@@ -487,6 +487,16 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     print("\n"+"="*60)
     print("BUOC 4 - Xuat Excel")
     print("="*60)
+
+    # DEBUG: kiem tra 6 ma moi co trong df_vs va valid_tickers khong
+    debug_new = ["CHPG2625","CMBB2614","CMWG2616","CSTB2619","CTCB2611","CVPB2615"]
+    print("   [DEBUG] Kiem tra 6 ma moi:")
+    for m in debug_new:
+        in_vs      = m in df_vs["ma_cw"].values
+        in_valid   = m in valid_tickers
+        in_ohlcv   = m in df_ohlcv["Ticker"].values if not df_ohlcv.empty else False
+        print(f"   {m}: df_vs={in_vs}  valid_tickers={in_valid}  ohlcv={in_ohlcv}")
+
     df=df_vs[df_vs["ma_cw"].isin(valid_tickers)].copy()
     p=[c for c in PRIORITY if c in df.columns]
     df=df[p+[c for c in df.columns if c not in p]]
