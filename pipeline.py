@@ -37,7 +37,8 @@ OHLCV_START_DATE = "2023-01-01"   # YYYY-MM-DD (dung cho API moi)
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 5
 RETRY_DELAY      = 5.0
-REQUEST_DELAY    = 1.5
+REQUEST_DELAY    = 0.5    # Giam tu 1.5s xuong 0.5s
+OHLCV_WORKERS    = 5      # So luong worker song song cho OHLCV incremental
 
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
@@ -388,51 +389,58 @@ def step2_ohlcv(df_vs):
         save_cache(df_out, OHLCV_CACHE)
         return df_out
     
-    # ── Ensure time is string before incremental processing ──────────────────────
+    # ── Ensure time is string before incremental processing ─────
     df_cache["time"] = df_cache["time"].astype(str)
-    
+
     # ── Incremental ──────────────────────────────────────────────
-    # Cache co the luu time theo DD/MM/YYYY — chuan hoa sang datetime de tinh last_dt
     df_cache["time_dt"] = pd.to_datetime(df_cache["time"], dayfirst=True, errors="coerce")
-  
     last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
     cached   = set(last_dt.index)
     total    = len(tickers)
-    new_rows = []; failed = []; skipped = []
 
-    for i,sym in enumerate(tickers,1):
-        lbl = ""
+    # Phan loai: skip vs can fetch
+    to_fetch = []   # [(sym, start_str, lbl)]
+    skipped_count = 0
+    for sym in tickers:
         if sym in cached:
             last = last_dt[sym]
-            # Bo qua neu last_dt la NaT (du lieu loi trong cache)
             if pd.isna(last):
-                start_str = OHLCV_START_DATE
-                lbl = "cache NaT - reload"
+                to_fetch.append((sym, OHLCV_START_DATE, "cache NaT - reload"))
             else:
-                # Lui lai 3 ngay de dam bao khong bo so phien bi delay
-                # (API doi khi tra du lieu cham 1-2 ngay)
                 safe_start = last - timedelta(days=3)
                 if safe_start.date() >= date.today():
-                    print(f"  [{i:>4}/{total}] SKIP {sym} (cap nhat den {last.strftime('%d/%m/%Y')})")
-                    continue
-                start_str = safe_start.strftime("%Y-%m-%d")
-                lbl = f"+tu {safe_start.strftime('%d/%m/%Y')} (overlap 3 ngay)"
+                    skipped_count += 1
+                    continue   # Da cap nhat - bo qua, KHONG sleep
+                to_fetch.append((sym, safe_start.strftime("%Y-%m-%d"),
+                                 f"+tu {safe_start.strftime('%d/%m/%Y')} (overlap 3 ngay)"))
         else:
-            # FIX: Handle tickers not in cache (new warrants discovered)
-            start_str = OHLCV_START_DATE
-            lbl = "lan dau (new)"
+            to_fetch.append((sym, OHLCV_START_DATE, "lan dau (new)"))
 
+    print(f"   SKIP (da cap nhat): {skipped_count} ma")
+    print(f"   Can fetch         : {len(to_fetch)} ma (song song {OHLCV_WORKERS} luong)")
+
+    # Fetch song song
+    new_rows = []; failed = []; lock = threading.Lock(); done_count = [0]
+
+    def fetch_job(args):
+        sym, start_str, lbl = args
+        time.sleep(REQUEST_DELAY)   # rate-limit nhe
         df_r = fetch_one(sym, start_str, today)
-        if df_r is None:
-            failed.append(sym)
-            print(f"  [{i:>4}/{total}] FAIL {sym}")
-        elif df_r.empty:
-            skipped.append(sym)
-            print(f"  [{i:>4}/{total}] NO_NEW {sym} ({lbl})")
-        else:
-            new_rows.append(df_r)
-            print(f"  [{i:>4}/{total}] OK {sym} +{len(df_r)} phien ({lbl})")
-        time.sleep(REQUEST_DELAY)
+        with lock:
+            done_count[0] += 1
+            i = done_count[0]
+            if df_r is None:
+                failed.append(sym)
+                print(f"  [{i:>4}/{len(to_fetch)}] FAIL    {sym}")
+            elif df_r.empty:
+                print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW  {sym} ({lbl})")
+            else:
+                new_rows.append(df_r)
+                print(f"  [{i:>4}/{len(to_fetch)}] OK      {sym} +{len(df_r)} phien ({lbl})")
+        return df_r
+
+    with ThreadPoolExecutor(max_workers=OHLCV_WORKERS) as ex:
+        list(ex.map(fetch_job, to_fetch))
 
     df_cache.drop(columns=["time_dt"], inplace=True)
     if new_rows:
