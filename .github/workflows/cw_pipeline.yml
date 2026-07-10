@@ -2,9 +2,6 @@ name: CW Pipeline Daily
 
 on:
   workflow_dispatch:
-  # Tu dong chay 16:30 ICT (09:30 UTC) thu 2 - thu 6
-  schedule:
-    - cron: '30 9 * * 1-5'
 
 jobs:
   run-pipeline:
