@@ -37,8 +37,8 @@ OHLCV_START_DATE = "2023-01-01"   # YYYY-MM-DD (dung cho API moi)
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 5
 RETRY_DELAY      = 5.0
-REQUEST_DELAY    = 0.5    # Giam tu 1.5s xuong 0.5s
-OHLCV_WORKERS    = 5      # So luong worker song song cho OHLCV incremental
+REQUEST_DELAY    = 1.2    # 1.2s x 5 luong = ~6 req/s = ~360 req/phut → giam xuong
+OHLCV_WORKERS    = 2      # Chi 2 luong song song: 2 req/1.2s = ~100 req/phut (an toan voi 60 limit)
 
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
@@ -325,9 +325,16 @@ def fetch_one(symbol, start_str, end_str):
         except Exception as e:
             msg = str(e)
             is_rl = any(k in msg.lower() for k in
-                        ["rate limit","429","too many","quota","throttle"])
+                        ["rate limit","429","too many","quota","throttle",
+                         "gian han api","gioi han","rate_limit","exceeded"])
             is_403 = "403" in msg or "forbidden" in msg.lower()
-            wait = RETRY_DELAY * attempt if is_rl else RETRY_DELAY
+
+            if is_rl:
+                # Auto-wait 60s khi bi rate limit, khong crash
+                wait = 60
+                print(f"      RL {symbol} #{attempt} → tu dong cho {wait}s roi thu lai...")
+                time.sleep(wait)
+                continue   # Thu lai ngay khong tinh vao wait khac
 
             if is_403 and attempt == 1:
                 # Thu fallback sang KBS neu VCI bi 403
@@ -340,7 +347,8 @@ def fetch_one(symbol, start_str, end_str):
                 except Exception:
                     pass
 
-            tag = "RL" if is_rl else "403" if is_403 else "ERR"
+            wait = RETRY_DELAY
+            tag  = "403" if is_403 else "ERR"
             print(f"      {tag} {symbol} #{attempt} wait {wait:.0f}s | {msg[:60]}")
             if attempt < MAX_RETRIES:
                 time.sleep(wait)
