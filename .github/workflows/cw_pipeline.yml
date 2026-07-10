@@ -51,6 +51,7 @@ jobs:
           git diff --cached --quiet \
             && echo "Khong co thay doi moi." \
             || git commit -m "update: CW data $(date +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
           git push
 
       - name: Upload Excel as Artifact
