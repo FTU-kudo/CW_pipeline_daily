@@ -201,27 +201,50 @@ def scrape_codes(codes, label=""):
 # ══════════════════════════════════════════════════════════════════
 def step1_vietstock():
     print("\n"+"="*60)
-    print("BUOC 1 - Vietstock (incremental)")
+    print("BUOC 1 - Vietstock (incremental + daily refresh active)")
     print("="*60)
     all_codes=[
         f"{s}{yy}{n:02d}"
         for s in BASE_STOCKS for yy in YEARS for n in range(1,MAX_ISSUANCE+1)
     ]
     df_cache=load_cache(VIETSTOCK_CACHE)
+
     if df_cache is None:
         print(f"   Full load - {len(all_codes):,} ma")
         df=scrape_codes(all_codes,"full")
         save_cache(df,VIETSTOCK_CACHE); return df
+
     known=set(df_cache["ma_cw"].tolist())
+
+    # 1. Scrape ma CW MOI chua co trong cache
     new_codes=[c for c in all_codes if c not in known]
-    print(f"   Cache co: {len(known)} ma  |  Can kiem tra them: {len(new_codes)}")
+    print(f"   Cache co: {len(known)} ma  |  Ma moi: {len(new_codes)}")
     if new_codes:
-        df_new=scrape_codes(new_codes,"incremental")
+        df_new=scrape_codes(new_codes,"new CW")
         if not df_new.empty:
-            df_merged=pd.concat([df_cache,df_new],ignore_index=True)
-            df_merged.drop_duplicates(subset="ma_cw",keep="last",inplace=True)
-            print(f"   Them {len(df_new)} ma moi")
-            save_cache(df_merged,VIETSTOCK_CACHE); return df_merged
+            df_cache=pd.concat([df_cache,df_new],ignore_index=True)
+            df_cache.drop_duplicates(subset="ma_cw",keep="last",inplace=True)
+            print(f"   Them {len(df_new)} ma moi vao cache")
+
+    # 2. Re-scrape hang ngay: cap nhat thong tin CW dang ACTIVE
+    # (gia hien tai, kl_luu_hanh, trang_thai, ngay_gd_cuoi_cung moi nhat)
+    today_ts = pd.Timestamp(date.today())
+    if "ngay_gd_cuoi_cung" in df_cache.columns:
+        ldt = pd.to_datetime(df_cache["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
+        active_codes = df_cache.loc[ldt >= today_ts, "ma_cw"].tolist()
+    else:
+        active_codes = []
+
+    print(f"   Re-scrape {len(active_codes)} CW active (cap nhat gia + thong tin ngay hom nay)...")
+    if active_codes:
+        df_refreshed = scrape_codes(active_codes, "refresh active")
+        if not df_refreshed.empty:
+            df_cache = df_cache[~df_cache["ma_cw"].isin(df_refreshed["ma_cw"])]
+            df_cache = pd.concat([df_cache, df_refreshed], ignore_index=True)
+            df_cache.drop_duplicates(subset="ma_cw", keep="last", inplace=True)
+            print(f"   Da refresh {len(df_refreshed)} CW active")
+
+    save_cache(df_cache, VIETSTOCK_CACHE)
     return df_cache
 
 # ══════════════════════════════════════════════════════════════════
@@ -319,6 +342,7 @@ def step2_ohlcv(df_vs):
     else:
         print("   WARN: no VNSTOCK_API env var.")
 
+    # Mo rong end date them 1 ngay de dam bao lay du phien cuoi ngay hom nay
     today     = date.today().strftime("%Y-%m-%d")
     tickers   = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache  = load_cache(OHLCV_CACHE)
@@ -366,12 +390,14 @@ def step2_ohlcv(df_vs):
                 start_str = OHLCV_START_DATE
                 lbl = "cache NaT - reload"
             else:
-                next_dt = last + timedelta(days=1)
-                if next_dt.date() > date.today():
+                # Lui lai 3 ngay de dam bao khong bo so phien bi delay
+                # (API doi khi tra du lieu cham 1-2 ngay)
+                safe_start = last - timedelta(days=3)
+                if safe_start.date() >= date.today():
                     print(f"  [{i:>4}/{total}] SKIP {sym} (cap nhat den {last.strftime('%d/%m/%Y')})")
                     continue
-                start_str = next_dt.strftime("%Y-%m-%d")
-                lbl = f"+tu {next_dt.strftime('%d/%m/%Y')}"
+                start_str = safe_start.strftime("%Y-%m-%d")
+                lbl = f"+tu {safe_start.strftime('%d/%m/%Y')} (overlap 3 ngay)"
         else:
             # FIX: Handle tickers not in cache (new warrants discovered)
             start_str = OHLCV_START_DATE
