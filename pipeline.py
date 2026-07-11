@@ -446,12 +446,24 @@ def step2_ohlcv(df_vs):
 
     df_cache.drop(columns=["time_dt"], inplace=True)
     if new_rows:
-        df_add    = pd.concat(new_rows, ignore_index=True)
+        df_add = pd.concat(new_rows, ignore_index=True)
+
+        # Xoa rows co time = NaT hoac "NaT" trong cache truoc khi merge
+        # (tranh conflict khi drop_duplicates)
+        bad_mask = df_cache["time"].isna() | (df_cache["time"].astype(str) == "NaT")
+        n_bad = bad_mask.sum()
+        if n_bad > 0:
+            print(f"   Xoa {n_bad} rows NaT trong cache truoc khi merge")
+            df_cache = df_cache[~bad_mask].copy()
+
         df_merged = pd.concat([df_cache, df_add], ignore_index=True)
+        df_merged["time"] = df_merged["time"].astype(str).str.strip()
+        df_merged = df_merged[df_merged["time"] != "NaT"]
+        df_merged = df_merged[df_merged["time"] != "nan"]
         df_merged.drop_duplicates(subset=["time","Ticker"], keep="last", inplace=True)
-        # Ensure time column is string type before merging
-        df_merged["time"] = df_merged["time"].astype(str)
-        print(f"   Them {len(df_add):,} dong moi")
+        df_merged.sort_values(["Ticker","time"], inplace=True)
+        df_merged.reset_index(drop=True, inplace=True)
+        print(f"   Them {len(df_add):,} dong moi → tong {len(df_merged):,} dong")
         save_cache(df_merged, OHLCV_CACHE)
         return df_merged
     else:
@@ -467,7 +479,12 @@ def step3_filter(df_full):
     print("\n"+"="*60)
     print("BUOC 3 - Loc & sort")
     print("="*60)
+    # Xoa rows co time khong hop le truoc khi xu ly
+    df_full = df_full.copy()
+    df_full["time"] = df_full["time"].astype(str).str.strip()
+    df_full = df_full[~df_full["time"].isin(["NaT","nan","","None"])].copy()
     df_full["time_dt"] = pd.to_datetime(df_full["time"], dayfirst=True, errors="coerce")
+    df_full = df_full[df_full["time_dt"].notna()].copy()  # Xoa NaT sau parse
     ltd  = df_full.groupby("Ticker")["time_dt"].max().reset_index().rename(columns={"time_dt":"ltd"})
     ts   = pd.Timestamp(FILTER_DATE)
     valid   = ltd.loc[ltd["ltd"]>=ts,"Ticker"].tolist()
