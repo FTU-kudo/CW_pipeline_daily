@@ -258,35 +258,45 @@ def _to_ymd(s):
     return s  # da la YYYY-MM-DD
 
 def _normalise_ohlcv(df, symbol):
-    """Chuan hoa DataFrame OHLCV ve dung schema: time(DD/MM/YYYY), open, high, low, close, volume, Ticker"""
+    """Chuan hoa DataFrame OHLCV ve schema: time(DD/MM/YYYY), open, high, low, close, volume, Ticker"""
     df = df.copy()
     df.columns = [c.lower() for c in df.columns]
-    # Doi ten cot time
-    for alt in ["date","trading_date","datetime","time"]:
+
+    # Doi ten cot time (uu tien 'time', 'date', 'trading_date', 'datetime')
+    for alt in ["time","date","trading_date","datetime"]:
         if alt in df.columns:
-            df.rename(columns={alt:"time"}, inplace=True); break
+            if alt != "time":
+                df.rename(columns={alt:"time"}, inplace=True)
+            break
+
     # Doi ten cot volume
-    for alt in ["volume","vol","klgd"]:
-        if alt in df.columns and alt != "volume":
+    for alt in ["vol","klgd"]:
+        if alt in df.columns:
             df.rename(columns={alt:"volume"}, inplace=True); break
+
     # Doi ten cot gia
-    for src,dst in [("open","open"),("high","high"),("low","low"),("close","close")]:
+    for src in ["open","high","low","close"]:
         if src not in df.columns:
-            for alt in [f"{src}_price",f"gia_{src}"]:
-                if alt in df.columns: df.rename(columns={alt:dst},inplace=True); break
-    # Chuan hoa cot time sang DD/MM/YYYY
-    # Thu nhieu format: YYYY-MM-DD, DD/MM/YYYY, timestamp, v.v.
+            for alt in [f"{src}_price", f"gia_{src}"]:
+                if alt in df.columns:
+                    df.rename(columns={alt:src}, inplace=True); break
+
+    # Chuan hoa cot time → DD/MM/YYYY
+    # Handle ca 2 format: '2026-07-08' va '2026-07-08 07:00:00' (KBS co timezone)
     if "time" in df.columns:
-        parsed = pd.to_datetime(df["time"], errors="coerce")
-        # Neu parse that bai (NaT nhieu), thu dayfirst=True
-        if parsed.isna().sum() > len(df) * 0.5:
-            parsed = pd.to_datetime(df["time"], dayfirst=True, errors="coerce")
+        col = df["time"].astype(str).str.strip()
+        # Cat bo phan time neu co (VD: '2026-07-08 07:00:00' → '2026-07-08')
+        col = col.str.replace(r"\s+\d{2}:\d{2}.*$", "", regex=True)
+        parsed = pd.to_datetime(col, errors="coerce")
+        # Fallback dayfirst neu parse that bai
+        if parsed.isna().sum() > len(df) * 0.3:
+            parsed = pd.to_datetime(col, dayfirst=True, errors="coerce")
         df["time"] = parsed.dt.strftime("%d/%m/%Y")
+
     df["Ticker"] = symbol
-    # Chi giu cac cot can thiet
-    keep = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
+    keep   = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
     result = df[keep].dropna(subset=["time"])
-    # DEBUG: bao cao neu bi drop nhieu dong
+
     dropped = len(df) - len(result)
     if dropped > 0:
         print(f"      WARN {symbol}: dropped {dropped}/{len(df)} rows (time parse failed)")
@@ -309,10 +319,6 @@ def fetch_one(symbol, start_str, end_str):
 
             if df is None or df.empty:
                 return pd.DataFrame()
-
-            # DEBUG: in raw columns cho moi lan fetch
-            sample_time = str(df.iloc[0,0]) if len(df)>0 else 'empty'
-            print(f"      [DBG] {symbol} cols={df.columns.tolist()} shape={df.shape} t0={sample_time!r}")
 
             return _normalise_ohlcv(df, symbol)
 
@@ -407,7 +413,9 @@ def step2_ohlcv(df_vs):
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
-                to_fetch.append((sym, OHLCV_START_DATE, "cache NaT - reload"))
+                # Cache NaT: thu lay tu 30 ngay truoc (tranh goi range qua dai)
+                safe_start = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+                to_fetch.append((sym, safe_start, "cache NaT - reload 30 ngay"))
             else:
                 safe_start = last - timedelta(days=3)
                 if safe_start.date() >= date.today():
@@ -508,16 +516,6 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     print("\n"+"="*60)
     print("BUOC 4 - Xuat Excel")
     print("="*60)
-
-    # DEBUG: kiem tra 6 ma moi co trong df_vs va valid_tickers khong
-    debug_new = ["CHPG2625","CMBB2614","CMWG2616","CSTB2619","CTCB2611","CVPB2615"]
-    print("   [DEBUG] Kiem tra 6 ma moi:")
-    for m in debug_new:
-        in_vs      = m in df_vs["ma_cw"].values
-        in_valid   = m in valid_tickers
-        in_ohlcv   = m in df_ohlcv["Ticker"].values if not df_ohlcv.empty else False
-        print(f"   {m}: df_vs={in_vs}  valid_tickers={in_valid}  ohlcv={in_ohlcv}")
-
     df=df_vs[df_vs["ma_cw"].isin(valid_tickers)].copy()
     p=[c for c in PRIORITY if c in df.columns]
     df=df[p+[c for c in df.columns if c not in p]]
