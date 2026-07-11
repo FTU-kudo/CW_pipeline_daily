@@ -250,10 +250,10 @@ thead th.sortable:hover{color:var(--text)}
     <div style="padding:1rem 1.5rem 0">
       <!-- KPI cơ hội -->
       <div class="kpi-row" style="padding:0 0 1rem">
-        <div class="kpi"><div class="kpi-lbl">CW đủ điều kiện</div><div class="kpi-val" id="op-k-count" style="color:var(--blue)">—</div><div class="kpi-sub">active, ≥90 ngày còn lại</div></div>
+        <div class="kpi"><div class="kpi-lbl">CW đủ điều kiện</div><div class="kpi-val" id="op-k-count" style="color:var(--blue)">—</div><div class="kpi-sub">active, ≥90 ngày, qua bộ lọc an toàn</div></div>
         <div class="kpi"><div class="kpi-lbl">Premium thấp nhất</div><div class="kpi-val" id="op-k-minprem" style="color:var(--green)">—</div><div class="kpi-sub">trong danh sách lọc</div></div>
         <div class="kpi"><div class="kpi-lbl">Điểm cao nhất</div><div class="kpi-val" id="op-k-topscore" style="color:var(--amber)">—</div><div class="kpi-sub">/ 100 điểm</div></div>
-        <div class="kpi"><div class="kpi-lbl">Underlying đa dạng</div><div class="kpi-val" id="op-k-unders">—</div><div class="kpi-sub">mã cổ phiếu cơ sở</div></div>
+        <div class="kpi"><div class="kpi-lbl">⚠️ Bị loại (rủi ro cao)</div><div class="kpi-val" id="op-k-rejected" style="color:var(--red)">—</div><div class="kpi-sub">đòn bẩy cao / OTM sâu / penny</div></div>
       </div>
 
       <!-- Top 10 cards -->
@@ -281,15 +281,14 @@ thead th.sortable:hover{color:var(--text)}
             <th>Giá CW</th>
             <th>Premium %</th>
             <th>Đòn bẩy</th>
-            <th>Volume TB</th>
             <th>Ngày còn lại</th>
             <th>Moneyness</th>
+            <th>S/K</th>
             <th>Điểm Premium</th>
             <th>Điểm Đòn bẩy</th>
             <th>Điểm Thanh khoản</th>
             <th>Điểm Thời gian</th>
             <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng điểm</th>
-            <th>Tín hiệu</th>
           </tr></thead>
           <tbody id="op-tbl-body"></tbody>
         </table>
@@ -340,8 +339,14 @@ async function loadData(){
     const json=await r.json();
     allData=json.cw_list||[];
     ohlcvData=json.ohlcv||{};
+    const now = new Date();
+    const vnTime = now.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    });
     document.getElementById('meta-text').textContent=
-      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW`;
+      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW  •  Xem lúc: ${vnTime}`;
     populateFilters();
     applyFilters();
     document.getElementById('loading').classList.add('hidden');
@@ -473,6 +478,28 @@ function renderOverview(){updateKPI();drawPrem();drawMoney();drawLev();drawTable
 // ══════════════════════════════════════════════════════════════════
 const MIN_DAYS_LEFT = 90;  // Toi thieu 90 ngay den dao han
 
+// ── Bo loc an toan (loai CW nguy hiem) ───────────────────────────
+const SAFETY = {
+  MAX_LEV:       15,    // Loai CW don bay > 15x (OTM sau, rui ro cao)
+  MIN_PRICE:     0.20,  // Loai CW gia < 0.20 (penny CW, gap ve 0)
+  MAX_OTM_DEPTH: 0.85,  // Loai CW co S/K < 0.85 (OTM sau > 15%)
+  MAX_PREMIUM:   50,    // Loai CW premium > 50% (dinh gia cao bat thuong)
+};
+
+function safetyCheck(d){
+  // Kiem tra tung dieu kien an toan
+  if(d.eff_lev > SAFETY.MAX_LEV)    return `Đòn bẩy quá cao (${d.eff_lev.toFixed(1)}× > ${SAFETY.MAX_LEV}×)`;
+  if(d.price   < SAFETY.MIN_PRICE)  return `Giá CW quá thấp (${d.price.toFixed(2)} < ${SAFETY.MIN_PRICE})`;
+  if(d.premium > SAFETY.MAX_PREMIUM) return `Premium quá cao (${d.premium.toFixed(1)}% > ${SAFETY.MAX_PREMIUM}%)`;
+  // Kiem tra OTM sau: underlying_price / exercise < 0.85
+  if(d.underlying_price > 0 && d.exercise > 0){
+    const sk = d.underlying_price / d.exercise;
+    if(sk < SAFETY.MAX_OTM_DEPTH)
+      return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
+  }
+  return null;  // An toan
+}
+
 function daysLeft(maturityStr){
   // Maturity dang DD/MM/YYYY
   if(!maturityStr||maturityStr==='nan') return 0;
@@ -522,7 +549,8 @@ function runScoring(){
   const opPremMax = +document.getElementById('op-prem-max').value;
   const topN = +document.getElementById('op-topn').value;
 
-  // Loc: chi CW active, con >= 90 ngay, premium > 0
+  // Loc: chi CW active, con >= 90 ngay, premium > 0, qua bo loc an toan
+  let rejected = [];  // CW bi loai boi bo loc an toan
   let pool = allData.filter(d=>{
     if(d.status!=='active') return false;
     if(daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
@@ -530,14 +558,19 @@ function runScoring(){
     if(d.price<=0||d.eff_lev<=0) return false;
     if(opUnder && d.underlying!==opUnder) return false;
     if(opMoney && d.moneyness!==opMoney) return false;
+    // Ap dung bo loc an toan
+    const reason = safetyCheck(d);
+    if(reason){ rejected.push({...d, reason}); return false; }
     return true;
   });
+
+  console.log(`Bo loc an toan: loai ${rejected.length} CW`, rejected.map(d=>`${d.ticker}: ${d.reason}`));
 
   if(pool.length===0){
     document.getElementById('top10-grid').innerHTML=
       '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
     document.getElementById('op-tbl-body').innerHTML='';
-    updateOpKPI([],0);
+    updateOpKPI([],0,0);
     return;
   }
 
@@ -572,20 +605,20 @@ function runScoring(){
     };
   }).sort((a,b)=>b.score-a.score);
 
-  updateOpKPI(scored, topN);
+  updateOpKPI(scored, topN, rejected.length);
   drawTop10(scored.slice(0, topN));
   drawScatter(scored.slice(0, Math.min(topN*2, scored.length)));
   drawOpTable(scored.slice(0, topN));
 }
 
-function updateOpKPI(data, topN){
+function updateOpKPI(data, topN, rejectedCount){
   document.getElementById('op-k-count').textContent = data.length;
   document.getElementById('op-k-minprem').textContent =
     data.length ? data.reduce((a,b)=>a.premium<b.premium?a:b).premium.toFixed(1)+'%' : '—';
   document.getElementById('op-k-topscore').textContent =
     data.length ? data[0].score : '—';
-  document.getElementById('op-k-unders').textContent =
-    data.length ? [...new Set(data.map(d=>d.underlying))].length : '—';
+  document.getElementById('op-k-rejected').textContent =
+    rejectedCount !== undefined ? rejectedCount : '—';
 }
 
 function rankBadge(i){
@@ -654,8 +687,11 @@ function drawScatter(data){
 
 function drawOpTable(data){
   const mp={ITM:'itm',OTM:'otm',ATM:'atm'};
-  document.getElementById('op-tbl-body').innerHTML = data.map((d,i)=>`
-    <tr style="${i<3?'font-weight:500':''}" onclick="jumpToDrill('${d.ticker}')" style="cursor:pointer">
+  document.getElementById('op-tbl-body').innerHTML = data.map((d,i)=>{
+    const sk = d.underlying_price>0&&d.exercise>0 ? (d.underlying_price/d.exercise).toFixed(2) : '—';
+    const skColor = parseFloat(sk)<0.9 ? 'var(--red)' : parseFloat(sk)<1.0 ? 'var(--amber)' : 'var(--green)';
+    return `
+    <tr style="${i<3?'font-weight:500':''};cursor:pointer" onclick="jumpToDrill('${d.ticker}')">
       <td>${rankBadge(i)}</td>
       <td><strong>${d.ticker}</strong></td>
       <td>${d.underlying}</td>
@@ -663,16 +699,15 @@ function drawOpTable(data){
       <td>${d.price.toFixed(2)}</td>
       <td style="color:var(--green)">${d.premium.toFixed(1)}%</td>
       <td>${d.eff_lev.toFixed(2)}×</td>
-      <td>${d.avg_vol>0?d.avg_vol.toLocaleString():'—'}</td>
       <td>${d.days_left}</td>
       <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
+      <td style="color:${skColor};font-weight:500">${sk}</td>
       <td>${scoreBar(d.s_prem,'#1baf7a')}</td>
       <td>${scoreBar(d.s_lev,'#2a78d6')}</td>
       <td>${scoreBar(d.s_vol,'#4a3aa7')}</td>
       <td>${scoreBar(d.s_time,'#eb6834')}</td>
       <td style="background:var(--bg-blue)">${scoreBar(d.score,'#eda100')}</td>
-      <td>${scoreSignal(d.score)}</td>
-    </tr>`).join('');
+    </tr>`}).join('');
 }
 
 // Weight sliders
