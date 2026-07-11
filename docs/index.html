@@ -340,8 +340,14 @@ async function loadData(){
     const json=await r.json();
     allData=json.cw_list||[];
     ohlcvData=json.ohlcv||{};
+    const now = new Date();
+    const vnTime = now.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    });
     document.getElementById('meta-text').textContent=
-      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW`;
+      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW  •  Xem lúc: ${vnTime}`;
     populateFilters();
     applyFilters();
     document.getElementById('loading').classList.add('hidden');
