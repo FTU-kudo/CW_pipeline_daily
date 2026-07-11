@@ -310,14 +310,9 @@ def fetch_one(symbol, start_str, end_str):
             if df is None or df.empty:
                 return pd.DataFrame()
 
-            # DEBUG: in cot goc cua API tra ve (chi cho 5 lan dau)
-            if not hasattr(fetch_one, '_debug_count'):
-                fetch_one._debug_count = 0
-            if fetch_one._debug_count < 5:
-                fetch_one._debug_count += 1
-                print(f"      [DBG] {symbol} raw cols: {df.columns.tolist()[:8]}, shape={df.shape}")
-                if len(df) > 0:
-                    print(f"      [DBG] {symbol} sample time: {df.iloc[0,0]!r}")
+            # DEBUG: in raw columns cho moi lan fetch
+            sample_time = str(df.iloc[0,0]) if len(df)>0 else 'empty'
+            print(f"      [DBG] {symbol} cols={df.columns.tolist()} shape={df.shape} t0={sample_time!r}")
 
             return _normalise_ohlcv(df, symbol)
 
