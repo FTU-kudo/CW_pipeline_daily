@@ -849,33 +849,42 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers, bs_data: d
             underlying_ohlcv[sym] = sub_u.set_index("time_dt")["close"]
 
     ohlcv_out = {}
-    ratio_map       = {c["ticker"]: c["ratio"]      for c in cw_list}
-    underlying_map  = {c["ticker"]: c["underlying"] for c in cw_list}
+    ratio_map      = {c["ticker"]: c["ratio"]      for c in cw_list}
+    underlying_map = {c["ticker"]: c["underlying"] for c in cw_list}
 
     for ticker in valid_tickers:
+        # Lay TOAN BO phien GD (khong gioi han), sap xep theo thoi gian
         sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == ticker]
-               .sort_values("time_dt").tail(120))
+               .sort_values("time_dt"))
         if sub.empty:
             continue
 
-        ratio  = ratio_map.get(ticker, 1)
-        und    = underlying_map.get(ticker, "")
-        S_now  = underlying_prices.get(und, 0)
+        ratio = ratio_map.get(ticker, 1)
+        und   = underlying_map.get(ticker, "")
+        S_now = underlying_prices.get(und, 0)
 
-        # Gia underlying theo tung ngay (align theo ngay CW)
-        u_series = underlying_ohlcv.get(und)
-        u_prices = []
+        # Gia underlying theo tung ngay GD cua CW (VND)
+        u_series  = underlying_ohlcv.get(und)
+        u_prices  = []
         for dt in sub["time_dt"]:
             if u_series is not None and dt in u_series.index:
                 u_prices.append(round(float(u_series[dt]) * 1000, 0))
             else:
                 u_prices.append(S_now)   # fallback ve gia hien tai
 
-        ohlcv_out[ticker] = {
-            "dates":            sub["time_dt"].dt.strftime("%d/%m").tolist(),
+        # Xuat day du OHLCV (open, high, low, close, volume) neu co
+        ohlcv_entry = {
+            "dates":            sub["time_dt"].dt.strftime("%d/%m/%Y").tolist(),
             "close":            [round(float(v), 3) for v in sub["close"]],
-            "underlying_close": u_prices,   # VND, dung de ve tren cung truc voi CW
+            "underlying_close": u_prices,
         }
+        # Them open/high/low/volume neu co trong cache
+        for col in ["open", "high", "low", "volume"]:
+            if col in sub.columns:
+                ohlcv_entry[col] = [round(float(v), 3) if col != "volume"
+                                    else int(v) for v in sub[col]]
+
+        ohlcv_out[ticker] = ohlcv_entry
 
     out = {
         "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M ICT"),
