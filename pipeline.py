@@ -555,8 +555,10 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     print(f"   OHLCV: {len(df_ohlcv):,} rows | Active: {len(act)} | Expired: {len(exp)}")
 
 # ══════════════════════════════════════════════════════════════════
-# BUOC 5 - XUAT data.json CHO GITHUB PAGES DASHBOARD
+# BUOC BS - BLACK-SCHOLES TU VIETSTOCK API
 # ══════════════════════════════════════════════════════════════════
+INTEREST_RATE = 4.5   # Lai suat phi rui ro: TPCP VN 1 nam ~4.5%/nam
+
 def _parse_ratio(raw):
     try: return float(str(raw).split(":")[0].replace(",","."))
     except: return 1.0
@@ -566,6 +568,133 @@ def _parse_exercise(raw):
         s = re.sub(r"[^\d]","", str(raw))
         return int(s) if s else 0
     except: return 0
+
+def _get_vietstock_rvt() -> str:
+    """Lay __RequestVerificationToken tu trang Vietstock (tu dong moi session)."""
+    try:
+        r = requests.get(
+            f"{BASE_URL}/chung-khoan-phai-sinh/chung-quyen.htm",
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/148.0.0.0",
+                "Accept-Language": "vi-VN,vi;q=0.9",
+            },
+            timeout=TIMEOUT
+        )
+        soup = BeautifulSoup(r.text, "html.parser")
+        el = soup.find("input", {"name": "__RequestVerificationToken"})
+        if el: return el.get("value", "")
+        meta = soup.find("meta", {"name": "__RequestVerificationToken"})
+        if meta: return meta.get("content", "")
+    except Exception as e:
+        print(f"   WARN RVT: {e}")
+    return ""
+
+def fetch_bs_data(cw_info: dict, trade_date: str, rvt: str, session: requests.Session) -> dict:
+    """Goi API CallCWBlackSchole → tra ve dict chua sigma, delta, gia BS."""
+    code  = cw_info.get("ma_cw", "")
+    price = _parse_exercise(cw_info.get("gia_thuc_hien", "0"))
+    ratio = _parse_ratio(cw_info.get("ty_le_chuyen_doi", "1"))
+    if not code or price <= 0: return {}
+    try:
+        resp = session.post(
+            f"{BASE_URL}/data/CallCWBlackSchole",
+            data={
+                "code":                       code,
+                "interestRate":               INTEREST_RATE,
+                "tradeDate":                  trade_date,
+                "price":                      price,
+                "conversionRate":             ratio,
+                "__RequestVerificationToken": rvt,
+            },
+            timeout=TIMEOUT
+        )
+        if resp.status_code != 200: return {}
+        data = resp.json()
+        if not data or not isinstance(data, list) or len(data) == 0: return {}
+        latest = data[0]
+        sigma = float(latest.get("AnnualizedSigma", 0))
+        S     = float(latest.get("BaseClosePrice", 0))
+        K     = price
+        T     = float(latest.get("RemainDays", 0)) / 365
+        r_    = INTEREST_RATE / 100
+        # Tinh Delta theo Black-Scholes chinh xac
+        delta = 0.5
+        if sigma > 0 and S > 0 and K > 0 and T > 0:
+            import math
+            d1 = (math.log(S / K) + (r_ + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
+            # N(d1) xap xi bang sigmoid (chinh xac hon 0.3/0.5/0.7)
+            delta = 1 / (1 + math.exp(-1.7 * d1))
+        return {
+            "bs_sigma":      round(sigma, 4),
+            "bs_price_call": round(float(latest.get("PriceOfCall", 0)), 1),
+            "bs_price_put":  round(float(latest.get("PriceOfPut", 0)), 1),
+            "bs_remain_days":int(latest.get("RemainDays", 0)),
+            "bs_base_price": S,
+            "bs_delta":      round(delta, 4),
+        }
+    except Exception as e:
+        print(f"      WARN BS {code}: {str(e)[:60]}")
+        return {}
+
+def step_bs_blackscholes(df_vietstock: pd.DataFrame, valid_tickers: list) -> dict:
+    """Lay du lieu Black-Scholes tu Vietstock cho tat ca CW active."""
+    print("\n" + "=" * 60)
+    print("BUOC BS - Black-Scholes tu Vietstock API")
+    print("=" * 60)
+
+    today_ts  = pd.Timestamp(date.today())
+    df_active = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
+    if "ngay_gd_cuoi_cung" in df_active.columns:
+        ldt = pd.to_datetime(df_active["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
+        df_active = df_active[ldt >= today_ts]
+
+    tickers_bs = df_active["ma_cw"].tolist()
+    trade_date = date.today().strftime("%Y-%m-%d")
+
+    print(f"   Lay RVT token tu Vietstock...")
+    rvt = _get_vietstock_rvt()
+    if not rvt:
+        print("   WARN: Khong lay duoc RVT → bo qua buoc BS, dung Delta xap xi")
+        return {}
+    print(f"   OK RVT: {rvt[:40]}...")
+    print(f"   Goi BS API cho {len(tickers_bs)} CW active...")
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent":       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/148.0.0.0",
+        "Accept":           "*/*",
+        "Accept-Language":  "vi-VN,vi;q=0.9",
+        "Content-Type":     "application/x-www-form-urlencoded; charset=UTF-8",
+        "Origin":           BASE_URL,
+        "Referer":          f"{BASE_URL}/chung-khoan-phai-sinh/chung-quyen.htm",
+        "X-Requested-With": "XMLHttpRequest",
+    })
+
+    cw_info_map = {row["ma_cw"]: row.to_dict() for _, row in df_active.iterrows()}
+    bs_results  = {}
+    ok = fail = 0
+    total = len(tickers_bs)
+
+    for i, ticker in enumerate(tickers_bs, 1):
+        result = fetch_bs_data(cw_info_map.get(ticker, {}), trade_date, rvt, session)
+        if result:
+            bs_results[ticker] = result; ok += 1
+            if i <= 5 or ok % 30 == 0:
+                print(f"  [{i:>4}/{total}] OK {ticker}"
+                      f"  σ={result['bs_sigma']:.4f}"
+                      f"  Δ={result['bs_delta']:.3f}"
+                      f"  call={result['bs_price_call']:.0f}")
+        else:
+            fail += 1
+            if i <= 10: print(f"  [{i:>4}/{total}] FAIL {ticker}")
+        time.sleep(0.3)
+
+    print(f"\n   BS xong: {ok} OK | {fail} FAIL")
+    return bs_results
+
+# ══════════════════════════════════════════════════════════════════
+# BUOC 5 - XUAT data.json CHO GITHUB PAGES DASHBOARD
+# ══════════════════════════════════════════════════════════════════
 
 def _fetch_underlying_prices(underlyings: list) -> dict:
     """
@@ -611,10 +740,15 @@ def _fetch_underlying_prices(underlyings: list) -> dict:
 
     return prices
 
-def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
+def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers, bs_data: dict = None):
     print("\n"+"="*60)
     print("BUOC 5 - Xuat data.json cho GitHub Pages")
     print("="*60)
+
+    if bs_data is None:
+        bs_data = {}
+    bs_count = len(bs_data)
+    print(f"   Su dung Black-Scholes chinh xac cho {bs_count} CW (con lai dung xap xi)")
 
     today_ts = pd.Timestamp(date.today())
     df_info  = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
@@ -632,54 +766,56 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
     ohlcv_idx = {t: grp for t, grp in df_ohlcv_filtered.groupby("Ticker")}
 
     def calc_metrics(row):
-        ticker   = row["ma_cw"]
-        ratio    = _parse_ratio(row.get("ty_le_chuyen_doi", 1))
-        exercise = _parse_exercise(row.get("gia_thuc_hien", 0))
+        ticker     = row["ma_cw"]
+        ratio      = _parse_ratio(row.get("ty_le_chuyen_doi", 1))
+        exercise   = _parse_exercise(row.get("gia_thuc_hien", 0))
         underlying = str(row.get("ck_co_so","")).strip()
 
         sub      = ohlcv_idx.get(ticker, pd.DataFrame())
         price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
-
-        # S = gia co phieu co so thuc te (VND)
-        S = underlying_prices.get(underlying, 0)
+        S        = underlying_prices.get(underlying, 0)
 
         if S <= 0 or price_cw <= 0 or ratio <= 0 or exercise <= 0:
             return {
                 "price": round(price_cw, 3), "exercise": exercise,
                 "ratio": ratio, "premium": 0, "eff_lev": 0,
                 "breakeven": 0, "moneyness": "N/A",
+                "delta": 0.5, "sigma": 0, "bs_price_call": 0,
             }
 
-        # Gia CW doi ve VND (vnstock tra ve don vi nghin dong)
         price_cw_vnd = price_cw * 1000
+        intrinsic    = max(S - exercise, 0)
+        cw_value     = price_cw_vnd * ratio
+        premium      = (cw_value - intrinsic) / S * 100
+        gross_lev    = S / cw_value if cw_value > 0 else 0
+        moneyness    = "ITM" if S > exercise * 1.02 else "OTM" if S < exercise * 0.98 else "ATM"
+        breakeven    = (exercise + cw_value) / 1000
 
-        # Premium = (Gia CW x TL CD - (S - K)) / S x 100%
-        # Voi CW mua (Call): intrinsic = max(S - K, 0)
-        intrinsic = max(S - exercise, 0)
-        cw_value  = price_cw_vnd * ratio          # Gia CW quy doi ve 1 co phieu
-        premium   = (cw_value - intrinsic) / S * 100
+        # ── Delta: dung BS neu co, xap xi neu khong ──────────────
+        bs = bs_data.get(ticker, {})
+        if bs and bs.get("bs_delta", 0) > 0:
+            delta = bs["bs_delta"]
+            sigma = bs.get("bs_sigma", 0)
+            bs_call = bs.get("bs_price_call", 0)
+        else:
+            delta   = 0.70 if moneyness == "ITM" else 0.30 if moneyness == "OTM" else 0.50
+            sigma   = 0
+            bs_call = 0
 
-        # Don bay gop = S / (Gia CW x TL CD)
-        gross_lev = S / cw_value if cw_value > 0 else 0
-
-        # Delta xap xi: ITM cao hon, OTM thap hon
-        moneyness = "ITM" if S > exercise * 1.02 else "OTM" if S < exercise * 0.98 else "ATM"
-        delta     = 0.70 if moneyness == "ITM" else 0.30 if moneyness == "OTM" else 0.50
-
-        eff_lev   = gross_lev * delta
-
-        # Break-even = (K + Gia CW x TL CD) / 1000 (hien thi don vi nghin)
-        breakeven = (exercise + cw_value) / 1000
+        eff_lev = gross_lev * delta
 
         return {
-            "price":     round(price_cw, 3),
-            "exercise":  exercise,
-            "ratio":     ratio,
-            "premium":   round(premium, 1),
-            "eff_lev":   round(eff_lev, 2),
-            "breakeven": round(breakeven, 1),
-            "moneyness": moneyness,
-            "S":         S,   # gia underlying VND (dung cho debug)
+            "price":        round(price_cw, 3),
+            "exercise":     exercise,
+            "ratio":        ratio,
+            "premium":      round(premium, 1),
+            "eff_lev":      round(eff_lev, 2),
+            "breakeven":    round(breakeven, 1),
+            "moneyness":    moneyness,
+            "delta":        round(delta, 3),
+            "sigma":        round(sigma, 4),
+            "bs_price_call":round(bs_call, 1),
+            "S":            S,
         }
 
     cw_list = []
