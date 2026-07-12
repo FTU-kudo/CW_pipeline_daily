@@ -590,7 +590,11 @@ def _get_vietstock_rvt() -> str:
     return ""
 
 def fetch_bs_data(cw_info: dict, trade_date: str, rvt: str, session: requests.Session) -> dict:
-    """Goi API CallCWBlackSchole → tra ve dict chua sigma, delta, gia BS."""
+    """
+    Goi API CallCWBlackSchole → tra ve:
+    - Du lieu hom nay: sigma, delta, gia BS call/put, gia underlying
+    - Lich su backtesting: gia underlying + sigma theo tung ngay GD
+    """
     code  = cw_info.get("ma_cw", "")
     price = _parse_exercise(cw_info.get("gia_thuc_hien", "0"))
     ratio = _parse_ratio(cw_info.get("ty_le_chuyen_doi", "1"))
@@ -611,27 +615,69 @@ def fetch_bs_data(cw_info: dict, trade_date: str, rvt: str, session: requests.Se
         if resp.status_code != 200: return {}
         data = resp.json()
         if not data or not isinstance(data, list) or len(data) == 0: return {}
+
+        import math
+
+        def calc_delta(S, K, T, sigma, r):
+            if sigma > 0 and S > 0 and K > 0 and T > 0:
+                d1 = (math.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*math.sqrt(T))
+                return round(1/(1+math.exp(-1.7*d1)), 4)
+            return 0.5
+
+        r_ = INTEREST_RATE / 100
+
+        # ── Du lieu hom nay (index 0) ─────────────────────────────
         latest = data[0]
-        sigma = float(latest.get("AnnualizedSigma", 0))
-        S     = float(latest.get("BaseClosePrice", 0))
-        K     = price
-        T     = float(latest.get("RemainDays", 0)) / 365
-        r_    = INTEREST_RATE / 100
-        # Tinh Delta theo Black-Scholes chinh xac
-        delta = 0.5
-        if sigma > 0 and S > 0 and K > 0 and T > 0:
-            import math
-            d1 = (math.log(S / K) + (r_ + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
-            # N(d1) xap xi bang sigmoid (chinh xac hon 0.3/0.5/0.7)
-            delta = 1 / (1 + math.exp(-1.7 * d1))
-        return {
+        sigma  = float(latest.get("AnnualizedSigma", 0))
+        S      = float(latest.get("BaseClosePrice", 0))
+        T      = float(latest.get("RemainDays", 0)) / 365
+        delta  = calc_delta(S, price, T, sigma, r_)
+
+        result = {
             "bs_sigma":      round(sigma, 4),
             "bs_price_call": round(float(latest.get("PriceOfCall", 0)), 1),
             "bs_price_put":  round(float(latest.get("PriceOfPut", 0)), 1),
             "bs_remain_days":int(latest.get("RemainDays", 0)),
-            "bs_base_price": S,
-            "bs_delta":      round(delta, 4),
+            "bs_base_price": round(S, 0),
+            "bs_delta":      delta,
         }
+
+        # ── Lich su backtesting theo tung ngay ───────────────────
+        # API tra ve mang cac ban ghi lich su (moi ban ghi = 1 ngay GD)
+        # TradingDate la Unix timestamp (ms): "/Date(1783616400000)/"
+        history = []
+        for row in data:
+            try:
+                # Parse TradingDate: "/Date(1783616400000)/"
+                ts_raw = str(row.get("TradingDate",""))
+                ts_ms  = int(''.join(filter(str.isdigit, ts_raw)))
+                trade_dt = pd.Timestamp(ts_ms, unit="ms", tz="UTC").tz_convert("Asia/Ho_Chi_Minh")
+                date_str = trade_dt.strftime("%d/%m/%Y")
+
+                S_row     = float(row.get("BaseClosePrice", 0))
+                sig_row   = float(row.get("AnnualizedSigma", 0))
+                days_row  = float(row.get("RemainDays", 0))
+                T_row     = days_row / 365
+                delta_row = calc_delta(S_row, price, T_row, sig_row, r_)
+
+                history.append({
+                    "date":       date_str,
+                    "base_price": round(S_row, 0),     # gia CK co so (VND)
+                    "sigma":      round(sig_row, 4),
+                    "delta":      delta_row,
+                    "call":       round(float(row.get("PriceOfCall", 0)), 1),
+                    "put":        round(float(row.get("PriceOfPut",  0)), 1),
+                    "remain_days":int(days_row),
+                })
+            except Exception:
+                continue
+
+        # Sap xep theo ngay tang dan
+        history.sort(key=lambda x: x["date"])
+        result["history"] = history
+
+        return result
+
     except Exception as e:
         print(f"      WARN BS {code}: {str(e)[:60]}")
         return {}
@@ -834,55 +880,68 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers, bs_data: d
             **metrics,
         })
 
-    # ── OHLCV drill-down: 120 phien gan nhat, them gia underlying ─
+    # ── OHLCV drill-down: toan bo lich su tu ngay niem yet ───────
     df_ohlcv_filtered = df_ohlcv_filtered.copy()
+    df_ohlcv_filtered["time"] = df_ohlcv_filtered["time"].astype(str).str.strip()
+    df_ohlcv_filtered = df_ohlcv_filtered[
+        ~df_ohlcv_filtered["time"].isin(["NaT","nan","","None"])
+    ].copy()
     df_ohlcv_filtered["time_dt"] = pd.to_datetime(
         df_ohlcv_filtered["time"], dayfirst=True, errors="coerce"
     )
-
-    # Build lookup: underlying_symbol -> OHLCV DataFrame (gia underlying theo ngay)
-    # Lay tu ohlcv_filtered neu co, neu khong co thi dung gia hien tai cho toan bo
-    underlying_ohlcv = {}
-    for sym in underlyings:
-        sub_u = df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == sym]
-        if not sub_u.empty:
-            underlying_ohlcv[sym] = sub_u.set_index("time_dt")["close"]
+    df_ohlcv_filtered = df_ohlcv_filtered[df_ohlcv_filtered["time_dt"].notna()].copy()
 
     ohlcv_out = {}
     ratio_map      = {c["ticker"]: c["ratio"]      for c in cw_list}
-    underlying_map = {c["ticker"]: c["underlying"] for c in cw_list}
+
+    # BS history lookup: {ticker: {date_str: {base_price, sigma, delta, call, put}}}
+    bs_history_map = {}
+    for ticker, bs in (bs_data or {}).items():
+        hist = bs.get("history", [])
+        bs_history_map[ticker] = {h["date"]: h for h in hist}
 
     for ticker in valid_tickers:
-        # Lay TOAN BO phien GD (khong gioi han), sap xep theo thoi gian
+        # Lay TOAN BO phien GD tu ngay niem yet (khong gioi han)
         sub = (df_ohlcv_filtered[df_ohlcv_filtered["Ticker"] == ticker]
                .sort_values("time_dt"))
         if sub.empty:
             continue
 
-        ratio = ratio_map.get(ticker, 1)
-        und   = underlying_map.get(ticker, "")
-        S_now = underlying_prices.get(und, 0)
+        ratio    = ratio_map.get(ticker, 1)
+        bs_hist  = bs_history_map.get(ticker, {})
+        dates    = sub["time_dt"].dt.strftime("%d/%m/%Y").tolist()
 
-        # Gia underlying theo tung ngay GD cua CW (VND)
-        u_series  = underlying_ohlcv.get(und)
-        u_prices  = []
-        for dt in sub["time_dt"]:
-            if u_series is not None and dt in u_series.index:
-                u_prices.append(round(float(u_series[dt]) * 1000, 0))
-            else:
-                u_prices.append(S_now)   # fallback ve gia hien tai
+        # Gia CK co so, sigma, delta, call, put theo tung ngay (tu BS history)
+        bs_base_prices = []
+        bs_sigmas      = []
+        bs_deltas      = []
+        bs_calls       = []
+        bs_puts        = []
 
-        # Xuat day du OHLCV (open, high, low, close, volume) neu co
+        for d in dates:
+            h = bs_hist.get(d, {})
+            bs_base_prices.append(h.get("base_price", 0))
+            bs_sigmas.append(h.get("sigma", 0))
+            bs_deltas.append(h.get("delta", 0))
+            bs_calls.append(h.get("call", 0))
+            bs_puts.append(h.get("put", 0))
+
         ohlcv_entry = {
-            "dates":            sub["time_dt"].dt.strftime("%d/%m/%Y").tolist(),
-            "close":            [round(float(v), 3) for v in sub["close"]],
-            "underlying_close": u_prices,
+            "dates":       dates,
+            "close":       [round(float(v), 3) for v in sub["close"]],
+            # BS data theo tung ngay
+            "base_price":  bs_base_prices,   # gia CK co so (VND) theo ngay
+            "bs_sigma":    bs_sigmas,
+            "bs_delta":    bs_deltas,
+            "bs_call":     bs_calls,         # gia ly thuyet Call theo ngay
+            "bs_put":      bs_puts,          # gia ly thuyet Put theo ngay
         }
-        # Them open/high/low/volume neu co trong cache
-        for col in ["open", "high", "low", "volume"]:
-            if col in sub.columns:
-                ohlcv_entry[col] = [round(float(v), 3) if col != "volume"
-                                    else int(v) for v in sub[col]]
+        # Them OHLC neu co
+        for col in ["open", "high", "low"]:
+            if col in sub.columns and sub[col].notna().any():
+                ohlcv_entry[col] = [round(float(v), 3) for v in sub[col]]
+        if "volume" in sub.columns and sub["volume"].notna().any():
+            ohlcv_entry["volume"] = [int(v) if pd.notna(v) else 0 for v in sub["volume"]]
 
         ohlcv_out[ticker] = ohlcv_entry
 
@@ -914,5 +973,7 @@ if __name__=="__main__":
     df_ohlcv_full      = step2_ohlcv(df_vs)
     df_filtered, valid = step3_filter(df_ohlcv_full)
     step4_excel(df_filtered, df_vs, valid)
-    step5_export_json(df_filtered, df_vs, valid)
+    # Truyen df_ohlcv_full (toan bo lich su) thay vi df_filtered (chi tu 02/01/2024)
+    # de dashboard hien thi du lieu tu ngay niem yet dau tien
+    step5_export_json(df_ohlcv_full, df_vs, valid)
     print(f"\nDone in {(time.time()-t0)/60:.1f} min")
