@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CW Dashboard</title>
-<!-- Chart.js và plugin candlestick -->
+<!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-chart-financial/0.1.0/chartjs-chart-financial.min.js"></script>
 <style>
 /* toàn bộ CSS giữ nguyên như trước */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -762,6 +761,7 @@ function initDrill(preselect){
 function renderDrill(ticker){
   const cw=allData.find(d=>d.ticker===ticker); if(!cw) return;
   const ohlcv=ohlcvData[ticker]||{dates:[],open:[],high:[],low:[],close:[],underlying_close:[],volume:[]};
+
   document.getElementById('drill-info').innerHTML=[
     {l:'Underlying',v:cw.underlying},{l:'Nhà phát hành',v:cw.issuer},
     {l:'Giá thực hiện',v:(cw.exercise/1000).toFixed(1)+'k'},
@@ -769,144 +769,184 @@ function renderDrill(ticker){
     {l:'Moneyness',v:cw.moneyness},{l:'Premium',v:cw.premium+'%'},
     {l:'Đòn bẩy HQ',v:cw.eff_lev+'×'},{l:'Break-even',v:cw.breakeven+'k'},
   ].map(i=>`<div class="info-item"><div class="lbl">${i.l}</div><div class="val">${i.v}</div></div>`).join('');
-  
+
   destroyChart('drill-price');
   destroyChart('drill-underlying');
   destroyChart('prem-hist');
 
-  const uAdj=ohlcv.underlying_close.map(p=>+(p/cw.ratio/1000).toFixed(3));
-  const premHist=ohlcv.close.map((p,i)=>{
-    const S=ohlcv.underlying_close[i]||0;
-    const intrinsic=Math.max(S-cw.exercise,0)/cw.ratio/1000;
-    return S>0?+(((p-intrinsic)/(S/1000))*100).toFixed(1):0;
-  });
+  const n      = ohlcv.close.length;
+  const labels = ohlcv.dates;   // DD/MM/YYYY day du tu ngay niem yet
 
-  // ─── Biểu đồ nến OHLCV + Khối lượng ──────────────────────
-  const hasOhlc = ohlcv.open && ohlcv.high && ohlcv.low;
-  const datasets = [];
+  // Ticks thong minh: hien toi da 12 nhan tren truc X
+  const maxTicks = Math.min(12, n);
 
-  if (hasOhlc) {
-    // Dữ liệu cho candlestick
-    const candlestickData = ohlcv.dates.map((date, i) => ({
-      x: date,
-      o: ohlcv.open[i],
-      h: ohlcv.high[i],
-      l: ohlcv.low[i],
-      c: ohlcv.close[i]
-    }));
-    datasets.push({
-      label: 'OHLCV',
-      data: candlestickData,
-      borderColor: '#2a78d6',
-      // màu nến sẽ tự động (đỏ/xanh)
+  // ─── Gia CW: Line close + Volume bar ─────────────────────────
+  const closeData = ohlcv.close;
+  const volData   = ohlcv.volume || [];
+
+  const priceDatasets = [{
+    label:       'Giá CW (close)',
+    data:        closeData,
+    borderColor: '#2a78d6',
+    borderWidth: 1.5,
+    pointRadius: n > 60 ? 0 : 2,
+    tension:     0.2,
+    fill:        false,
+    yAxisID:     'y',
+    order:       0,
+  }];
+
+  // Them High/Low shadow neu co OHLC
+  if(ohlcv.high && ohlcv.high.length === n){
+    priceDatasets.push({
+      label:           'High',
+      data:            ohlcv.high,
+      borderColor:     'rgba(27,175,122,0.4)',
+      borderWidth:     1,
+      borderDash:      [2,2],
+      pointRadius:     0,
+      fill:            false,
+      yAxisID:         'y',
+      order:           1,
     });
-  } else {
-    // Fallback: nếu không có OHLC, vẽ line chart với giá close
-    datasets.push({
-      label: 'Giá CW',
-      data: ohlcv.close,
-      borderColor: '#2a78d6',
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.3,
-      fill: false,
-      yAxisID: 'y',
-    });
-  }
-
-  // Thêm khối lượng nếu có
-  const volumeData = ohlcv.volume || [];
-  if (volumeData.length) {
-    datasets.push({
-      label: 'Khối lượng',
-      data: volumeData,
-      type: 'bar',
-      backgroundColor: 'rgba(42,120,214,0.25)',
-      yAxisID: 'y1',
-      order: 1,
+    priceDatasets.push({
+      label:           'Low',
+      data:            ohlcv.low,
+      borderColor:     'rgba(227,73,72,0.4)',
+      borderWidth:     1,
+      borderDash:      [2,2],
+      pointRadius:     0,
+      fill:            false,
+      yAxisID:         'y',
+      order:           1,
     });
   }
 
-  const chartType = hasOhlc ? 'candlestick' : 'line';
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: { mode: 'index', intersect: false }
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 10 } },
-      y: { grid: { color: GRID }, ticks: { color: TICK }, position: 'left' },
-      y1: { grid: { display: false }, ticks: { color: TICK }, position: 'right' }
+  if(volData.length === n){
+    priceDatasets.push({
+      label:           'Khối lượng',
+      data:            volData,
+      type:            'bar',
+      backgroundColor: 'rgba(42,120,214,0.18)',
+      yAxisID:         'y1',
+      order:           2,
+    });
+  }
+
+  // Tinh min/max gia CW voi padding 5%
+  const allPrices = [
+    ...closeData,
+    ...(ohlcv.high||[]),
+    ...(ohlcv.low||[]),
+  ].filter(v=>v>0);
+  const minP = Math.min(...allPrices);
+  const maxP = Math.max(...allPrices);
+  const padP = (maxP - minP) * 0.08 || maxP * 0.05;
+
+  charts['drill-price'] = new Chart(
+    document.getElementById('c-drill-price').getContext('2d'),{
+      type: 'line',
+      data: { labels, datasets: priceDatasets },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{ display: ohlcv.high ? true : false,
+                   position:'top', labels:{font:{size:10},color:TICK,boxWidth:10} },
+          tooltip:{ callbacks:{
+            label: ctx => {
+              if(ctx.dataset.label==='Khối lượng')
+                return `Vol: ${(ctx.parsed.y||0).toLocaleString()}`;
+              return `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(3)||''}`;
+            }
+          }}
+        },
+        scales:{
+          x:{ grid:{display:false}, ticks:{color:TICK, maxTicksLimit:maxTicks,
+              maxRotation:0} },
+          y:{ grid:{color:GRID}, ticks:{color:TICK},
+              min: Math.max(0, minP - padP),
+              max: maxP + padP,
+              position:'left' },
+          y1:{ display: volData.length===n,
+               grid:{display:false}, ticks:{display:false},
+               position:'right' },
+        }
+      }
     }
-  };
+  );
 
-  charts['drill-price'] = new Chart(document.getElementById('c-drill-price').getContext('2d'), {
-    type: chartType,
-    data: { labels: ohlcv.dates, datasets: datasets },
-    options: chartOptions
-  });
+  // ─── Underlying quy doi: DUNG RANGE CHINH XAC ──────────────
+  // uAdj = gia underlying (VND) / ratio / 1000 → cung don vi voi gia CW
+  const uAdj = ohlcv.underlying_close.map(p => +(p / cw.ratio / 1000).toFixed(3));
 
-  // ─── Biểu đồ Underlying quy đổi (điều chỉnh range) ──────────
-  let minU = Math.min(...uAdj);
-  let maxU = Math.max(...uAdj);
-  const padding = (maxU - minU) * 0.05 || 0.5;
-  minU = Math.max(0, minU - padding);
-  maxU = maxU + padding;
+  // Chi lay cac gia underlying thuc (>0) de tinh range
+  const uValid = uAdj.filter(v => v > 0);
+  let minU = uValid.length ? Math.min(...uValid) : 0;
+  let maxU = uValid.length ? Math.max(...uValid) : 1;
+  const padU = (maxU - minU) * 0.1 || maxU * 0.05;
+  minU = Math.max(0, minU - padU);
+  maxU = maxU + padU;
 
-  charts['drill-underlying'] = new Chart(document.getElementById('c-drill-underlying').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: ohlcv.dates,
-      datasets: [{
-        label: 'Underlying / Tỷ lệ CD',
-        data: uAdj,
+  charts['drill-underlying'] = new Chart(
+    document.getElementById('c-drill-underlying').getContext('2d'),{
+      type:'line',
+      data:{ labels, datasets:[{
+        label:       'Underlying / Tỷ lệ CD (nghìn đồng)',
+        data:        uAdj,
         borderColor: '#1baf7a',
         borderWidth: 1.5,
-        borderDash: [4,3],
-        pointRadius: 0,
-        tension: 0.3,
-        fill: false
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
-        y: { grid: { color: GRID }, ticks: { color: TICK }, min: minU, max: maxU }
+        pointRadius: n > 60 ? 0 : 2,
+        tension:     0.2,
+        fill:        false,
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:c=>`${cw.underlying}/${cw.ratio}: ${c.parsed.y?.toFixed(3)}`}}
+        },
+        scales:{
+          x:{ grid:{display:false}, ticks:{color:TICK, maxTicksLimit:maxTicks, maxRotation:0} },
+          y:{ grid:{color:GRID}, ticks:{color:TICK}, min:minU, max:maxU }
+        }
       }
     }
+  );
+
+  // ─── Premium theo ngay ──────────────────────────────────────
+  const premHist = ohlcv.close.map((p,i) => {
+    const S = ohlcv.underlying_close[i] || 0;
+    const intrinsic = Math.max(S - cw.exercise, 0) / cw.ratio / 1000;
+    return S > 0 ? +(((p - intrinsic) / (S / 1000)) * 100).toFixed(1) : 0;
   });
 
-  // ─── Biểu đồ Premium theo ngày ─────────────────────────────
-  charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: ohlcv.dates,
-      datasets: [{
-        label: 'Premium %',
-        data: premHist,
-        borderColor: '#eda100',
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.3,
-        fill: true,
-        backgroundColor: '#eda10018'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
-        y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+  charts['prem-hist'] = new Chart(
+    document.getElementById('c-prem-hist').getContext('2d'),{
+      type:'line',
+      data:{ labels, datasets:[{
+        label:           'Premium %',
+        data:            premHist,
+        borderColor:     '#eda100',
+        borderWidth:     1.5,
+        pointRadius:     n > 60 ? 0 : 2,
+        tension:         0.2,
+        fill:            true,
+        backgroundColor: '#eda10018',
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:c=>c.parsed.y?.toFixed(1)+'%'}}
+        },
+        scales:{
+          x:{ grid:{display:false}, ticks:{color:TICK, maxTicksLimit:maxTicks, maxRotation:0} },
+          y:{ grid:{color:GRID}, ticks:{color:TICK, callback:v=>v+'%'} }
+        }
       }
     }
-  });
+  );
 }
 
 // ── Tab ──────────────────────────────────────────────────────
