@@ -304,14 +304,27 @@ thead th.sortable:hover{color:var(--text)}
     </div>
     <div class="sec">
       <div class="info-grid" id="drill-info"></div>
+      
+      <!-- Biểu đồ 1: Giá CW + Khối lượng -->
       <div class="sec-title">Giá đóng cửa — lịch sử OHLCV</div>
       <div class="card">
         <div class="legend">
           <span><span class="ld" style="background:var(--blue)"></span>Giá CW (close)</span>
-          <span><span class="ld" style="background:var(--green)"></span>Underlying / Tỷ lệ CD (quy đổi)</span>
+          <span><span class="ld" style="background:rgba(42,120,214,0.3)"></span>Khối lượng</span>
         </div>
-        <div style="position:relative;height:260px"><canvas id="c-drill"></canvas></div>
+        <div style="position:relative;height:220px"><canvas id="c-drill-price"></canvas></div>
       </div>
+
+      <!-- Biểu đồ 2: Underlying quy đổi -->
+      <div class="sec-title" style="margin-top:10px">Underlying / Tỷ lệ CD (quy đổi)</div>
+      <div class="card">
+        <div class="legend">
+          <span><span class="ld" style="background:var(--green)"></span>Underlying / Tỷ lệ CD</span>
+        </div>
+        <div style="position:relative;height:200px"><canvas id="c-drill-underlying"></canvas></div>
+      </div>
+
+      <!-- Biểu đồ 3: Premium theo ngày -->
       <div class="sec-title" style="margin-top:10px">Premium (%) theo ngày</div>
       <div class="card">
         <div style="position:relative;height:160px"><canvas id="c-prem-hist"></canvas></div>
@@ -327,11 +340,11 @@ const GRID=isDark?'#2c2c2a':'#e1e0d9';
 const TICK=isDark?'#898781':'#898781';
 const charts={};
 let allData=[], ohlcvData={}, filtered=[], sortCol='', sortDir=1;
-let scored=[];   // CW da duoc scoring
+let scored=[];
 
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 
-// ── Load data.json ───────────────────────────────────────────────
+// ── Load data ─────────────────────────────────────────────────
 async function loadData(){
   try{
     const r=await fetch('data.json?t='+Date.now());
@@ -345,8 +358,33 @@ async function loadData(){
       day:'2-digit', month:'2-digit', year:'numeric',
       hour:'2-digit', minute:'2-digit'
     });
-    document.getElementById('meta-text').textContent=
-      `Cập nhật: ${json.updated_at||'—'}  •  ${allData.length} mã CW  •  Xem lúc: ${vnTime}`;
+    
+    // ── SỬA GIỜ CẬP NHẬT (chuyển từ ICT/UTC sang UTC+7) ──
+    let updatedDisplay = '—';
+    if (json.updated_at) {
+      let raw = json.updated_at.trim();
+      // Tách ngày, giờ, múi giờ
+      let parts = raw.split(' ');
+      if (parts.length >= 3) {
+        let datePart = parts[0]; // DD/MM/YYYY
+        let timePart = parts[1]; // HH:mm
+        let [day, month, year] = datePart.split('/').map(Number);
+        let [hour, minute] = timePart.split(':').map(Number);
+        // Giả sử timePart là giờ UTC (mặc dù ghi ICT)
+        let utcDate = new Date(Date.UTC(year, month-1, day, hour, minute));
+        // Cộng 7 giờ để ra giờ Việt Nam
+        let vnDate = new Date(utcDate.getTime() + 7*60*60*1000);
+        let vnDay = String(vnDate.getUTCDate()).padStart(2,'0');
+        let vnMonth = String(vnDate.getUTCMonth()+1).padStart(2,'0');
+        let vnYear = vnDate.getUTCFullYear();
+        let vnHour = String(vnDate.getUTCHours()).padStart(2,'0');
+        let vnMin = String(vnDate.getUTCMinutes()).padStart(2,'0');
+        updatedDisplay = `${vnDay}/${vnMonth}/${vnYear} ${vnHour}:${vnMin} UTC+7`;
+      }
+    }
+    document.getElementById('meta-text').textContent =
+      `Cập nhật: ${updatedDisplay}  •  ${allData.length} mã CW  •  Xem lúc: ${vnTime}`;
+    
     populateFilters();
     applyFilters();
     document.getElementById('loading').classList.add('hidden');
@@ -356,7 +394,7 @@ async function loadData(){
   }
 }
 
-// ── Global Filters ───────────────────────────────────────────────
+// ── Global Filters ────────────────────────────────────────────
 function populateFilters(){
   const unders=[...new Set(allData.map(d=>d.underlying))].sort();
   const issuers=[...new Set(allData.map(d=>d.issuer))].sort();
@@ -383,7 +421,7 @@ function applyFilters(){
 ['f-under','f-issuer','f-money','f-status'].forEach(id=>
   document.getElementById(id).addEventListener('change',applyFilters));
 
-// ── KPI ─────────────────────────────────────────────────────────
+// ── KPI ──────────────────────────────────────────────────────
 function updateKPI(){
   const act=filtered.filter(d=>d.status==='active');
   document.getElementById('k-total').textContent=filtered.length;
@@ -473,35 +511,30 @@ document.querySelectorAll('th.sortable').forEach(th=>{
 
 function renderOverview(){updateKPI();drawPrem();drawMoney();drawLev();drawTable();}
 
-// ══════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 // CƠ HỘI ĐẦU TƯ — SCORING ENGINE
-// ══════════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 90;  // Toi thieu 90 ngay den dao han
-
-// ── Bo loc an toan (loai CW nguy hiem) ───────────────────────────
+// ═════════════════════════════════════════════════════════════
+const MIN_DAYS_LEFT = 90;
 const SAFETY = {
-  MAX_LEV:       15,    // Loai CW don bay > 15x (OTM sau, rui ro cao)
-  MIN_PRICE:     0.20,  // Loai CW gia < 0.20 (penny CW, gap ve 0)
-  MAX_OTM_DEPTH: 0.85,  // Loai CW co S/K < 0.85 (OTM sau > 15%)
-  MAX_PREMIUM:   50,    // Loai CW premium > 50% (dinh gia cao bat thuong)
+  MAX_LEV:       15,
+  MIN_PRICE:     0.20,
+  MAX_OTM_DEPTH: 0.85,
+  MAX_PREMIUM:   50,
 };
 
 function safetyCheck(d){
-  // Kiem tra tung dieu kien an toan
   if(d.eff_lev > SAFETY.MAX_LEV)    return `Đòn bẩy quá cao (${d.eff_lev.toFixed(1)}× > ${SAFETY.MAX_LEV}×)`;
   if(d.price   < SAFETY.MIN_PRICE)  return `Giá CW quá thấp (${d.price.toFixed(2)} < ${SAFETY.MIN_PRICE})`;
   if(d.premium > SAFETY.MAX_PREMIUM) return `Premium quá cao (${d.premium.toFixed(1)}% > ${SAFETY.MAX_PREMIUM}%)`;
-  // Kiem tra OTM sau: underlying_price / exercise < 0.85
   if(d.underlying_price > 0 && d.exercise > 0){
     const sk = d.underlying_price / d.exercise;
     if(sk < SAFETY.MAX_OTM_DEPTH)
       return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
   }
-  return null;  // An toan
+  return null;
 }
 
 function daysLeft(maturityStr){
-  // Maturity dang DD/MM/YYYY
   if(!maturityStr||maturityStr==='nan') return 0;
   const parts=maturityStr.split('/');
   if(parts.length!==3) return 0;
@@ -512,13 +545,11 @@ function daysLeft(maturityStr){
 function avgVolume(ticker){
   const ohlcv=ohlcvData[ticker];
   if(!ohlcv||!ohlcv.close||ohlcv.close.length===0) return 0;
-  // Dung do dai chuoi close lam proxy volume (khong co volume rieng trong ohlcv_out)
-  // Neu co volume field thi dung, neu khong thi fallback
   if(ohlcv.volume){
     const v=ohlcv.volume.slice(-20);
     return v.reduce((a,b)=>a+b,0)/v.length;
   }
-  return ohlcv.close.length;  // fallback: so phien GD
+  return ohlcv.close.length;
 }
 
 function normalize(val, min, max, invert=false){
@@ -549,8 +580,7 @@ function runScoring(){
   const opPremMax = +document.getElementById('op-prem-max').value;
   const topN = +document.getElementById('op-topn').value;
 
-  // Loc: chi CW active, con >= 90 ngay, premium > 0, qua bo loc an toan
-  let rejected = [];  // CW bi loai boi bo loc an toan
+  let rejected = [];
   let pool = allData.filter(d=>{
     if(d.status!=='active') return false;
     if(daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
@@ -558,7 +588,6 @@ function runScoring(){
     if(d.price<=0||d.eff_lev<=0) return false;
     if(opUnder && d.underlying!==opUnder) return false;
     if(opMoney && d.moneyness!==opMoney) return false;
-    // Ap dung bo loc an toan
     const reason = safetyCheck(d);
     if(reason){ rejected.push({...d, reason}); return false; }
     return true;
@@ -574,7 +603,6 @@ function runScoring(){
     return;
   }
 
-  // Tinh cac chi so
   const prems   = pool.map(d=>d.premium);
   const levs    = pool.map(d=>d.eff_lev);
   const vols    = pool.map(d=>avgVolume(d.ticker));
@@ -588,10 +616,10 @@ function runScoring(){
   const {wp,wl,wv,wt}=getWeights();
 
   scored = pool.map((d,i)=>{
-    const sp = normalize(prems[i], minP, maxP, true);  // Premium thap = diem cao
-    const sl = normalize(levs[i],  minL, maxL, false); // Don bay cao = diem cao
-    const sv = normalize(vols[i],  minV, maxV, false); // Volume cao  = diem cao
-    const st = normalize(days[i],  minD, maxD, false); // Nhieu ngay  = diem cao
+    const sp = normalize(prems[i], minP, maxP, true);
+    const sl = normalize(levs[i],  minL, maxL, false);
+    const sv = normalize(vols[i],  minV, maxV, false);
+    const st = normalize(days[i],  minD, maxD, false);
     const total = sp*wp + sl*wl + sv*wv + st*wt;
     return {
       ...d,
@@ -728,7 +756,7 @@ function resetWeights(){
   runScoring();
 }
 
-// ── Drill-down ───────────────────────────────────────────────────
+// ── Drill-down ──────────────────────────────────────────────
 function jumpToDrill(ticker){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.querySelectorAll('.tab')[2].classList.add('on');
@@ -750,7 +778,7 @@ function initDrill(preselect){
 
 function renderDrill(ticker){
   const cw=allData.find(d=>d.ticker===ticker); if(!cw) return;
-  const ohlcv=ohlcvData[ticker]||{dates:[],close:[],underlying_close:[]};
+  const ohlcv=ohlcvData[ticker]||{dates:[],close:[],underlying_close:[],volume:[]};
   document.getElementById('drill-info').innerHTML=[
     {l:'Underlying',v:cw.underlying},{l:'Nhà phát hành',v:cw.issuer},
     {l:'Giá thực hiện',v:(cw.exercise/1000).toFixed(1)+'k'},
@@ -758,30 +786,117 @@ function renderDrill(ticker){
     {l:'Moneyness',v:cw.moneyness},{l:'Premium',v:cw.premium+'%'},
     {l:'Đòn bẩy HQ',v:cw.eff_lev+'×'},{l:'Break-even',v:cw.breakeven+'k'},
   ].map(i=>`<div class="info-item"><div class="lbl">${i.l}</div><div class="val">${i.v}</div></div>`).join('');
-  destroyChart('drill'); destroyChart('prem-hist');
+  
+  destroyChart('drill-price');
+  destroyChart('drill-underlying');
+  destroyChart('prem-hist');
+
   const uAdj=ohlcv.underlying_close.map(p=>+(p/cw.ratio/1000).toFixed(3));
   const premHist=ohlcv.close.map((p,i)=>{
     const S=ohlcv.underlying_close[i]||0;
     const intrinsic=Math.max(S-cw.exercise,0)/cw.ratio/1000;
     return S>0?+(((p-intrinsic)/(S/1000))*100).toFixed(1):0;
   });
-  charts['drill']=new Chart(document.getElementById('c-drill').getContext('2d'),{
-    type:'line',data:{labels:ohlcv.dates,datasets:[
-      {label:'Giá CW',data:ohlcv.close,borderColor:'#2a78d6',borderWidth:2,pointRadius:0,tension:0.3,fill:false},
-      {label:'Underlying/CD',data:uAdj,borderColor:'#1baf7a',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.3,fill:false}
-    ]},options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
-      scales:{x:{grid:{display:false},ticks:{color:TICK,maxTicksLimit:8}},y:{grid:{color:GRID},ticks:{color:TICK}}}}});
-  charts['prem-hist']=new Chart(document.getElementById('c-prem-hist').getContext('2d'),{
-    type:'line',data:{labels:ohlcv.dates,datasets:[
-      {label:'Premium %',data:premHist,borderColor:'#eda100',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'#eda10018'}
-    ]},options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
-      scales:{x:{grid:{display:false},ticks:{color:TICK,maxTicksLimit:8}},
-        y:{grid:{color:GRID},ticks:{color:TICK,callback:v=>v+'%'}}}}});
+
+  // Biểu đồ 1: Giá CW + Khối lượng
+  const datasetsPrice = [
+    {
+      label: 'Giá CW',
+      data: ohlcv.close,
+      borderColor: '#2a78d6',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      yAxisID: 'y',
+    }
+  ];
+  const volumeData = ohlcv.volume || [];
+  if (volumeData.length) {
+    datasetsPrice.push({
+      label: 'Khối lượng',
+      data: volumeData,
+      type: 'bar',
+      backgroundColor: 'rgba(42,120,214,0.25)',
+      yAxisID: 'y1',
+      order: 1,
+    });
+  }
+
+  charts['drill-price'] = new Chart(document.getElementById('c-drill-price').getContext('2d'), {
+    type: 'line',
+    data: { labels: ohlcv.dates, datasets: datasetsPrice },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+        y: { grid: { color: GRID }, ticks: { color: TICK }, position: 'left' },
+        y1: { grid: { display: false }, ticks: { color: TICK }, position: 'right' }
+      }
+    }
+  });
+
+  // Biểu đồ 2: Underlying quy đổi
+  charts['drill-underlying'] = new Chart(document.getElementById('c-drill-underlying').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ohlcv.dates,
+      datasets: [{
+        label: 'Underlying / Tỷ lệ CD',
+        data: uAdj,
+        borderColor: '#1baf7a',
+        borderWidth: 1.5,
+        borderDash: [4,3],
+        pointRadius: 0,
+        tension: 0.3,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+        y: { grid: { color: GRID }, ticks: { color: TICK } }
+      }
+    }
+  });
+
+  // Biểu đồ premium
+  charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ohlcv.dates,
+      datasets: [{
+        label: 'Premium %',
+        data: premHist,
+        borderColor: '#eda100',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: true,
+        backgroundColor: '#eda10018'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+        y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+      }
+    }
+  });
 }
 
-// ── Tab ──────────────────────────────────────────────────────────
+// ── Tab ──────────────────────────────────────────────────────
 function switchTab(tab,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   btn.classList.add('on');
