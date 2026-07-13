@@ -4,11 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CW Dashboard – Black‑Scholes</title>
-  <!-- Chart.js và plugin candlestick -->
+  <!-- Chỉ dùng Chart.js core -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-chart-financial/0.1.0/chartjs-chart-financial.min.js"></script>
   <style>
-    /* ----- RESET & VARIABLES ----- */
+    /* ----- RESET & VARIABLES (giữ nguyên như cũ) ----- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #f7f7f5; --surface: #fff; --surface2: #f2f2ef;
@@ -415,11 +414,12 @@
     <div class="sec">
       <div class="info-grid" id="drill-info"></div>
 
-      <!-- Biểu đồ OHLCV + volume -->
+      <!-- Biểu đồ giá (line + vùng high-low) và volume -->
       <div class="sec-title">Giá đóng cửa — lịch sử OHLCV</div>
       <div class="card">
         <div class="legend">
-          <span><span class="ld" style="background:var(--blue)"></span>Nến OHLC</span>
+          <span><span class="ld" style="background:var(--blue)"></span>Giá đóng cửa</span>
+          <span><span class="ld" style="background:rgba(42,120,214,0.15)"></span>Biên độ (High–Low)</span>
           <span><span class="ld" style="background:rgba(42,120,214,0.3)"></span>Khối lượng</span>
         </div>
         <div style="position:relative;height:240px"><canvas id="c-drill-price"></canvas></div>
@@ -457,6 +457,118 @@ let allData = [], ohlcvData = {}, filtered = [], sortCol = '', sortDir = 1;
 let scored = [];
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── Hàm vẽ biểu đồ giá với vùng High-Low ────────────────────
+function drawPriceChart(canvasId, labels, close, high, low, volume) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const datasets = [];
+
+  // Vùng High-Low (dạng vùng)
+  if (high && low && high.length === labels.length && low.length === labels.length) {
+    datasets.push({
+      label: 'Biên độ (H-L)',
+      data: high.map((h, i) => ({ x: labels[i], y: h })),
+      backgroundColor: 'rgba(42,120,214,0.12)',
+      borderColor: 'rgba(42,120,214,0.2)',
+      borderWidth: 0,
+      fill: 'origin',
+      order: 2,
+      yAxisID: 'y',
+    });
+    // Đường high và low (mờ)
+    datasets.push({
+      label: 'High',
+      data: high.map((h, i) => ({ x: labels[i], y: h })),
+      borderColor: 'rgba(42,120,214,0.3)',
+      borderWidth: 0.5,
+      pointRadius: 0,
+      fill: false,
+      order: 3,
+      yAxisID: 'y',
+    });
+    datasets.push({
+      label: 'Low',
+      data: low.map((l, i) => ({ x: labels[i], y: l })),
+      borderColor: 'rgba(42,120,214,0.3)',
+      borderWidth: 0.5,
+      pointRadius: 0,
+      fill: false,
+      order: 4,
+      yAxisID: 'y',
+    });
+  }
+
+  // Đường giá đóng cửa
+  if (close && close.length === labels.length) {
+    datasets.push({
+      label: 'Giá đóng cửa',
+      data: close.map((c, i) => ({ x: labels[i], y: c })),
+      borderColor: '#2a78d6',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      order: 1,
+      yAxisID: 'y',
+    });
+  }
+
+  // Khối lượng
+  if (volume && volume.length === labels.length) {
+    datasets.push({
+      label: 'Khối lượng',
+      data: volume.map((v, i) => ({ x: labels[i], y: v })),
+      type: 'bar',
+      backgroundColor: 'rgba(42,120,214,0.25)',
+      yAxisID: 'y1',
+      order: 0,
+    });
+  }
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: ctx => {
+              const label = ctx.dataset.label || '';
+              const val = ctx.parsed.y;
+              if (label.includes('Khối lượng')) return `${label}: ${val.toLocaleString()}`;
+              return `${label}: ${val.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'category',
+          labels: labels,
+          grid: { display: false },
+          ticks: { color: TICK, maxTicksLimit: 10 }
+        },
+        y: {
+          grid: { color: GRID },
+          ticks: { color: TICK },
+          position: 'left',
+          beginAtZero: true,
+        },
+        y1: {
+          grid: { display: false },
+          ticks: { color: TICK },
+          position: 'right',
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  LOAD DATA
@@ -936,7 +1048,7 @@ function resetWeights() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  DRILL-DOWN
+//  DRILL-DOWN (sử dụng hàm drawPriceChart mới)
 // ═══════════════════════════════════════════════════════════════
 function jumpToDrill(ticker) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
@@ -984,31 +1096,22 @@ function renderDrill(ticker) {
   destroyChart('prem-hist');
   destroyChart('drill-greeks');
 
-  // 1) OHLCV + Volume
-  const hasOhlc = o.open && o.open.length > 0 && o.high && o.high.length > 0 && o.low && o.low.length > 0;
-  let datasets = [];
-  if (hasOhlc) {
-    const cData = o.dates.map((d,i) => ({ x: d, o: o.open[i], h: o.high[i], l: o.low[i], c: o.close[i] }));
-    datasets.push({ label: 'Nến OHLC', data: cData, type: 'candlestick' });
+  // 1) Biểu đồ giá + volume (dùng hàm mới)
+  if (o.dates && o.dates.length > 0) {
+    const labels = o.dates;
+    const close = o.close || [];
+    const high = o.high || [];
+    const low = o.low || [];
+    const volume = o.volume || [];
+    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, high, low, volume);
   } else {
-    datasets.push({ label: 'Giá CW', data: o.close || [], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, yAxisID: 'y' });
+    // Nếu không có dữ liệu, hiển thị thông báo
+    document.getElementById('c-drill-price').parentNode.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;">
+        Không có dữ liệu giá
+      </div>
+    `;
   }
-  if (o.volume && o.volume.length) {
-    datasets.push({ label: 'Khối lượng', data: o.volume, type: 'bar', backgroundColor: 'rgba(42,120,214,0.25)', yAxisID: 'y1', order: 1 });
-  }
-  charts['drill-price'] = new Chart(document.getElementById('c-drill-price').getContext('2d'), {
-    type: hasOhlc ? 'candlestick' : 'line',
-    data: { labels: o.dates, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 10 } },
-        y: { grid: { color: GRID }, ticks: { color: TICK }, position: 'left' },
-        y1: { grid: { display: false }, ticks: { color: TICK }, position: 'right' }
-      }
-    }
-  });
 
   // 2) Premium history
   const premHist = o.close.map((p,i) => {
@@ -1016,34 +1119,36 @@ function renderDrill(ticker) {
     const intrinsic = Math.max(S - cw.exercise, 0) / cw.ratio / 1000;
     return S > 0 ? +(((p - intrinsic) / (S / 1000)) * 100).toFixed(1) : 0;
   });
-  charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: o.dates,
-      datasets: [{
-        label: 'Premium %',
-        data: premHist,
-        borderColor: '#eda100',
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.3,
-        fill: true,
-        backgroundColor: '#eda10018'
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
-        y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+  if (o.dates && o.dates.length > 0) {
+    charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: o.dates,
+        datasets: [{
+          label: 'Premium %',
+          data: premHist,
+          borderColor: '#eda100',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+          backgroundColor: '#eda10018'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+          y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+        }
       }
-    }
-  });
+    });
+  }
 
   // 3) Delta + Sigma (nếu có)
   const hasGreeks = o.bs_delta && o.bs_delta.length > 0 && o.bs_sigma && o.bs_sigma.length > 0;
-  if (hasGreeks) {
+  if (hasGreeks && o.dates && o.dates.length > 0) {
     const deltas = o.bs_delta.map(v => v ? +v.toFixed(3) : null);
     const sigmas = o.bs_sigma.map(v => v ? +v.toFixed(4) : null);
     charts['drill-greeks'] = new Chart(document.getElementById('c-drill-greeks').getContext('2d'), {
@@ -1066,15 +1171,12 @@ function renderDrill(ticker) {
       }
     });
   } else {
-    // hiển thị thông báo nếu không có dữ liệu
-    const canvas = document.getElementById('c-drill-greeks');
-    const parent = canvas.parentNode;
-    // Xóa canvas cũ và tạo div thông báo
-    const msg = document.createElement('div');
-    msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:160px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;';
-    msg.textContent = 'Không có dữ liệu Delta/Sigma lịch sử';
-    parent.innerHTML = '';
-    parent.appendChild(msg);
+    // Không có dữ liệu → hiển thị thông báo
+    document.getElementById('c-drill-greeks').parentNode.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:160px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;">
+        Không có dữ liệu Delta/Sigma lịch sử
+      </div>
+    `;
   }
 }
 
