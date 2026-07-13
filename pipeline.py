@@ -405,46 +405,67 @@ def step2_ohlcv(df_vs):
     last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
     cached   = set(last_dt.index)
     total    = len(tickers)
+    today    = date.today()
 
-    # Phan loai: skip vs can fetch
-    to_fetch = []   # [(sym, start_str, lbl)]
+    # ── Xac dinh ngay GD gan nhat can cap nhat ───────────────────
+    # Pipeline chay luc 16:30 ICT → thi truong da dong → co the lay phien hom nay
+    # Chi SKIP neu cache da co data cua phien hom nay
+    # Dung start = last - 1 ngay (thay vi 3 ngay) de giam so request
+
+    to_fetch      = []   # [(sym, start_str, lbl)]
     skipped_count = 0
+    new_count     = 0
+
     for sym in tickers:
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
-                # Cache NaT: thu lay tu 30 ngay truoc (tranh goi range qua dai)
-                safe_start = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-                to_fetch.append((sym, safe_start, "cache NaT - reload 30 ngay"))
+                # Cache NaT: reload 30 ngay gan nhat
+                start_str = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+                to_fetch.append((sym, start_str, "NaT-reload"))
+            elif last.date() >= today:
+                # Da co data hom nay → SKIP hoan toan
+                skipped_count += 1
+                continue
             else:
-                safe_start = last - timedelta(days=3)
-                if safe_start.date() >= date.today():
-                    skipped_count += 1
-                    continue   # Da cap nhat - bo qua, KHONG sleep
-                to_fetch.append((sym, safe_start.strftime("%Y-%m-%d"),
-                                 f"+tu {safe_start.strftime('%d/%m/%Y')} (overlap 3 ngay)"))
+                # Lay tu ngay cuoi trong cache (giu nguyen ngay do de drop_dup xu ly)
+                start_str = last.strftime("%Y-%m-%d")
+                to_fetch.append((sym, start_str, f"+tu {last.strftime('%d/%m/%Y')}"))
         else:
-            to_fetch.append((sym, OHLCV_START_DATE, "lan dau (new)"))
+            # Chua co trong cache → full load tu 2023
+            to_fetch.append((sym, OHLCV_START_DATE, "new"))
+            new_count += 1
 
-    print(f"   SKIP (da cap nhat): {skipped_count} ma")
-    print(f"   Can fetch         : {len(to_fetch)} ma (tuan tu, delay {REQUEST_DELAY}s)")
+    print(f"   SKIP hoan toan (da co hom nay): {skipped_count} ma")
+    print(f"   Can fetch moi                 : {new_count} ma")
+    print(f"   Can update them phien         : {len(to_fetch) - new_count} ma")
+    print(f"   Tong can fetch                : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
+    print(f"   ETA                           : ~{len(to_fetch)*REQUEST_DELAY/60:.1f} phut")
 
     # Fetch tuan tu - an toan voi rate limit
-    new_rows = []; failed = []
+    new_rows = []; failed = []; n_ok = 0; n_empty = 0
 
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
-        df_r = fetch_one(sym, start_str, today)
+        df_r = fetch_one(sym, start_str, today.strftime("%Y-%m-%d"))
         if df_r is None:
             failed.append(sym)
-            print(f"  [{i:>4}/{len(to_fetch)}] FAIL    {sym}")
+            print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
         elif df_r.empty:
-            print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW  {sym} ({lbl})")
+            n_empty += 1
+            # Chi in NO_NEW neu la ma moi hoac NaT (tranh spam log)
+            if "new" in lbl or "NaT" in lbl:
+                print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
         else:
-            new_rows.append(df_r)
-            print(f"  [{i:>4}/{len(to_fetch)}] OK      {sym} +{len(df_r)} phien ({lbl})")
+            new_rows.append(df_r); n_ok += 1
+            # In moi 50 ma hoac ma moi
+            if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
+                print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | tong OK={n_ok}")
         time.sleep(REQUEST_DELAY)
 
     df_cache.drop(columns=["time_dt"], inplace=True)
+    print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count}")
+    if failed: print(f"   Failed: {failed[:10]}")
+
     if new_rows:
         df_add = pd.concat(new_rows, ignore_index=True)
 
