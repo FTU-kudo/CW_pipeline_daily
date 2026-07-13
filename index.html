@@ -1113,12 +1113,13 @@ function renderDrill(ticker) {
     `;
   }
 
-  // 2) Premium history
-  const premHist = o.close.map((p,i) => {
+  // ─── 2) Premium history ──────────────────────────────────────
+const premHist = o.close.map((p, i) => {
+    // Lấy giá cổ phiếu cơ sở: ưu tiên base_price, fallback underlying_price
     const S = (o.base_price && o.base_price[i]) || (o.underlying_price && o.underlying_price[i]) || 0;
     const intrinsic = Math.max(S - cw.exercise, 0) / cw.ratio / 1000;
     return S > 0 ? +(((p - intrinsic) / (S / 1000)) * 100).toFixed(1) : 0;
-  });
+});
   if (o.dates && o.dates.length > 0) {
     charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
       type: 'line',
