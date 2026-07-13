@@ -994,7 +994,8 @@ if __name__=="__main__":
     df_ohlcv_full      = step2_ohlcv(df_vs)
     df_filtered, valid = step3_filter(df_ohlcv_full)
     step4_excel(df_filtered, df_vs, valid)
-    # Truyen df_ohlcv_full (toan bo lich su) thay vi df_filtered (chi tu 02/01/2024)
-    # de dashboard hien thi du lieu tu ngay niem yet dau tien
-    step5_export_json(df_ohlcv_full, df_vs, valid)
+    # Buoc BS: lay du lieu Black-Scholes tu Vietstock cho cac CW active
+    bs_data = step_bs_blackscholes(df_vs, valid)
+    # Truyen df_ohlcv_full (toan bo lich su) va bs_data vao step5
+    step5_export_json(df_ohlcv_full, df_vs, valid, bs_data)
     print(f"\nDone in {(time.time()-t0)/60:.1f} min")
