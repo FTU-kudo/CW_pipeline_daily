@@ -2,6 +2,9 @@ name: CW Pipeline Daily
 
 on:
   workflow_dispatch:
+  # Tu dong chay 16:30 ICT (09:30 UTC) thu 2 - thu 6
+  schedule:
+    - cron: '30 9 * * 1-5'
 
 jobs:
   run-pipeline:
@@ -51,7 +54,6 @@ jobs:
           git diff --cached --quiet \
             && echo "Khong co thay doi moi." \
             || git commit -m "update: CW data $(date +'%Y-%m-%d %H:%M UTC')"
-          git pull --rebase origin main
           git push
 
       - name: Upload Excel as Artifact
