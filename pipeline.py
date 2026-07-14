@@ -404,15 +404,16 @@ def step2_ohlcv(df_vs):
     df_cache["time_dt"] = pd.to_datetime(df_cache["time"], dayfirst=True, errors="coerce")
     last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
     cached   = set(last_dt.index)
-    total    = len(tickers)
-    today    = date.today()
 
-    # ── Xac dinh ngay GD gan nhat can cap nhat ───────────────────
-    # Pipeline chay luc 16:30 ICT → thi truong da dong → co the lay phien hom nay
-    # Chi SKIP neu cache da co data cua phien hom nay
-    # Dung start = last - 1 ngay (thay vi 3 ngay) de giam so request
+    # Dung gio ICT (UTC+7) de tinh ngay hom nay - tranh sai lech mui gio
+    from datetime import timezone
+    now_ict  = datetime.now(timezone.utc) + timedelta(hours=7)
+    today    = now_ict.date()
+    today_str = today.strftime("%Y-%m-%d")
 
-    to_fetch      = []   # [(sym, start_str, lbl)]
+    print(f"   Ngay hien tai (ICT): {today}  |  Gio ICT: {now_ict.strftime('%H:%M')}")
+
+    to_fetch      = []
     skipped_count = 0
     new_count     = 0
 
@@ -420,44 +421,43 @@ def step2_ohlcv(df_vs):
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
-                # Cache NaT: reload 30 ngay gan nhat
                 start_str = (today - timedelta(days=30)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, start_str, "NaT-reload"))
             elif last.date() >= today:
-                # Da co data hom nay → SKIP hoan toan
+                # Cache da co data hom nay (ICT) → SKIP
                 skipped_count += 1
                 continue
             else:
-                # Lay tu ngay cuoi trong cache (giu nguyen ngay do de drop_dup xu ly)
-                start_str = last.strftime("%Y-%m-%d")
-                to_fetch.append((sym, start_str, f"+tu {last.strftime('%d/%m/%Y')}"))
+                # Lay TU NGAY TIEP THEO sau ngay cuoi trong cache
+                # Tranh fetch lai ngay da co → drop_dup khong bi nham
+                next_day  = (last + timedelta(days=1)).strftime("%Y-%m-%d")
+                to_fetch.append((sym, next_day,
+                                 f"+tu {(last+timedelta(days=1)).strftime('%d/%m/%Y')}"))
         else:
-            # Chua co trong cache → full load tu 2023
             to_fetch.append((sym, OHLCV_START_DATE, "new"))
             new_count += 1
 
-    print(f"   SKIP hoan toan (da co hom nay): {skipped_count} ma")
-    print(f"   Can fetch moi                 : {new_count} ma")
-    print(f"   Can update them phien         : {len(to_fetch) - new_count} ma")
-    print(f"   Tong can fetch                : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
-    print(f"   ETA                           : ~{len(to_fetch)*REQUEST_DELAY/60:.1f} phut")
+    print(f"   SKIP (da co hom nay ICT): {skipped_count} ma")
+    print(f"   Can fetch moi           : {new_count} ma")
+    print(f"   Can update them phien   : {len(to_fetch) - new_count} ma")
+    print(f"   Tong can fetch          : {len(to_fetch)} ma | delay {REQUEST_DELAY}s")
+    print(f"   ETA                     : ~{len(to_fetch)*REQUEST_DELAY/60:.1f} phut")
 
     # Fetch tuan tu - an toan voi rate limit
     new_rows = []; failed = []; n_ok = 0; n_empty = 0
 
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
-        df_r = fetch_one(sym, start_str, today.strftime("%Y-%m-%d"))
+        # Dung today_str theo ICT
+        df_r = fetch_one(sym, start_str, today_str)
         if df_r is None:
             failed.append(sym)
             print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
         elif df_r.empty:
             n_empty += 1
-            # Chi in NO_NEW neu la ma moi hoac NaT (tranh spam log)
             if "new" in lbl or "NaT" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
         else:
             new_rows.append(df_r); n_ok += 1
-            # In moi 50 ma hoac ma moi
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | tong OK={n_ok}")
         time.sleep(REQUEST_DELAY)
@@ -469,21 +469,30 @@ def step2_ohlcv(df_vs):
     if new_rows:
         df_add = pd.concat(new_rows, ignore_index=True)
 
-        # Xoa rows co time = NaT hoac "NaT" trong cache truoc khi merge
-        # (tranh conflict khi drop_duplicates)
+        # Xoa rows NaT trong cache
         bad_mask = df_cache["time"].isna() | (df_cache["time"].astype(str) == "NaT")
         n_bad = bad_mask.sum()
         if n_bad > 0:
-            print(f"   Xoa {n_bad} rows NaT trong cache truoc khi merge")
+            print(f"   Xoa {n_bad} rows NaT trong cache")
             df_cache = df_cache[~bad_mask].copy()
 
         df_merged = pd.concat([df_cache, df_add], ignore_index=True)
         df_merged["time"] = df_merged["time"].astype(str).str.strip()
-        df_merged = df_merged[df_merged["time"] != "NaT"]
-        df_merged = df_merged[df_merged["time"] != "nan"]
+        df_merged = df_merged[~df_merged["time"].isin(["NaT","nan",""])]
+
+        # Sort theo thoi gian TRUOC khi drop_dup → dam bao giu ban moi nhat
+        df_merged["_sort_dt"] = pd.to_datetime(df_merged["time"], dayfirst=True, errors="coerce")
+        df_merged.sort_values(["Ticker","_sort_dt"], inplace=True)
         df_merged.drop_duplicates(subset=["time","Ticker"], keep="last", inplace=True)
-        df_merged.sort_values(["Ticker","time"], inplace=True)
+        df_merged.drop(columns=["_sort_dt"], inplace=True)
         df_merged.reset_index(drop=True, inplace=True)
+
+        # In debug: kiem tra ngay moi nhat sau merge
+        df_merged["_dt2"] = pd.to_datetime(df_merged["time"], dayfirst=True, errors="coerce")
+        newest = df_merged.groupby("Ticker")["_dt2"].max()
+        df_merged.drop(columns=["_dt2"], inplace=True)
+        sample = newest.sort_values(ascending=False).head(3)
+        print(f"   Ngay moi nhat sau merge (sample): {sample.to_dict()}")
         print(f"   Them {len(df_add):,} dong moi → tong {len(df_merged):,} dong")
         save_cache(df_merged, OHLCV_CACHE)
         return df_merged
