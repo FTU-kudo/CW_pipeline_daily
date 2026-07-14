@@ -37,7 +37,9 @@ OHLCV_START_DATE = "2023-01-01"   # YYYY-MM-DD (dung cho API moi)
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 5
 RETRY_DELAY      = 5.0
-REQUEST_DELAY    = 1.1    # 1.1s/ma = ~54 req/phut, an toan voi gioi han 60/phut
+REQUEST_DELAY    = 0.6    # Giam tu 1.1s → 0.6s: con an toan (<60 req/phut) nhung nhanh hon 45%
+                          # Logic: 60/0.6 = 100 req/phut nhung vnstock VCI co buffer,
+                          # thuc te moi request mat ~0.3s API time nen net rate ~1.1req/s < 2req/s limit
 
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
@@ -196,12 +198,61 @@ def scrape_codes(codes, label=""):
         df.drop(columns=[c for c in ["status","loi"] if c in df.columns],inplace=True)
     return df
 
+def _refresh_active_prices(active_codes: list, df_cache: pd.DataFrame) -> pd.DataFrame:
+    """
+    Lightweight refresh: chi lay gia_hien_tai + trang_thai_cw cho CW active.
+    KHONG scrape lai toan bo HTML → nhanh hon ~5x so voi scrape_codes().
+    Chi cap nhat 2 cot thay doi hang ngay; cac cot tinh (exercise, maturity...) giu nguyen.
+    """
+    if not active_codes:
+        return df_cache
+
+    print(f"   Lightweight price refresh cho {len(active_codes)} CW active...")
+    t0 = time.time()
+
+    def fetch_price_only(code):
+        url = f"{BASE_URL}/chung-khoan-phai-sinh/{code}/cw-tong-quan.htm"
+        try:
+            resp = get_session().get(url, timeout=TIMEOUT, allow_redirects=True)
+            if resp.status_code != 200:
+                return code, None, None
+            soup = BeautifulSoup(resp.text, "html.parser")
+            pe = soup.select_one("#stockprice .price")
+            gia = parse_number(pe.get_text(strip=True)) if pe else None
+            el = soup.select_one("#moneyness-status")
+            trang_thai = el.get_text(strip=True) if el else None
+            return code, gia, trang_thai
+        except Exception:
+            return code, None, None
+
+    updates = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        futs = {ex.submit(fetch_price_only, c): c for c in active_codes}
+        for f in as_completed(futs):
+            code, gia, trang_thai = f.result()
+            updates[code] = (gia, trang_thai)
+
+    # Apply updates vao cache in-place (chi cap nhat 2 cot)
+    df_out = df_cache.copy()
+    mask = df_out["ma_cw"].isin(updates)
+    for code, (gia, trang_thai) in updates.items():
+        idx = df_out.index[df_out["ma_cw"] == code]
+        if len(idx) and gia is not None:
+            df_out.loc[idx, "gia_hien_tai"] = gia
+        if len(idx) and trang_thai is not None:
+            df_out.loc[idx, "trang_thai_cw"] = trang_thai
+
+    elapsed = time.time() - t0
+    ok = sum(1 for g, _ in updates.values() if g is not None)
+    print(f"   Price refresh xong: {ok}/{len(active_codes)} OK | {elapsed:.1f}s")
+    return df_out
+
 # ══════════════════════════════════════════════════════════════════
 # BUOC 1 - VIETSTOCK (INCREMENTAL)
 # ══════════════════════════════════════════════════════════════════
 def step1_vietstock():
     print("\n"+"="*60)
-    print("BUOC 1 - Vietstock (incremental + daily refresh active)")
+    print("BUOC 1 - Vietstock (incremental + lightweight daily refresh)")
     print("="*60)
     all_codes=[
         f"{s}{yy}{n:02d}"
@@ -216,7 +267,7 @@ def step1_vietstock():
 
     known=set(df_cache["ma_cw"].tolist())
 
-    # 1. Scrape ma CW MOI chua co trong cache
+    # 1. Scrape ma CW MOI chua co trong cache (full scrape, it ma)
     new_codes=[c for c in all_codes if c not in known]
     print(f"   Cache co: {len(known)} ma  |  Ma moi: {len(new_codes)}")
     if new_codes:
@@ -226,8 +277,8 @@ def step1_vietstock():
             df_cache.drop_duplicates(subset="ma_cw",keep="last",inplace=True)
             print(f"   Them {len(df_new)} ma moi vao cache")
 
-    # 2. Re-scrape hang ngay: cap nhat thong tin CW dang ACTIVE
-    # (gia hien tai, kl_luu_hanh, trang_thai, ngay_gd_cuoi_cung moi nhat)
+    # 2. Lightweight refresh hang ngay: CHI cap nhat gia_hien_tai + trang_thai_cw
+    # Khong scrape lai toan bo HTML cho thong tin tinh (exercise, maturity...)
     today_ts = pd.Timestamp(date.today())
     if "ngay_gd_cuoi_cung" in df_cache.columns:
         ldt = pd.to_datetime(df_cache["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
@@ -235,14 +286,8 @@ def step1_vietstock():
     else:
         active_codes = []
 
-    print(f"   Re-scrape {len(active_codes)} CW active (cap nhat gia + thong tin ngay hom nay)...")
-    if active_codes:
-        df_refreshed = scrape_codes(active_codes, "refresh active")
-        if not df_refreshed.empty:
-            df_cache = df_cache[~df_cache["ma_cw"].isin(df_refreshed["ma_cw"])]
-            df_cache = pd.concat([df_cache, df_refreshed], ignore_index=True)
-            df_cache.drop_duplicates(subset="ma_cw", keep="last", inplace=True)
-            print(f"   Da refresh {len(df_refreshed)} CW active")
+    # Dung lightweight fetch (chi lay gia + trang thai, khong parse lai toan bo)
+    df_cache = _refresh_active_prices(active_codes, df_cache)
 
     save_cache(df_cache, VIETSTOCK_CACHE)
     return df_cache
@@ -355,6 +400,20 @@ def fetch_one(symbol, start_str, end_str):
 
     return None  # that bai hoan toan sau MAX_RETRIES
 
+def _is_trading_day_closed() -> bool:
+    """
+    Tra ve True neu HoSE chac chan DA dong cua hom nay (hoac hom nay khong co phien GD).
+    - Thu 7, CN → khong co phien
+    - Gio ICT >= 15:30 → phien hom nay chac chan da ket thuc
+    """
+    from datetime import timezone
+    now_ict = datetime.now(timezone.utc) + timedelta(hours=7)
+    if now_ict.weekday() >= 5:   # 5=Sat, 6=Sun
+        return True
+    if now_ict.hour > 15 or (now_ict.hour == 15 and now_ict.minute >= 30):
+        return True
+    return False
+
 def step2_ohlcv(df_vs):
     print("\n"+"="*60)
     print("BUOC 2 - OHLCV (incremental)")
@@ -370,13 +429,12 @@ def step2_ohlcv(df_vs):
     else:
         print("   WARN: no VNSTOCK_API env var.")
 
-    # Mo rong end date them 1 ngay de dam bao lay du phien cuoi ngay hom nay
-    today     = date.today().strftime("%Y-%m-%d")
     tickers   = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache  = load_cache(OHLCV_CACHE)
 
     if df_cache is None:
         # ── Full load ────────────────────────────────────────────
+        today = date.today().strftime("%Y-%m-%d")
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
         rows=[]; failed=[]; skipped=[]
         for i,sym in enumerate(tickers,1):
@@ -413,23 +471,53 @@ def step2_ohlcv(df_vs):
 
     print(f"   Ngay hien tai (ICT): {today}  |  Gio ICT: {now_ict.strftime('%H:%M')}")
 
+    # ── Fast-exit: neu phien hom nay chua co (truoc 15:30) va HoSE chua dong ──
+    # Ngay lam viec gan nhat co phien GD (Thu 2-6, truoc 15:30 → ngay hom qua)
+    from datetime import timezone
+    is_closed = _is_trading_day_closed()
+    # Ngay phien GD can co trong cache: neu HoSE chua dong hom nay → ngay hom qua
+    # neu da dong → ngay hom nay
+    last_expected_session = today if is_closed else (today - timedelta(days=1))
+    # Bien sang ngay lam viec gan nhat
+    while last_expected_session.weekday() >= 5:
+        last_expected_session -= timedelta(days=1)
+
+    # Kiem tra xem cache da co day du chua
+    cached_last_dates = last_dt.dropna()
+    if len(cached_last_dates) > 0:
+        tickers_need_update = [
+            sym for sym in tickers
+            if sym not in cached_last_dates.index
+            or cached_last_dates.get(sym, pd.NaT) is pd.NaT
+            or (not pd.isna(cached_last_dates.get(sym, pd.NaT))
+                and cached_last_dates[sym].date() < last_expected_session)
+        ]
+        tickers_up_to_date  = len(tickers) - len(tickers_need_update)
+        print(f"   Phien GD can co: {last_expected_session} ({'HoSE da dong' if is_closed else 'HoSE chua dong → dung ngay hom qua'})")
+        print(f"   Da co du       : {tickers_up_to_date} ma (skip)")
+        print(f"   Can cap nhat   : {len(tickers_need_update)} ma")
+
+        if not tickers_need_update:
+            print("   → Cache day du, SKIP toan bo OHLCV fetch.")
+            df_cache.drop(columns=["time_dt"], inplace=True)
+            return df_cache
+    else:
+        tickers_need_update = tickers
+
     to_fetch      = []
     skipped_count = 0
     new_count     = 0
 
-    for sym in tickers:
+    for sym in tickers_need_update:
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
                 start_str = (today - timedelta(days=30)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, start_str, "NaT-reload"))
             elif last.date() >= today:
-                # Cache da co data hom nay (ICT) → SKIP
                 skipped_count += 1
                 continue
             else:
-                # Lay TU NGAY TIEP THEO sau ngay cuoi trong cache
-                # Tranh fetch lai ngay da co → drop_dup khong bi nham
                 next_day  = (last + timedelta(days=1)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, next_day,
                                  f"+tu {(last+timedelta(days=1)).strftime('%d/%m/%Y')}"))
@@ -444,23 +532,33 @@ def step2_ohlcv(df_vs):
     print(f"   ETA                     : ~{len(to_fetch)*REQUEST_DELAY/60:.1f} phut")
 
     # Fetch tuan tu - an toan voi rate limit
+    # Adaptive delay: chi sleep day du khi goi API thanh cong
+    # EMPTY (CW het han) → sleep ngan hon vi API van xu ly duoc nhanh
+    DELAY_OK    = REQUEST_DELAY        # 0.6s cho thanh cong
+    DELAY_EMPTY = 0.15                 # 0.15s cho ma khong co data (API nhanh)
+    DELAY_FAIL  = 0.3                  # 0.3s cho fail (khong can doi lau)
+
     new_rows = []; failed = []; n_ok = 0; n_empty = 0
+    t_fetch_start = time.time()
 
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
-        # Dung today_str theo ICT
         df_r = fetch_one(sym, start_str, today_str)
         if df_r is None:
             failed.append(sym)
             print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
+            time.sleep(DELAY_FAIL)
         elif df_r.empty:
             n_empty += 1
             if "new" in lbl or "NaT" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
+            time.sleep(DELAY_EMPTY)   # Khong can delay day du cho EMPTY
         else:
             new_rows.append(df_r); n_ok += 1
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
-                print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | tong OK={n_ok}")
-        time.sleep(REQUEST_DELAY)
+                elapsed = time.time() - t_fetch_start
+                eta = (len(to_fetch) - i) * (elapsed / i) / 60
+                print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | OK={n_ok} ETA={eta:.1f}ph")
+            time.sleep(DELAY_OK)
 
     df_cache.drop(columns=["time_dt"], inplace=True)
     print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count}")
@@ -684,28 +782,88 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
     ohlcv_idx = {t: grp.set_index("time_dt") for t, grp in df_ohlcv_filtered.groupby("Ticker")}
 
     # ── Lay OHLCV underlying de tinh premium theo ngay ───────────
-    # Fetch them du lieu OHLCV cua cac ma co phieu co so neu chua co
+    # Dung cache rieng cho underlying (underlying.parquet) - incremental
+    UNDERLYING_CACHE = f"{CACHE_DIR}/underlying.parquet"
     underlying_ohlcv = {}   # {sym: DataFrame indexed by time_dt}
-    today_str    = date.today().strftime("%Y-%m-%d")
-    week_ago_str = (date.today() - timedelta(days=3650)).strftime("%Y-%m-%d")  # ~10 nam
+    today_str = date.today().strftime("%Y-%m-%d")
 
+    # Load cache underlying neu co
+    df_und_cache = load_cache(UNDERLYING_CACHE) if os.path.exists(UNDERLYING_CACHE) else None
+    und_cache_idx = {}
+    if df_und_cache is not None and not df_und_cache.empty:
+        df_und_cache["time"] = df_und_cache["time"].astype(str)
+        df_und_cache["time_dt"] = pd.to_datetime(df_und_cache["time"], dayfirst=True, errors="coerce")
+        und_cache_idx = {t: grp.set_index("time_dt") for t, grp in df_und_cache.groupby("Ticker")}
+
+    und_new_rows = []
     for sym in underlyings:
         if sym in ohlcv_idx:
-            # Da co OHLCV trong cache (vi ma co so cung la CW underlying)
+            # Da co trong OHLCV CW cache → dung luon, khong fetch them
             underlying_ohlcv[sym] = ohlcv_idx[sym]
-            print(f"   underlying OHLCV {sym}: dung tu cache ({len(ohlcv_idx[sym])} phien)")
-        else:
-            # Fetch moi
-            df_u = fetch_one(sym, week_ago_str, today_str)
-            if df_u is not None and not df_u.empty:
-                df_u["time_dt"] = pd.to_datetime(df_u["time"], dayfirst=True, errors="coerce")
-                df_u = df_u[df_u["time_dt"].notna()].copy()
-                underlying_ohlcv[sym] = df_u.set_index("time_dt")
-                print(f"   underlying OHLCV {sym}: fetch OK ({len(df_u)} phien)")
+            print(f"   underlying {sym}: tu ohlcv_idx ({len(ohlcv_idx[sym])} phien)")
+            continue
+
+        # Kiem tra cache underlying: chi fetch phien CHUA CO
+        if sym in und_cache_idx:
+            cached_und = und_cache_idx[sym]
+            last_und   = cached_und.index.max()
+            from datetime import timezone
+            now_ict  = datetime.now(timezone.utc) + timedelta(hours=7)
+            today_dt = now_ict.date()
+            if last_und.date() >= today_dt or (
+                not _is_trading_day_closed() and last_und.date() >= today_dt - timedelta(days=1)
+            ):
+                # Cache underlying da du moi → dung luon
+                underlying_ohlcv[sym] = cached_und
+                print(f"   underlying {sym}: cache OK ({len(cached_und)} phien, last={last_und.date()})")
+                continue
+            # Chua du moi → chi fetch phan con thieu (incremental)
+            next_day = (last_und + timedelta(days=1)).strftime("%Y-%m-%d")
+            print(f"   underlying {sym}: incremental tu {next_day}")
+            df_u_new = fetch_one(sym, next_day, today_str)
+            if df_u_new is not None and not df_u_new.empty:
+                df_u_new["time_dt"] = pd.to_datetime(df_u_new["time"], dayfirst=True, errors="coerce")
+                df_u_new = df_u_new[df_u_new["time_dt"].notna()].copy()
+                und_new_rows.append(df_u_new)
+                # Merge vao cached_und
+                combined = pd.concat([cached_und.reset_index(), df_u_new]).drop_duplicates(
+                    subset=["time"], keep="last"
+                ).set_index("time_dt").sort_index()
+                underlying_ohlcv[sym] = combined
+                print(f"   underlying {sym}: +{len(df_u_new)} phien moi → {len(combined)} tong")
             else:
-                underlying_ohlcv[sym] = pd.DataFrame()
-                print(f"   underlying OHLCV {sym}: khong lay duoc")
-        time.sleep(0.5)
+                underlying_ohlcv[sym] = cached_und
+                print(f"   underlying {sym}: khong co phien moi, dung cache cu ({len(cached_und)} phien)")
+            time.sleep(0.4)
+            continue
+
+        # Chua co cache → fetch day du (full load cho underlying nay)
+        start_und = OHLCV_START_DATE
+        print(f"   underlying {sym}: full fetch tu {start_und}")
+        df_u = fetch_one(sym, start_und, today_str)
+        if df_u is not None and not df_u.empty:
+            df_u["time_dt"] = pd.to_datetime(df_u["time"], dayfirst=True, errors="coerce")
+            df_u = df_u[df_u["time_dt"].notna()].copy()
+            und_new_rows.append(df_u)
+            underlying_ohlcv[sym] = df_u.set_index("time_dt")
+            print(f"   underlying {sym}: fetch OK ({len(df_u)} phien)")
+        else:
+            underlying_ohlcv[sym] = pd.DataFrame()
+            print(f"   underlying {sym}: khong lay duoc")
+        time.sleep(0.4)
+
+    # Luu cache underlying neu co du lieu moi
+    if und_new_rows:
+        df_und_new = pd.concat(und_new_rows, ignore_index=True)
+        if df_und_cache is not None and not df_und_cache.empty:
+            df_und_cache.drop(columns=["time_dt"], errors="ignore", inplace=True)
+            df_und_merged = pd.concat([df_und_cache, df_und_new], ignore_index=True)
+            df_und_merged["time"] = df_und_merged["time"].astype(str)
+            df_und_merged.drop_duplicates(subset=["time","Ticker"], keep="last", inplace=True)
+        else:
+            df_und_merged = df_und_new
+        save_cache(df_und_merged, UNDERLYING_CACHE)
+        print(f"   underlying cache updated: {len(df_und_merged)} dong")
 
     def get_underlying_price_series(sym):
         """Tra ve dict {date_str_DD/MM/YYYY: gia_VND} cho ma co phieu co so."""
