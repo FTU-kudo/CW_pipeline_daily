@@ -1074,7 +1074,7 @@ function renderDrill(ticker) {
   if (!cw) return;
   const o = ohlcvData[ticker] || {
     dates: [], open: [], high: [], low: [], close: [],
-    volume: [], base_price: [], bs_sigma: [], bs_delta: []
+    volume: [], underlying_close: []
   };
 
   // Info grid
@@ -1114,10 +1114,10 @@ function renderDrill(ticker) {
   }
 
   // 2) Premium history
-  // base_price = gia CK co so (VND), gia CW (nghin dong)
+  // underlying_close = gia CK co so (VND) theo tung ngay (lay tu OHLCV underlying)
   // Premium = (Gia CW * ratio * 1000 - max(S-K,0)) / S * 100
   const premHist = o.close.map((p, i) => {
-    const S = (o.base_price && o.base_price[i]) ? o.base_price[i] : 0;
+    const S = (o.underlying_close && o.underlying_close[i]) ? o.underlying_close[i] : 0;
     if (S <= 0) return null;
     const cwVnd      = p * 1000;                        // gia CW -> VND
     const intrinsic  = Math.max(S - cw.exercise, 0);   // gia tri noi tai (VND)
@@ -1152,42 +1152,18 @@ function renderDrill(ticker) {
     });
   }
 
-  // 3) Delta + Sigma (nếu có)
-  // Kiem tra co du lieu BS that su (khong phai toan 0)
-  const hasGreeks = o.bs_delta && o.bs_delta.length > 0 &&
-                    o.bs_delta.some(v => v > 0) &&
-                    o.bs_sigma && o.bs_sigma.length > 0 &&
-                    o.bs_sigma.some(v => v > 0);
-  if (hasGreeks && o.dates && o.dates.length > 0) {
-    const deltas = o.bs_delta.map(v => (v && v > 0) ? +v.toFixed(3) : null);
-    const sigmas = o.bs_sigma.map(v => (v && v > 0) ? +v.toFixed(4) : null);
-    charts['drill-greeks'] = new Chart(document.getElementById('c-drill-greeks').getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: o.dates,
-        datasets: [
-          { label: 'Delta', data: deltas, borderColor: '#4a3aa7', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, yAxisID: 'y' },
-          { label: 'Sigma', data: sigmas, borderColor: '#eb6834', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, yAxisID: 'y1' }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
-          y: { grid: { color: GRID }, ticks: { color: TICK }, position: 'left' },
-          y1: { grid: { display: false }, ticks: { color: TICK }, position: 'right' }
-        }
-      }
-    });
-  } else {
-    // Không có dữ liệu → hiển thị thông báo
-    document.getElementById('c-drill-greeks').parentNode.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:160px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;">
-        Không có dữ liệu Delta/Sigma lịch sử
-      </div>
-    `;
-  }
+  // 3) Delta & Sigma lịch sử (hiện tại không có do Vietstock block BS API)
+  // Delta được xấp xỉ theo moneyness tại ngày hiện tại (không có chuỗi lịch sử)
+  document.getElementById('c-drill-greeks').parentNode.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:160px;
+                color:var(--text3);font-size:13px;background:var(--surface2);border-radius:8px;
+                flex-direction:column;gap:6px;">
+      <span style="font-size:18px">📊</span>
+      <span>Delta/Sigma lịch sử chưa khả dụng</span>
+      <span style="font-size:11px">Delta hiện tại: <strong style="color:var(--text)">${cw.delta ? cw.delta.toFixed(3) : '—'}</strong>
+        (xấp xỉ theo Moneyness: ${cw.moneyness})</span>
+    </div>
+  `;
 }
 
 // ═══════════════════════════════════════════════════════════════
