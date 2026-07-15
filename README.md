@@ -23,15 +23,11 @@ Bước 4  →  Xuất Excel 3 sheet vào /output
 
 ### Chạy thủ công trên GitHub Actions
 
-1. Vào tab **Actions** → chọn workflow **CW Pipeline – YSVN**
+1. Vào tab **Actions** → chọn workflow **CW Pipeline Daily**
 2. Nhấn **Run workflow** → **Run workflow**
 3. Sau ~2 tiếng, vào run đó → mục **Artifacts** → tải file Excel về
 
 Hoặc file Excel cũng được commit thẳng vào thư mục `/output` trong repo.
-
-### Tự động hàng đêm
-
-Bỏ comment phần `schedule:` trong `.github/workflows/cw_pipeline.yml`.
 
 ## GitHub Secret cần thiết
 
@@ -43,12 +39,23 @@ Thêm tại: **Settings → Secrets and variables → Actions → New repository
 
 ## Cấu trúc repo
 
+## Cấu trúc repo
+
 ```
-├── pipeline.py                        # Script chính
-├── requirements.txt
-├── output/                            # File Excel được lưu tại đây
-│   └── CW_Pipeline_YYYYMMDD.xlsx
-└── .github/
-    └── workflows/
-        └── cw_pipeline.yml            # GitHub Actions workflow
+├── .github/
+│   └── workflows/
+│       └── cw_pipeline.yml       # GitHub Actions workflow
+├── docs/
+│   ├── data.json
+│   └── index.html
+├── output/
+│   ├── cache/                    # Thư mục chứa các file parquet lưu tạm
+│   │   ├── ohlcv.parquet
+│   │   ├── underlying.parquet
+│   │   └── vietstock.parquet
+│   ├── .gitkeep
+│   └── cw_master.xlsx            # File Excel tổng hợp
+├── README.md                     # Tài liệu hướng dẫn
+├── pipeline.py                   # Script thực thi chính
+└── requirements.txt              # Danh sách thư viện Python cần thiết
 ```
