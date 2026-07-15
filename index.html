@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CW Dashboard</title>
+  <title>CW Dashboard – Black‑Scholes</title>
   <!-- Chỉ dùng Chart.js core -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
@@ -418,8 +418,9 @@
       <div class="sec-title">Giá đóng cửa — lịch sử OHLCV</div>
       <div class="card">
         <div class="legend">
-          <span><span class="ld" style="background:var(--blue)"></span>Giá đóng cửa</span>
+          <span><span class="ld" style="background:var(--blue)"></span>Close</span>
           <span><span class="ld" style="background:none;border-bottom:2px dashed rgba(42,120,214,0.55);display:inline-block;width:14px;height:0;vertical-align:middle;margin-bottom:2px"></span> Open</span>
+          <span><span class="ld" style="background:rgba(42,120,214,0.12);border:1px solid rgba(42,120,214,0.25)"></span>High–Low</span>
           <span><span class="ld" style="background:rgba(42,120,214,0.3)"></span>Khối lượng</span>
         </div>
         <div style="position:relative;height:240px"><canvas id="c-drill-price"></canvas></div>
@@ -458,27 +459,52 @@ let scored = [];
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
-// ── Hàm vẽ biểu đồ giá với đường Open & Close ────────────────────
+// ── Hàm vẽ biểu đồ giá với Open, High, Low, Close ────────────────────
 function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   const datasets = [];
 
-  // Đường giá mở cửa (Open)
-  if (open && open.length === labels.length) {
+  // Vùng fill giữa High và Low
+  if (high && low && high.length === labels.length && low.length === labels.length) {
     datasets.push({
-      label: 'Open',
-      data: open.map((o, i) => ({ x: labels[i], y: o })),
-      borderColor: 'rgba(42,120,214,0.45)',
-      borderWidth: 1.2,
-      borderDash: [4, 3],
+      label: 'High',
+      data: high.map((h, i) => ({ x: labels[i], y: h })),
+      borderColor: 'rgba(42,120,214,0.25)',
+      borderWidth: 0.8,
+      pointRadius: 0,
+      fill: '+1',                               // fill xuống dataset Low ngay dưới
+      backgroundColor: 'rgba(42,120,214,0.08)',
+      order: 4,
+      yAxisID: 'y',
+    });
+    datasets.push({
+      label: 'Low',
+      data: low.map((l, i) => ({ x: labels[i], y: l })),
+      borderColor: 'rgba(42,120,214,0.25)',
+      borderWidth: 0.8,
       pointRadius: 0,
       fill: false,
-      order: 2,
+      order: 5,
       yAxisID: 'y',
     });
   }
 
-  // Đường giá đóng cửa (Close)
+  // Đường Open — segment.borderDash là cú pháp đúng với Chart.js 3+
+  if (open && open.length === labels.length) {
+    datasets.push({
+      label: 'Open',
+      data: open.map((o, i) => ({ x: labels[i], y: o })),
+      borderColor: 'rgba(42,120,214,0.55)',
+      borderWidth: 1.2,
+      pointRadius: 0,
+      fill: false,
+      order: 2,
+      yAxisID: 'y',
+      segment: { borderDash: () => [4, 3] },   // nét đứt đúng cú pháp Chart.js 3+
+    });
+  }
+
+  // Đường Close
   if (close && close.length === labels.length) {
     datasets.push({
       label: 'Close',
