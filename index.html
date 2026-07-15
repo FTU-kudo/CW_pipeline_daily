@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CW Dashboard – Black‑Scholes</title>
+  <title>CW Dashboard</title>
   <!-- Chỉ dùng Chart.js core -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
@@ -419,7 +419,7 @@
       <div class="card">
         <div class="legend">
           <span><span class="ld" style="background:var(--blue)"></span>Giá đóng cửa</span>
-          <span><span class="ld" style="background:rgba(42,120,214,0.15)"></span>Biên độ (High–Low)</span>
+          <span><span class="ld" style="background:none;border-bottom:2px dashed rgba(42,120,214,0.55);display:inline-block;width:14px;height:0;vertical-align:middle;margin-bottom:2px"></span> Open</span>
           <span><span class="ld" style="background:rgba(42,120,214,0.3)"></span>Khối lượng</span>
         </div>
         <div style="position:relative;height:240px"><canvas id="c-drill-price"></canvas></div>
@@ -431,12 +431,12 @@
         <div style="position:relative;height:150px"><canvas id="c-prem-hist"></canvas></div>
       </div>
 
-      <!-- Delta + Sigma history -->
-      <div class="sec-title" style="margin-top:10px">Delta &amp; Sigma theo ngày</div>
+      <!-- Effective Gearing theo ngày -->
+      <div class="sec-title" style="margin-top:10px">Effective Gearing theo ngày</div>
       <div class="card">
         <div class="legend">
-          <span><span class="ld" style="background:var(--violet)"></span>Delta</span>
-          <span><span class="ld" style="background:var(--coral)"></span>Sigma</span>
+          <span><span class="ld" style="background:var(--violet)"></span>Effective Gearing (×)</span>
+          <span id="drill-eg-avg" style="font-size:11px;color:var(--text3)"></span>
         </div>
         <div style="position:relative;height:160px"><canvas id="c-drill-greeks"></canvas></div>
       </div>
@@ -458,50 +458,30 @@ let scored = [];
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
-// ── Hàm vẽ biểu đồ giá với vùng High-Low ────────────────────
-function drawPriceChart(canvasId, labels, close, high, low, volume) {
+// ── Hàm vẽ biểu đồ giá với đường Open & Close ────────────────────
+function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   const datasets = [];
 
-  // Vùng High-Low (dạng vùng)
-  if (high && low && high.length === labels.length && low.length === labels.length) {
+  // Đường giá mở cửa (Open)
+  if (open && open.length === labels.length) {
     datasets.push({
-      label: 'Biên độ (H-L)',
-      data: high.map((h, i) => ({ x: labels[i], y: h })),
-      backgroundColor: 'rgba(42,120,214,0.12)',
-      borderColor: 'rgba(42,120,214,0.2)',
-      borderWidth: 0,
-      fill: 'origin',
+      label: 'Open',
+      data: open.map((o, i) => ({ x: labels[i], y: o })),
+      borderColor: 'rgba(42,120,214,0.45)',
+      borderWidth: 1.2,
+      borderDash: [4, 3],
+      pointRadius: 0,
+      fill: false,
       order: 2,
-      yAxisID: 'y',
-    });
-    // Đường high và low (mờ)
-    datasets.push({
-      label: 'High',
-      data: high.map((h, i) => ({ x: labels[i], y: h })),
-      borderColor: 'rgba(42,120,214,0.3)',
-      borderWidth: 0.5,
-      pointRadius: 0,
-      fill: false,
-      order: 3,
-      yAxisID: 'y',
-    });
-    datasets.push({
-      label: 'Low',
-      data: low.map((l, i) => ({ x: labels[i], y: l })),
-      borderColor: 'rgba(42,120,214,0.3)',
-      borderWidth: 0.5,
-      pointRadius: 0,
-      fill: false,
-      order: 4,
       yAxisID: 'y',
     });
   }
 
-  // Đường giá đóng cửa
+  // Đường giá đóng cửa (Close)
   if (close && close.length === labels.length) {
     datasets.push({
-      label: 'Giá đóng cửa',
+      label: 'Close',
       data: close.map((c, i) => ({ x: labels[i], y: c })),
       borderColor: '#2a78d6',
       borderWidth: 2,
@@ -1103,7 +1083,7 @@ function renderDrill(ticker) {
     const high = o.high || [];
     const low = o.low || [];
     const volume = o.volume || [];
-    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, high, low, volume);
+    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, open, high, low, volume);
   } else {
     // Nếu không có dữ liệu, hiển thị thông báo
     document.getElementById('c-drill-price').parentNode.innerHTML = `
@@ -1152,18 +1132,108 @@ function renderDrill(ticker) {
     });
   }
 
-  // 3) Delta & Sigma lịch sử (hiện tại không có do Vietstock block BS API)
-  // Delta được xấp xỉ theo moneyness tại ngày hiện tại (không có chuỗi lịch sử)
-  document.getElementById('c-drill-greeks').parentNode.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:center;height:160px;
-                color:var(--text3);font-size:13px;background:var(--surface2);border-radius:8px;
-                flex-direction:column;gap:6px;">
-      <span style="font-size:18px">📊</span>
-      <span>Delta/Sigma lịch sử chưa khả dụng</span>
-      <span style="font-size:11px">Delta hiện tại: <strong style="color:var(--text)">${cw.delta ? cw.delta.toFixed(3) : '—'}</strong>
-        (xấp xỉ theo Moneyness: ${cw.moneyness})</span>
-    </div>
-  `;
+  // 3) Effective Gearing theo ngày
+  // EG_i = (dCW_i / CW_{i-1}) / (dS_i / S_{i-1})
+  // Dùng rolling 5 phiên để làm mịn nhiễu (CW thanh khoản thấp → giá nhảy bậc)
+  const ROLL = 5;
+  const egRaw = o.close.map((p, i) => {
+    if (i === 0) return null;
+    const S0 = o.underlying_close[i - 1], S1 = o.underlying_close[i];
+    const C0 = o.close[i - 1],            C1 = p;
+    if (!S0 || !S1 || S0 <= 0 || C0 <= 0) return null;
+    const rS = (S1 - S0) / S0;
+    const rC = (C1 - C0) / C0;
+    if (Math.abs(rS) < 0.0005) return null;   // bỏ ngày underlying đứng giá → EG vô nghĩa
+    const eg = rC / rS;
+    return (eg > 50 || eg < -20) ? null : +eg.toFixed(2);  // clip outlier
+  });
+
+  // Rolling mean ROLL phiên
+  const egSmooth = egRaw.map((_, i) => {
+    const window = egRaw.slice(Math.max(0, i - ROLL + 1), i + 1).filter(v => v !== null);
+    return window.length >= 2 ? +(window.reduce((a, b) => a + b, 0) / window.length).toFixed(2) : null;
+  });
+
+  // Trung bình 20 phiên gần nhất (hiển thị trong legend)
+  const egRecent = egSmooth.filter(v => v !== null).slice(-20);
+  const egAvg    = egRecent.length
+    ? (egRecent.reduce((a, b) => a + b, 0) / egRecent.length).toFixed(1)
+    : null;
+  const egEl = document.getElementById('drill-eg-avg');
+  if (egEl) egEl.textContent = egAvg ? `TB 20 phiên: ${egAvg}×` : '';
+
+  const hasEG = egSmooth.some(v => v !== null);
+  if (hasEG && o.dates && o.dates.length > 1) {
+    // Màu theo giá trị: xanh khi EG cao (CW khuếch đại tốt), đỏ khi âm
+    charts['drill-greeks'] = new Chart(document.getElementById('c-drill-greeks').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: o.dates,
+        datasets: [{
+          label: 'Effective Gearing',
+          data: egSmooth,
+          borderColor: 'var(--violet)',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: {
+            target: { value: 0 },
+            above: 'rgba(98,80,196,0.12)',
+            below: 'rgba(220,60,60,0.10)'
+          },
+          spanGaps: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index', intersect: false,
+            callbacks: { label: c => c.parsed.y !== null ? `EG: ${c.parsed.y.toFixed(1)}×` : 'N/A' }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+          y: {
+            grid: { color: GRID },
+            ticks: { color: TICK, callback: v => v + '×' },
+            // Đường tham chiếu EG=1 (không đòn bẩy)
+            afterDataLimits: axis => {
+              axis.min = Math.min(axis.min, 0);
+              axis.max = Math.max(axis.max, 2);
+            }
+          }
+        },
+        // Đường kẻ ngang EG=1 làm tham chiếu
+        plugins2: []
+      },
+      plugins: [{
+        id: 'eg-baseline',
+        afterDraw(chart) {
+          const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+          const y1 = y.getPixelForValue(1);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(150,150,150,0.5)';
+          ctx.lineWidth   = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.moveTo(left, y1); ctx.lineTo(right, y1); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle   = 'rgba(150,150,150,0.7)';
+          ctx.font        = '10px sans-serif';
+          ctx.fillText('EG=1', right - 34, y1 - 3);
+          ctx.restore();
+        }
+      }]
+    });
+  } else {
+    document.getElementById('c-drill-greeks').parentNode.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:160px;
+                  color:var(--text3);font-size:13px;background:var(--surface2);border-radius:8px;">
+        Chưa đủ dữ liệu để tính Effective Gearing
+      </div>
+    `;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
