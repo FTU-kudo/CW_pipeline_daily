@@ -432,29 +432,38 @@ def step2_ohlcv(df_vs):
     tickers   = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache  = load_cache(OHLCV_CACHE)
 
+    # end_str luon la NGAY MAI (today+1) vi VCI API dung end exclusive:
+    # fetch(start=14/07, end=14/07) → tra ve rong hoac thieu phien 14/07
+    # fetch(start=14/07, end=15/07) → tra ve du phien 14/07
+    from datetime import timezone as _tz
+    now_ict   = datetime.now(_tz.utc) + timedelta(hours=7)
+    today     = now_ict.date()
+    today_str = today.strftime("%Y-%m-%d")
+    end_str   = (today + timedelta(days=1)).strftime("%Y-%m-%d")   # always today+1
+
     if df_cache is None:
         # ── Full load ────────────────────────────────────────────
-        today = date.today().strftime("%Y-%m-%d")
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
+        print(f"   end_str = {end_str} (today+1, VCI exclusive)")
         rows=[]; failed=[]; skipped=[]
         for i,sym in enumerate(tickers,1):
-            df_r = fetch_one(sym, OHLCV_START_DATE, today)
+            df_r = fetch_one(sym, OHLCV_START_DATE, end_str)
             if df_r is None:
                 failed.append(sym)
                 print(f"  [{i:>4}/{len(tickers)}] FAIL {sym}")
             elif df_r.empty:
                 skipped.append(sym)
-                print(f"  [{i:>4}/{len(tickers)}] EMPTY {sym}")
             else:
                 rows.append(df_r)
-                print(f"  [{i:>4}/{len(tickers)}] OK {sym} ({len(df_r)} phien)")
+                if i % 50 == 1:
+                    print(f"  [{i:>4}/{len(tickers)}] OK {sym} ({len(df_r)} phien)")
             time.sleep(REQUEST_DELAY)
         df_out = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
         print(f"   OK:{len(rows)}  Empty:{len(skipped)}  Fail:{len(failed)}")
         if failed: print(f"   Failed: {failed}")
         save_cache(df_out, OHLCV_CACHE)
         return df_out
-    
+
     # ── Ensure time is string before incremental processing ─────
     df_cache["time"] = df_cache["time"].astype(str)
 
@@ -463,73 +472,54 @@ def step2_ohlcv(df_vs):
     last_dt  = df_cache.groupby("Ticker")["time_dt"].max()
     cached   = set(last_dt.index)
 
-    # Dung gio ICT (UTC+7) de tinh ngay hom nay - tranh sai lech mui gio
-    from datetime import timezone
-    now_ict  = datetime.now(timezone.utc) + timedelta(hours=7)
-    today    = now_ict.date()
-    today_str = today.strftime("%Y-%m-%d")
-
     print(f"   Ngay hien tai (ICT): {today}  |  Gio ICT: {now_ict.strftime('%H:%M')}")
+    print(f"   end_str fetch       : {end_str} (today+1, VCI exclusive)")
 
-    # ── Fast-exit: neu phien hom nay chua co (truoc 15:30) va HoSE chua dong ──
-    # Ngay lam viec gan nhat co phien GD (Thu 2-6, truoc 15:30 → ngay hom qua)
-    from datetime import timezone
+    # ── Tinh last_expected_session: phien GD gan nhat can co trong cache ──
+    # Neu HoSE chua dong (truoc 15:30 ngay GD) → phien can co la NGAY HOM QUA
+    # Neu HoSE da dong (sau 15:30, hoac weekend) → phien can co la NGAY HOM NAY
+    # (neu hom nay la weekend thi tinh lui ve Thu 6)
     is_closed = _is_trading_day_closed()
-    # Ngay phien GD can co trong cache: neu HoSE chua dong hom nay → ngay hom qua
-    # neu da dong → ngay hom nay
     last_expected_session = today if is_closed else (today - timedelta(days=1))
-    # Bien sang ngay lam viec gan nhat
-    while last_expected_session.weekday() >= 5:
+    while last_expected_session.weekday() >= 5:          # lui ve ngay GD gan nhat
         last_expected_session -= timedelta(days=1)
 
-    # Kiem tra xem cache da co day du chua
-    cached_last_dates = last_dt.dropna()
-    if len(cached_last_dates) > 0:
-        tickers_need_update = [
-            sym for sym in tickers
-            if sym not in cached_last_dates.index
-            or cached_last_dates.get(sym, pd.NaT) is pd.NaT
-            or (not pd.isna(cached_last_dates.get(sym, pd.NaT))
-                and cached_last_dates[sym].date() < last_expected_session)
-        ]
-        tickers_up_to_date  = len(tickers) - len(tickers_need_update)
-        print(f"   Phien GD can co: {last_expected_session} ({'HoSE da dong' if is_closed else 'HoSE chua dong → dung ngay hom qua'})")
-        print(f"   Da co du       : {tickers_up_to_date} ma (skip)")
-        print(f"   Can cap nhat   : {len(tickers_need_update)} ma")
-
-        if not tickers_need_update:
-            print("   → Cache day du, SKIP toan bo OHLCV fetch.")
-            df_cache.drop(columns=["time_dt"], inplace=True)
-            return df_cache
-    else:
-        tickers_need_update = tickers
+    print(f"   Gio ICT: {now_ict.strftime('%H:%M')} | HoSE {'DA DONG' if is_closed else 'CHUA DONG'}")
+    print(f"   Phien can co trong cache: {last_expected_session}")
 
     to_fetch      = []
     skipped_count = 0
     new_count     = 0
 
-    for sym in tickers_need_update:
+    for sym in tickers:
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
                 start_str = (today - timedelta(days=30)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, start_str, "NaT-reload"))
-            elif last.date() >= today:
+            elif last.date() >= last_expected_session:
+                # Cache da co du phien can thiet → skip
                 skipped_count += 1
-                continue
             else:
-                next_day  = (last + timedelta(days=1)).strftime("%Y-%m-%d")
+                # Chi fetch phan con thieu (tu ngay tiep theo sau ngay cuoi trong cache)
+                next_day = (last + timedelta(days=1)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, next_day,
-                                 f"+tu {(last+timedelta(days=1)).strftime('%d/%m/%Y')}"))
+                                 f"+tu {(last + timedelta(days=1)).strftime('%d/%m/%Y')}"))
         else:
             to_fetch.append((sym, OHLCV_START_DATE, "new"))
             new_count += 1
 
-    print(f"   SKIP (da co hom nay ICT): {skipped_count} ma")
-    print(f"   Can fetch moi           : {new_count} ma")
-    print(f"   Can update them phien   : {len(to_fetch) - new_count} ma")
-    print(f"   Tong can fetch          : {len(to_fetch)} ma | delay {REQUEST_DELAY}s")
-    print(f"   ETA                     : ~{len(to_fetch)*REQUEST_DELAY/60:.1f} phut")
+    print(f"   Skip (cache du)   : {skipped_count} ma")
+    print(f"   Can fetch moi     : {new_count} ma")
+    print(f"   Can update phien  : {len(to_fetch) - new_count} ma")
+    print(f"   Tong can fetch    : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
+
+    if not to_fetch:
+        print("   → Cache day du, SKIP toan bo OHLCV fetch.")
+        df_cache.drop(columns=["time_dt"], inplace=True)
+        return df_cache
+
+    print(f"   ETA               : ~{len(to_fetch) * REQUEST_DELAY / 60:.1f} phut")
 
     # Fetch tuan tu - an toan voi rate limit
     # Adaptive delay: chi sleep day du khi goi API thanh cong
@@ -542,7 +532,7 @@ def step2_ohlcv(df_vs):
     t_fetch_start = time.time()
 
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
-        df_r = fetch_one(sym, start_str, today_str)
+        df_r = fetch_one(sym, start_str, end_str)   # end_str = today+1 (VCI exclusive)
         if df_r is None:
             failed.append(sym)
             print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
@@ -784,8 +774,69 @@ def step5_export_json(df_ohlcv_filtered, df_vietstock, valid_tickers):
     # ── Lay OHLCV underlying de tinh premium theo ngay ───────────
     # Dung cache rieng cho underlying (underlying.parquet) - incremental
     UNDERLYING_CACHE = f"{CACHE_DIR}/underlying.parquet"
-    underlying_ohlcv = {}   # {sym: DataFrame indexed by time_dt}
-    today_str = date.today().strftime("%Y-%m-%d")
+    underlying_ohlcv = {}
+    from datetime import timezone as _tz2
+    _now_ict  = datetime.now(_tz2.utc) + timedelta(hours=7)
+    _today    = _now_ict.date()
+    today_str = _today.strftime("%Y-%m-%d")
+    end_str   = (_today + timedelta(days=1)).strftime("%Y-%m-%d")   # VCI exclusive
+    # last_exp_und: phien GD gan nhat can co trong cache underlying (giong step2)
+    _last_exp_und = _today if _is_trading_day_closed() else (_today - timedelta(days=1))
+    while _last_exp_und.weekday() >= 5:
+        _last_exp_und -= timedelta(days=1)
+
+    # Load cache underlying neu co
+    df_und_cache = load_cache(UNDERLYING_CACHE) if os.path.exists(UNDERLYING_CACHE) else None
+    und_cache_idx = {}
+    if df_und_cache is not None and not df_und_cache.empty:
+        df_und_cache["time"] = df_und_cache["time"].astype(str)
+        df_und_cache["time_dt"] = pd.to_datetime(df_und_cache["time"], dayfirst=True, errors="coerce")
+        und_cache_idx = {t: grp.set_index("time_dt") for t, grp in df_und_cache.groupby("Ticker")}
+
+    und_new_rows = []
+    for sym in underlyings:
+        if sym in ohlcv_idx:
+            underlying_ohlcv[sym] = ohlcv_idx[sym]
+            print(f"   underlying {sym}: tu ohlcv_idx ({len(ohlcv_idx[sym])} phien)")
+            continue
+
+        if sym in und_cache_idx:
+            cached_und = und_cache_idx[sym]
+            last_und   = cached_und.index.max()
+            if last_und.date() >= _last_exp_und:
+                underlying_ohlcv[sym] = cached_und
+                print(f"   underlying {sym}: cache OK ({len(cached_und)} phien, last={last_und.date()})")
+                continue
+            next_day = (last_und + timedelta(days=1)).strftime("%Y-%m-%d")
+            print(f"   underlying {sym}: incremental {next_day} → {end_str}")
+            df_u_new = fetch_one(sym, next_day, end_str)
+            if df_u_new is not None and not df_u_new.empty:
+                df_u_new["time_dt"] = pd.to_datetime(df_u_new["time"], dayfirst=True, errors="coerce")
+                df_u_new = df_u_new[df_u_new["time_dt"].notna()].copy()
+                und_new_rows.append(df_u_new)
+                combined = pd.concat([cached_und.reset_index(), df_u_new]).drop_duplicates(
+                    subset=["time"], keep="last"
+                ).set_index("time_dt").sort_index()
+                underlying_ohlcv[sym] = combined
+                print(f"   underlying {sym}: +{len(df_u_new)} phien → {len(combined)} tong")
+            else:
+                underlying_ohlcv[sym] = cached_und
+                print(f"   underlying {sym}: khong co phien moi, dung cache cu ({len(cached_und)} phien)")
+            time.sleep(0.4)
+            continue
+
+        print(f"   underlying {sym}: full fetch tu {OHLCV_START_DATE} → {end_str}")
+        df_u = fetch_one(sym, OHLCV_START_DATE, end_str)
+        if df_u is not None and not df_u.empty:
+            df_u["time_dt"] = pd.to_datetime(df_u["time"], dayfirst=True, errors="coerce")
+            df_u = df_u[df_u["time_dt"].notna()].copy()
+            und_new_rows.append(df_u)
+            underlying_ohlcv[sym] = df_u.set_index("time_dt")
+            print(f"   underlying {sym}: fetch OK ({len(df_u)} phien)")
+        else:
+            underlying_ohlcv[sym] = pd.DataFrame()
+            print(f"   underlying {sym}: khong lay duoc")
+        time.sleep(0.4)
 
     # Load cache underlying neu co
     df_und_cache = load_cache(UNDERLYING_CACHE) if os.path.exists(UNDERLYING_CACHE) else None
