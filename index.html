@@ -246,6 +246,77 @@
     .signal-good   { background: var(--bg-green); color: var(--text-green); }
     .signal-neutral{ background: var(--bg-amber); color: var(--text-amber); }
 
+    /* ----- CW COMBO (searchable) ----- */
+    .cw-combo-wrap {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .cw-combo-input {
+      font-size: 13px; padding: 5px 28px 5px 10px;
+      border-radius: 6px; border: 0.5px solid var(--border2);
+      background: var(--surface); color: var(--text);
+      min-width: 220px; height: 32px; cursor: text;
+      outline: none; font-family: inherit;
+    }
+    .cw-combo-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(42,120,214,0.15); }
+    .cw-combo-arrow {
+      position: absolute; right: 8px; pointer-events: none;
+      color: var(--text3); font-size: 10px;
+    }
+    .cw-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--surface); border: 0.5px solid var(--border2);
+      border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      max-height: 280px; overflow-y: auto; min-width: 240px;
+      display: none;
+    }
+    .cw-dropdown.open { display: block; }
+    .cw-opt {
+      padding: 7px 12px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; color: var(--text);
+    }
+    .cw-opt:hover, .cw-opt.active { background: var(--surface2); }
+    .cw-opt .opt-ticker { font-weight: 600; min-width: 90px; }
+    .cw-opt .opt-under  { font-size: 11px; color: var(--text3); }
+    .cw-opt mark { background: rgba(42,120,214,0.2); border-radius: 2px; padding: 0 1px; font-style: normal; color: inherit; }
+    .cw-empty { padding: 10px 12px; font-size: 12px; color: var(--text3); text-align: center; }
+
+    /* ----- GUIDE TABLE ----- */
+    .guide-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .guide-table thead tr {
+      background: var(--surface2);
+    }
+    .guide-table th {
+      padding: 9px 14px; font-size: 11px; font-weight: 600;
+      color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em;
+      text-align: left; border-bottom: 0.5px solid var(--border2);
+    }
+    .guide-table td {
+      padding: 10px 14px; vertical-align: top;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--text); line-height: 1.6;
+    }
+    .guide-table tr:last-child td { border-bottom: none; }
+    .guide-table tr:hover td { background: var(--surface2); transition: background 0.1s; }
+    .guide-highlight td { background: rgba(227,73,72,0.04); }
+    .guide-highlight td:first-child { border-left: 3px solid var(--red); padding-left: 11px; }
+    .guide-table code {
+      font-size: 11.5px; background: var(--surface2);
+      padding: 1px 6px; border-radius: 4px;
+      border: 0.5px solid var(--border2); font-family: monospace;
+    }
+    /* Tag pills inside guide table */
+    .gtag {
+      display: inline-block; font-size: 11.5px; font-weight: 600;
+      padding: 2px 8px; border-radius: 5px; white-space: nowrap;
+    }
+    .gtag-blue   { background: rgba(42,120,214,0.12);  color: #2a78d6; }
+    .gtag-green  { background: rgba(27,175,122,0.12);  color: #1baf7a; }
+    .gtag-red    { background: rgba(227,73,72,0.12);   color: #e34948; }
+    .gtag-amber  { background: rgba(237,161,0,0.12);   color: #b37800; }
+    .gtag-purple { background: rgba(74,58,167,0.12);   color: #4a3aa7; }
+
     /* ----- RESPONSIVE ----- */
     @media (max-width: 800px) {
       .kpi-row { grid-template-columns: repeat(2, 1fr); }
@@ -285,6 +356,7 @@
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
     <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
+    <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
 
   <!-- GLOBAL FILTERS (Overview + Table) -->
@@ -409,8 +481,13 @@
   <!-- ═══ PANE: DRILL-DOWN ═══ -->
   <div id="pane-drilldown" class="hidden">
     <div class="drill-header">
-      <label>Chọn mã CW:</label>
-      <select id="sel-cw"></select>
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="drill-combo-wrap">
+        <input class="cw-combo-input" id="drill-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="drill-combo-drop"></div>
+      </div>
     </div>
     <div class="sec">
       <div class="info-grid" id="drill-info"></div>
@@ -449,7 +526,13 @@
   <div id="pane-blackscholes" class="hidden">
     <div class="drill-header" style="gap:16px;flex-wrap:wrap">
       <label style="font-weight:500">📐 Black‑Scholes Visualizer</label>
-      <label>Chọn CW: <select id="bs-sel-cw" style="min-width:180px;font-size:13px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer"></select></label>
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="bs-combo-wrap">
+        <input class="cw-combo-input" id="bs-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="bs-combo-drop"></div>
+      </div>
     </div>
 
     <!-- Thông số đầu vào BS (có thể chỉnh) -->
@@ -498,6 +581,221 @@
       <div class="sec-title">Bề mặt Premium — Sigma × Moneyness (S/K)</div>
       <div class="card" style="margin-bottom:10px">
         <div style="position:relative;height:220px"><canvas id="c-bs-vol-surface"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: HƯỚNG DẪN / GLOSSARY ═══ -->
+  <div id="pane-guide" class="hidden">
+    <div style="padding: 1rem 1.5rem 2rem">
+
+      <!-- Header -->
+      <div style="margin-bottom: 1.25rem">
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">📖 Hướng dẫn sử dụng & Thuật ngữ</div>
+        <div style="font-size:12px;color:var(--text3)">Tài liệu tham chiếu cho mô hình định giá Black-Scholes và hệ thống phân tích Chứng quyền có bảo đảm (CW)</div>
+      </div>
+
+      <!-- SECTION 1: Thông số đầu vào -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">1. THÔNG SỐ ĐẦU VÀO (INPUTS)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:140px">Yếu tố</th><th>Ý nghĩa cốt lõi</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-blue">S – Giá cơ sở</span></td>
+                <td>Giá giao dịch hiện tại của cổ phiếu cơ sở trên thị trường ngay (Spot price).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">K – Giá thực hiện</span></td>
+                <td>Mức giá mà nhà đầu tư có quyền mua cổ phiếu khi chứng quyền đáo hạn (Strike price).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">T – Ngày còn lại</span></td>
+                <td>Thời gian tính từ hiện tại đến ngày đáo hạn (Time to maturity). Trong tính toán nội bộ, con số này sẽ được quy đổi ra tỷ lệ năm (T/365 hoặc T/252).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">σ – Sigma</span></td>
+                <td>Độ biến động lịch sử (Historical Volatility) hoặc độ biến động ngầm định (Implied Volatility) của cổ phiếu cơ sở. Pipeline tính bằng HV 252 phiên.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">r – Lãi suất phi rủi ro</span></td>
+                <td>Lãi suất tham chiếu, thường sử dụng lợi suất Trái phiếu Chính phủ kỳ hạn 10 năm (lấy từ HNX).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Ratio – Tỷ lệ chuyển đổi</span></td>
+                <td>Số lượng chứng quyền cần thiết để đổi lấy 1 cổ phiếu cơ sở. VD: ratio = 4 nghĩa là 4 CW = 1 cổ phiếu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: Chỉ số đầu ra -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">2. CHỈ SỐ ĐẦU RA (OUTPUTS & GREEKS)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:140px">Chỉ số</th><th>Ý nghĩa cốt lõi</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-purple">Moneyness (S/K)</span></td>
+                <td>Trạng thái của quyền chọn. Gồm 3 trạng thái: <strong>ITM</strong> (In-The-Money / Có lãi) khi S &gt; K, <strong>ATM</strong> (At-The-Money / Ngang giá) khi S ≈ K, <strong>OTM</strong> (Out-of-The-Money / Chịu lỗ) khi S &lt; K.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
+                <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
+              </tr>
+              <tr class="guide-highlight">
+                <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
+                <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-red">Giá Put (BS)</span></td>
+                <td>Giá lý thuyết của 1 chứng quyền bán. Thị trường Việt Nam hiện chưa có sản phẩm này, nhưng mô hình vẫn tính toán để tham chiếu và kiểm tra Put-Call Parity.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Delta (Δ)</span></td>
+                <td>Mức độ thay đổi giá CW khi giá cổ phiếu cơ sở thay đổi 1 đơn vị. <strong>Call Delta</strong> nằm trong [0, 1]: ATM ≈ 0.5, Deep ITM → 1, Deep OTM → 0. Dùng để đo lường mức độ phản ứng của CW với biến động giá cổ phiếu.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Gamma (Γ)</span></td>
+                <td>Đo lường tốc độ thay đổi và độ cong của đường Delta. Gamma cao → Delta thay đổi nhanh → rủi ro cao hơn, nhưng cũng là cơ hội nếu dự đoán đúng chiều. Gamma đạt đỉnh tại ATM.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Vega (ν)</span></td>
+                <td>Đo lường rủi ro CW khi độ biến động σ thay đổi 1%. Vega cao → giá CW nhạy cảm với biến động thị trường. Vega cũng đạt đỉnh tại ATM.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">Theta (Θ)</span></td>
+                <td>Sự bào mòn giá trị thời gian. Theta âm nghĩa là mỗi ngày trôi qua, giá trị CW giảm ngay cả khi giá cổ phiếu không đổi. Theta tăng tốc mạnh trong những tuần cuối trước đáo hạn.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-purple">Eff. Gearing (×)</span></td>
+                <td>Đòn bẩy hiệu dụng = <code>(S / CW_value) × |Delta|</code>. Cho biết khi cổ phiếu tăng 1%, CW tăng bao nhiêu %. Khác với đòn bẩy thô (gross gearing) vì đã điều chỉnh theo xác suất Delta.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 3: Phân tích trực quan -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">3. PHÂN TÍCH TRỰC QUAN (TAB BLACK-SCHOLES)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:160px">Biểu đồ</th><th>Cách đọc &amp; Ý nghĩa</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-blue">Giá Quyền chọn vs S</span></td>
+                <td>
+                  Đồ thị đường cong lợi nhuận, tách bạch giá trị nội tại và giá trị thời gian.<br>
+                  • <span style="color:var(--amber);font-weight:500">Đường nét đứt vàng (Intrinsic Call)</span>: biểu diễn giá trị nội tại (hàm max(0, S − K))<br>
+                  • <span style="color:var(--green);font-weight:500">Đường màu xanh lá (Call BS)</span>: là giá thực tế bao gồm cả giá trị thời gian<br>
+                  • Khoảng cách giữa hai đường = <strong>Time Value</strong> (giá trị thời gian). Vùng giao nhau quanh điểm Strike cho thấy tác động của giá trị thời gian là lớn nhất.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Delta vs S</span></td>
+                <td>
+                  Đồ thị hàm Sigmoid, thể hiện Delta biến từ 0 (Deep OTM) lên 1 (Deep ITM).<br>
+                  • <span style="color:var(--green);font-weight:500">Call (xanh lá)</span>: khi S rất sâu dưới K (Deep OTM), Delta tiệm cận 0; khi S vượt K (Deep ITM), Delta tiệm cận 1<br>
+                  • <span style="color:var(--red);font-weight:500">Put (đỏ)</span>: đối xứng, từ −1 đến 0<br>
+                  • Vùng quanh K (ATM) là nơi Delta thay đổi nhanh nhất → độ nhạy cảm cao nhất
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Giá Option vs T</span></td>
+                <td>
+                  Đồ thị trượt dốc, mô tả trực quan sự mất mát giá trị do yếu tố Theta.<br>
+                  • Trục X đi từ ngày còn nhiều (trái) đến gần đáo hạn (phải)<br>
+                  • Càng gần ngày đáo hạn (trục hoành tiến về 0), giá Call và Put đều suy giảm và trượt dốc<br>
+                  • Sự suy giảm này <strong>không tuyến tính</strong>: sẽ lao dốc nhanh hơn trong những tuần cuối cùng
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Gamma &amp; Vega vs S</span></td>
+                <td>
+                  Đồ thị hình quả chuông, khẳng định rủi ro tập trung cao nhất ở trạng thái ATM.<br>
+                  • Gamma và Vega đạt giá trị cực đại khi CW ở trạng thái ATM (S ≈ K)<br>
+                  • Điều này cho thấy rủi ro và giá trị thời gian tập trung cao nhất ở trạng thái ngang giá, nơi mà sự bất định về việc quyền chọn đáo hạn có lãi hay lỗ là lớn nhất
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Bề mặt Premium</span></td>
+                <td>
+                  Đồ thị phân tích độ đắt rẻ của chứng quyền (Premium %) dựa trên Moneyness và Độ biến động.<br>
+                  • Đỉnh của các đường cong luôn nằm ở mức S/K = 1.00 (ATM): đây là vùng giá trị thời gian lớn nhất, khiến nhà đầu tư phải trả mức phí (Premium) cao nhất so với giá trị thực tế<br>
+                  • Các đường màu khác nhau thể hiện các kịch bản σ<br>
+                  • <strong>σ càng lớn</strong> (tài sản càng rủi ro/biến động mạnh), đường cong càng dịch chuyển lên trên, nghĩa là thị trường sẽ định giá mức Premium càng đắt
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 4: Scoring Engine -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">4. HỆ THỐNG CHẤM ĐIỂM CƠ HỘI (SCORING ENGINE)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:160px">Tiêu chí</th><th>Công thức &amp; Cách tính điểm (0–100)</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-green">Premium thấp</span></td>
+                <td>CW có premium thấp hơn được ưu tiên: <code>score = 100 × (1 − normalize(premium))</code>. Premium càng gần 0% → điểm càng cao. Trọng số mặc định: <strong>25%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Đòn bẩy cao</span></td>
+                <td>Effective Gearing cao hơn được ưu tiên: <code>score = 100 × normalize(eff_lev)</code>. Trọng số mặc định: <strong>20%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Thanh khoản</span></td>
+                <td>Dựa trên khối lượng giao dịch trung bình. CW có thanh khoản cao hơn được ưu tiên. Trọng số mặc định: <strong>15%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Delta</span></td>
+                <td>Ưu tiên Delta trong vùng 0.3–0.7 (OTM vừa phải, tiềm năng tăng tốt): <code>score = 100 × (1 − |delta − 0.5| × 2)</code>. Trọng số mặc định: <strong>25%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Sigma thấp</span></td>
+                <td>CW có σ thấp hơn được ưu tiên (premium rẻ hơn, ít rủi ro hơn): <code>score = 100 × (1 − normalize(sigma))</code>. Trọng số mặc định: <strong>15%</strong>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 5: Put-Call Parity -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">5. KIỂM TRA PUT-CALL PARITY</div>
+        <div class="card">
+          <div style="font-size:13px;line-height:1.8;color:var(--text)">
+            Mối quan hệ cơ bản giữa giá Call và Put trong mô hình Black-Scholes:
+            <div style="text-align:center;font-size:15px;font-weight:600;margin:12px 0;letter-spacing:0.02em;color:var(--blue)">
+              C − P = S − K · e<sup>−rT</sup>
+            </div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.7">
+              • <strong>C</strong>: Giá Call (BS) &nbsp;|&nbsp; <strong>P</strong>: Giá Put (BS) &nbsp;|&nbsp; <strong>S</strong>: Giá cơ sở &nbsp;|&nbsp; <strong>K</strong>: Giá thực hiện &nbsp;|&nbsp; <strong>r</strong>: Lãi suất phi rủi ro &nbsp;|&nbsp; <strong>T</strong>: Thời gian (năm)<br>
+              • Nếu đẳng thức này bị phá vỡ trong thực tế → cơ hội arbitrage tồn tại<br>
+              • Dashboard hiển thị sai số Parity để kiểm chứng tính chính xác của mô hình (mục tiêu: &lt; 0.001)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer note -->
+      <div style="font-size:11px;color:var(--text3);text-align:center;padding-top:0.5rem;border-top:0.5px solid var(--border2)">
+        Tài liệu này được tạo tự động và cập nhật cùng với hệ thống pipeline · Dữ liệu nguồn: Vietstock, vnstock, HNX · Mô hình: Black-Scholes (European Call/Put)
       </div>
     </div>
   </div>
@@ -1118,13 +1416,118 @@ function jumpToDrill(ticker) {
   initDrill(ticker);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  SHARED: Searchable CW combo-box factory
+//  Dùng cho cả Drill-down và Black-Scholes tab
+// ═══════════════════════════════════════════════════════════════
+function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById(dropId);
+  let activeIdx = -1;
+  let currentTicker = initialTicker || null;
+
+  function highlight(text, query) {
+    if (!query) return text;
+    const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return text.replace(re, '<mark>$1</mark>');
+  }
+
+  function renderDrop(query) {
+    const q = (query || '').trim().toUpperCase();
+    const matches = q
+      ? pool.filter(d => d.ticker.includes(q) || d.underlying.toUpperCase().includes(q) || (d.issuer||'').toUpperCase().includes(q))
+      : pool;
+
+    if (matches.length === 0) {
+      drop.innerHTML = '<div class="cw-empty">Không tìm thấy mã CW nào</div>';
+    } else {
+      drop.innerHTML = matches.slice(0, 80).map((d, i) => `
+        <div class="cw-opt" data-ticker="${d.ticker}" data-idx="${i}">
+          <span class="opt-ticker">${highlight(d.ticker, q)}</span>
+          <span class="opt-under">${d.underlying} · ${d.issuer || ''}</span>
+        </div>`).join('');
+    }
+    activeIdx = -1;
+    drop.classList.add('open');
+
+    // click on option
+    drop.querySelectorAll('.cw-opt').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectTicker(el.dataset.ticker);
+      });
+    });
+  }
+
+  function selectTicker(ticker) {
+    const cw = pool.find(d => d.ticker === ticker);
+    if (!cw) return;
+    currentTicker = ticker;
+    input.value = `${cw.ticker} (${cw.underlying})`;
+    drop.classList.remove('open');
+    activeIdx = -1;
+    onSelect(ticker);
+  }
+
+  function moveActive(dir) {
+    const opts = drop.querySelectorAll('.cw-opt');
+    if (!opts.length) return;
+    opts[activeIdx]?.classList.remove('active');
+    activeIdx = Math.max(0, Math.min(opts.length - 1, activeIdx + dir));
+    const el = opts[activeIdx];
+    el.classList.add('active');
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('focus', () => renderDrop(input.value));
+  input.addEventListener('input', () => { activeIdx = -1; renderDrop(input.value); });
+  input.addEventListener('blur',  () => {
+    // small delay so mousedown on option fires first
+    setTimeout(() => {
+      drop.classList.remove('open');
+      // if input doesn't match current, restore it
+      if (currentTicker) {
+        const cw = pool.find(d => d.ticker === currentTicker);
+        if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+      }
+    }, 150);
+  });
+  input.addEventListener('keydown', e => {
+    if (!drop.classList.contains('open')) { renderDrop(input.value); return; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); moveActive(+1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const opts = drop.querySelectorAll('.cw-opt');
+      if (activeIdx >= 0 && opts[activeIdx]) {
+        selectTicker(opts[activeIdx].dataset.ticker);
+      } else if (opts.length > 0) {
+        selectTicker(opts[0].dataset.ticker);
+      }
+    }
+    else if (e.key === 'Escape') { drop.classList.remove('open'); input.blur(); }
+  });
+
+  // init display
+  if (initialTicker) {
+    const cw = pool.find(d => d.ticker === initialTicker);
+    if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+  }
+
+  return { selectTicker };
+}
+
 function initDrill(preselect) {
-  const sel = document.getElementById('sel-cw');
   const pool = allData;
-  sel.innerHTML = pool.map(d => `<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
-  sel.onchange = () => renderDrill(sel.value);
   const target = preselect || pool[0]?.ticker;
-  if (target) { sel.value = target; renderDrill(target); }
+  const combo = makeCWCombo({
+    inputId: 'drill-combo-input',
+    dropId:  'drill-combo-drop',
+    pool,
+    onSelect: renderDrill,
+    initialTicker: target,
+  });
+  if (target) renderDrill(target);
 }
 
 function renderDrill(ticker) {
@@ -1330,8 +1733,10 @@ function switchTab(tab, btn) {
   document.getElementById('pane-opportunity').classList.toggle('hidden', tab !== 'opportunity');
   document.getElementById('pane-drilldown').classList.toggle('hidden', tab !== 'drilldown');
   document.getElementById('pane-blackscholes').classList.toggle('hidden', tab !== 'blackscholes');
-  // global-filters: ẩn khi tab opportunity hoặc blackscholes
-  document.getElementById('global-filters').classList.toggle('hidden', tab === 'opportunity' || tab === 'blackscholes');
+  document.getElementById('pane-guide').classList.toggle('hidden', tab !== 'guide');
+  // global-filters: chỉ hiện ở overview và drilldown
+  const showFilters = tab === 'overview' || tab === 'drilldown';
+  document.getElementById('global-filters').classList.toggle('hidden', !showFilters);
   if (tab === 'drilldown') initDrill();
   if (tab === 'opportunity') runScoring();
   if (tab === 'blackscholes') initBSTab();
@@ -1538,28 +1943,30 @@ function runBSCalc() {
   drawBSCharts(S, K, T, r, sigma, ratio);
 }
 
+function loadBSFromTicker(ticker) {
+  const cw = allData.find(d => d.ticker === ticker);
+  if (!cw) return;
+  document.getElementById('bs-S').value     = cw.underlying_price || '';
+  document.getElementById('bs-K').value     = cw.exercise || '';
+  const days = daysLeft(cw.maturity);
+  document.getElementById('bs-T').value     = days > 0 ? days : '';
+  document.getElementById('bs-sigma').value = cw.sigma || '';
+  document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
+  document.getElementById('bs-ratio').value = cw.ratio || 4;
+  runBSCalc();
+}
+
 function initBSTab() {
-  // Populate CW selector
-  const sel = document.getElementById('bs-sel-cw');
   const pool = allData.filter(d => d.status === 'active');
-  sel.innerHTML = pool.map(d => `<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
-  sel.onchange = () => {
-    const cw = allData.find(d => d.ticker === sel.value);
-    if (!cw) return;
-    document.getElementById('bs-S').value     = cw.underlying_price || '';
-    document.getElementById('bs-K').value     = cw.exercise || '';
-    const days = daysLeft(cw.maturity);
-    document.getElementById('bs-T').value     = days > 0 ? days : '';
-    document.getElementById('bs-sigma').value = cw.sigma || '';
-    document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
-    document.getElementById('bs-ratio').value = cw.ratio || 4;
-    runBSCalc();
-  };
-  // Auto-load first CW if available
-  if (pool.length > 0) {
-    sel.value = pool[0].ticker;
-    sel.dispatchEvent(new Event('change'));
-  }
+  const first = pool[0]?.ticker;
+  makeCWCombo({
+    inputId: 'bs-combo-input',
+    dropId:  'bs-combo-drop',
+    pool,
+    onSelect: loadBSFromTicker,
+    initialTicker: first,
+  });
+  if (first) loadBSFromTicker(first);
 }
 
 // ═══════════════════════════════════════════════════════════════
