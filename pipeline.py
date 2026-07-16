@@ -470,29 +470,160 @@ def _refresh_active_prices(active_codes: list, df_cache: pd.DataFrame) -> pd.Dat
 # ══════════════════════════════════════════════════════════════════
 # BUOC 1 - VIETSTOCK (INCREMENTAL)
 # ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
+# BUG FIX B: Auto-discovery CW codes từ Vietstock
+# Vấn đề gốc: all_codes dùng template tĩnh MAX_ISSUANCE=50 → bỏ sót
+# CW có số thứ tự > 50 hoặc underlying mới chưa có trong BASE_STOCKS.
+#
+# Giải pháp: Adaptive probing — với mỗi prefix (ví dụ CHPG26),
+# probe tiếp lên đến khi gặp N_MISS_TOLERANCE lần 404 liên tiếp.
+# Đây là cách duy nhất reliable khi không có public listing API.
+# ══════════════════════════════════════════════════════════════════
+N_MISS_TOLERANCE = 3   # cho phép N lần 404 liên tiếp trước khi dừng probe
+
+def _probe_prefix(prefix: str, known: set, sess) -> list[str]:
+    """
+    Với prefix = "CHPG26", probe CHPG2601, CHPG2602, ...
+    Dừng khi gặp N_MISS_TOLERANCE lần 404 LIÊN TIẾP.
+    Trả về list các mã chưa có trong `known`.
+    """
+    found = []
+    miss_streak = 0
+    n = 1
+    while True:
+        code = f"{prefix}{n:02d}"
+        if code in known:
+            miss_streak = 0  # mã đã biết → không tính là miss
+            n += 1
+            continue
+        url = f"{BASE_URL}/chung-khoan-phai-sinh/{code}/cw-tong-quan.htm"
+        try:
+            r = sess.get(url, timeout=TIMEOUT, allow_redirects=True)
+        except requests.RequestException:
+            miss_streak += 1
+            n += 1
+            if miss_streak >= N_MISS_TOLERANCE:
+                break
+            continue
+        if r.status_code == 404 or not BeautifulSoup(r.text, "html.parser").select_one("h1.h1-title"):
+            miss_streak += 1
+            if miss_streak >= N_MISS_TOLERANCE:
+                break
+        else:
+            miss_streak = 0
+            found.append(code)
+        time.sleep(DELAY)
+        n += 1
+    return found
+
+def discover_new_cw_codes(known: set) -> list[str]:
+    """
+    BUG FIX B: Phát hiện CW mới NGOÀI template tĩnh bằng adaptive probing.
+    Chạy sau khi đã xử lý new_codes từ template — chỉ probe các prefix
+    mà MAX_ISSUANCE của template có thể đã bị vượt qua.
+    """
+    print("   [Discovery] Adaptive probing cho CW ngoài template tĩnh...")
+    sess = get_session()
+    all_new = []
+
+    for stock in BASE_STOCKS:
+        prefix_base = stock  # vd: "CHPG"
+        for yy in YEARS:
+            prefix = f"{prefix_base}{yy}"  # vd: "CHPG26"
+            # Tìm số thứ tự lớn nhất đã biết cho prefix này
+            existing_nums = [
+                int(c.replace(prefix, ""))
+                for c in known
+                if c.startswith(prefix) and c.replace(prefix, "").isdigit()
+            ]
+            max_known = max(existing_nums) if existing_nums else 0
+
+            # Chỉ probe tiếp nếu đã có CW gần MAX_ISSUANCE (ngưỡng 80%)
+            # hoặc nếu đây là năm hiện tại (26) → luôn probe
+            current_yy = str((datetime.now(timezone.utc) + timedelta(hours=7)).year)[-2:]
+            is_current_year = (yy == current_yy)
+            near_limit = max_known >= int(MAX_ISSUANCE * 0.8)
+
+            if not (is_current_year or near_limit):
+                continue  # prefix này không cần probe thêm
+
+            # Probe từ max_known+1 trở đi
+            probe_start = max(max_known + 1, MAX_ISSUANCE + 1)
+            miss_streak = 0
+            n = probe_start
+            while True:
+                code = f"{prefix}{n:02d}"
+                if code in known:
+                    miss_streak = 0
+                    n += 1
+                    continue
+                url = f"{BASE_URL}/chung-khoan-phai-sinh/{code}/cw-tong-quan.htm"
+                try:
+                    r = sess.get(url, timeout=TIMEOUT, allow_redirects=True)
+                    soup = BeautifulSoup(r.text, "html.parser")
+                    if r.status_code != 200 or not soup.select_one("h1.h1-title"):
+                        miss_streak += 1
+                    else:
+                        miss_streak = 0
+                        all_new.append(code)
+                        print(f"   [Discovery] Tìm thấy mã mới ngoài template: {code}")
+                except requests.RequestException:
+                    miss_streak += 1
+                time.sleep(DELAY)
+                n += 1
+                if miss_streak >= N_MISS_TOLERANCE:
+                    break
+
+    if all_new:
+        print(f"   [Discovery] Tổng cộng {len(all_new)} mã mới ngoài template: {all_new}")
+    else:
+        print("   [Discovery] Không tìm thấy mã nào ngoài template.")
+    return all_new
+
 def step1_vietstock():
     print("\n"+"="*60)
     print("BUOC 1 - Vietstock (incremental + lightweight daily refresh)")
     print("="*60)
-    all_codes=[
+
+    # Template tĩnh — baseline đã biết
+    all_codes = [
         f"{s}{yy}{n:02d}"
-        for s in BASE_STOCKS for yy in YEARS for n in range(1,MAX_ISSUANCE+1)
+        for s in BASE_STOCKS for yy in YEARS for n in range(1, MAX_ISSUANCE + 1)
     ]
-    df_cache=load_cache(VIETSTOCK_CACHE)
+
+    df_cache = load_cache(VIETSTOCK_CACHE)
     if df_cache is None:
-        print(f"   Full load - {len(all_codes):,} ma")
-        df=scrape_codes(all_codes,"full")
-        save_cache(df,VIETSTOCK_CACHE); return df
-    known=set(df_cache["ma_cw"].tolist())
-    new_codes=[c for c in all_codes if c not in known]
-    print(f"   Cache co: {len(known)} ma  |  Ma moi: {len(new_codes)}")
+        print(f"   Full load - {len(all_codes):,} ma tu template")
+        df = scrape_codes(all_codes, "full")
+        save_cache(df, VIETSTOCK_CACHE)
+        return df
+
+    known = set(df_cache["ma_cw"].tolist())
+
+    # ── Bước 1a: Mã mới trong template chưa có trong cache ──
+    new_codes = [c for c in all_codes if c not in known]
+    print(f"   Cache co: {len(known)} ma  |  Ma moi (template): {len(new_codes)}")
     if new_codes:
-        df_new=scrape_codes(new_codes,"new CW")
+        df_new = scrape_codes(new_codes, "new CW (template)")
         if not df_new.empty:
-            df_cache=pd.concat([df_cache,df_new],ignore_index=True)
-            df_cache.drop_duplicates(subset="ma_cw",keep="last",inplace=True)
-            print(f"   Them {len(df_new)} ma moi vao cache")
-    today_ts = pd.Timestamp(date.today())
+            df_cache = pd.concat([df_cache, df_new], ignore_index=True)
+            df_cache.drop_duplicates(subset="ma_cw", keep="last", inplace=True)
+            known = set(df_cache["ma_cw"].tolist())
+            print(f"   Them {len(df_new)} ma moi (template) vao cache")
+
+    # ── Bước 1b: BUG FIX B — Adaptive discovery ngoài template ──
+    # Phát hiện CW có số thứ tự > MAX_ISSUANCE hoặc underlying mới
+    extra_codes = discover_new_cw_codes(known)
+    if extra_codes:
+        df_extra = scrape_codes(extra_codes, "new CW (discovery)")
+        if not df_extra.empty:
+            df_cache = pd.concat([df_cache, df_extra], ignore_index=True)
+            df_cache.drop_duplicates(subset="ma_cw", keep="last", inplace=True)
+            print(f"   Them {len(df_extra)} ma moi (discovery) vao cache → tong: {len(df_cache)}")
+
+    # ── Bước 1c: BUG FIX C — Dùng ICT, không dùng date.today() UTC ──
+    today_ict = (datetime.now(timezone.utc) + timedelta(hours=7)).date()
+    today_ts  = pd.Timestamp(today_ict)
     if "ngay_gd_cuoi_cung" in df_cache.columns:
         ldt = pd.to_datetime(df_cache["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
         active_codes = df_cache.loc[ldt >= today_ts, "ma_cw"].tolist()
@@ -636,26 +767,67 @@ def step2_ohlcv(df_vs):
     print(f"   end_str fetch       : {end_str} (today+1, VCI exclusive)")
     print(f"   Gio ICT: {now_ict.strftime('%H:%M')} | HoSE {'DA DONG' if is_closed else 'CHUA DONG'}")
     print(f"   Phien can co trong cache: {last_expected_session}")
+    # ── Chuẩn bị lookup ngay_gd_dau_tien từ Vietstock metadata ──
+    # BUG FIX A: Dùng ngay_gd_dau_tien làm start_str cho CW mới thay vì OHLCV_START_DATE
+    # → Tránh fetch thừa từ 2023 với CW niêm yết năm 2026, đặc biệt quan trọng
+    #   khi vnstock chưa index kịp phiên đầu tiên → lần fetch tiếp theo sẽ biết đúng điểm bắt đầu
+    first_trading_map = {}
+    if "ngay_gd_dau_tien" in df_vs.columns:
+        for _, row in df_vs[["ma_cw", "ngay_gd_dau_tien"]].dropna().iterrows():
+            raw = str(row["ngay_gd_dau_tien"]).strip()
+            try:
+                dt = pd.to_datetime(raw, dayfirst=True, errors="coerce")
+                if pd.notna(dt):
+                    # Lùi thêm 1 ngày để buffer an toàn (tránh bỏ sót do off-by-one)
+                    first_trading_map[row["ma_cw"]] = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+
     to_fetch = []
     skipped_count = 0
     new_count = 0
+    backfill_count = 0
+
     for sym in tickers:
+        # Xác định start_str đúng cho CW này (ưu tiên ngay_gd_dau_tien)
+        known_start = first_trading_map.get(sym, OHLCV_START_DATE)
+
         if sym in cached:
             last = last_dt[sym]
             if pd.isna(last):
                 start_str = (today - timedelta(days=30)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, start_str, "NaT-reload"))
+
             elif last.date() >= last_expected_session:
+                # Cache đã đủ phiên mới nhất — nhưng kiểm tra back-fill:
+                # BUG FIX A CORE: CW mới có thể bị thiếu phiên đầu tiên
+                # vì lần fetch đầu trả về empty (vnstock chưa index kịp).
+                # Kiểm tra: first_trading_map[sym] < first session trong cache
+                first_in_cache = df_cache.loc[df_cache["Ticker"] == sym, "time_dt"].min()
+                if pd.notna(first_in_cache) and sym in first_trading_map:
+                    expected_start = pd.to_datetime(first_trading_map[sym])
+                    # Nếu phiên đầu trong cache muộn hơn ngay_gd_dau_tien + 2 ngày → cần back-fill
+                    gap_days = (first_in_cache - expected_start).days
+                    if gap_days > 2:
+                        backfill_start = first_trading_map[sym]
+                        backfill_end = (first_in_cache - timedelta(days=1)).strftime("%Y-%m-%d")
+                        to_fetch.append((sym, backfill_start, f"backfill-{backfill_start}→{backfill_end}"))
+                        backfill_count += 1
+                        continue
                 skipped_count += 1
+
             else:
                 next_day = (last + timedelta(days=1)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, next_day, f"+tu {(last+timedelta(days=1)).strftime('%d/%m/%Y')}"))
         else:
-            to_fetch.append((sym, OHLCV_START_DATE, "new"))
+            # CW hoàn toàn mới: dùng ngay_gd_dau_tien thay vì OHLCV_START_DATE (2023-01-01)
+            to_fetch.append((sym, known_start, f"new (tu {known_start})"))
             new_count += 1
+
     print(f"   Skip (cache du)   : {skipped_count} ma")
     print(f"   Can fetch moi     : {new_count} ma")
-    print(f"   Can update phien  : {len(to_fetch) - new_count} ma")
+    print(f"   Back-fill phien   : {backfill_count} ma  ← BUG FIX A")
+    print(f"   Can update phien  : {len(to_fetch) - new_count - backfill_count} ma")
     print(f"   Tong can fetch    : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
     if not to_fetch:
         print("   → Cache day du, SKIP toan bo OHLCV fetch.")
@@ -665,7 +837,7 @@ def step2_ohlcv(df_vs):
     DELAY_OK    = REQUEST_DELAY
     DELAY_EMPTY = 0.15
     DELAY_FAIL  = 0.3
-    new_rows = []; failed = []; n_ok = 0; n_empty = 0
+    new_rows = []; backfill_rows = []; failed = []; n_ok = 0; n_empty = 0
     t_fetch_start = time.time()
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
         df_r = fetch_one(sym, start_str, end_str)
@@ -675,21 +847,28 @@ def step2_ohlcv(df_vs):
             time.sleep(DELAY_FAIL)
         elif df_r.empty:
             n_empty += 1
-            if "new" in lbl or "NaT" in lbl:
+            if "new" in lbl or "NaT" in lbl or "backfill" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
             time.sleep(DELAY_EMPTY)
         else:
-            new_rows.append(df_r); n_ok += 1
+            # BUG FIX A: back-fill rows được xử lý riêng để prepend (thêm vào đầu)
+            if "backfill" in lbl:
+                backfill_rows.append(df_r)
+                print(f"  [{i:>4}/{len(to_fetch)}] BACKFILL {sym} +{len(df_r)} phien ({lbl})")
+            else:
+                new_rows.append(df_r)
+            n_ok += 1
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
                 elapsed = time.time() - t_fetch_start
                 eta = (len(to_fetch) - i) * (elapsed / i) / 60
                 print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | OK={n_ok} ETA={eta:.1f}ph")
             time.sleep(DELAY_OK)
     df_cache.drop(columns=["time_dt"], inplace=True)
-    print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count}")
+    print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count} | BACKFILL={len(backfill_rows)}")
     if failed: print(f"   Failed: {failed[:10]}")
-    if new_rows:
-        df_add = pd.concat(new_rows, ignore_index=True)
+    all_new_rows = backfill_rows + new_rows   # BUG FIX A: gộp back-fill + phiên mới
+    if all_new_rows:
+        df_add = pd.concat(all_new_rows, ignore_index=True)
         bad_mask = df_cache["time"].isna() | (df_cache["time"].astype(str) == "NaT")
         n_bad = bad_mask.sum()
         if n_bad > 0:
@@ -775,7 +954,7 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     df=df_vs[df_vs["ma_cw"].isin(valid_tickers)].copy()
     p=[c for c in PRIORITY if c in df.columns]
     df=df[p+[c for c in df.columns if c not in p]]
-    today_ts=pd.Timestamp(date.today())
+    today_ts = pd.Timestamp((datetime.now(timezone.utc) + timedelta(hours=7)).date())  # BUG FIX C
     df["_ldt"]=pd.to_datetime(df["ngay_gd_cuoi_cung"],dayfirst=True,errors="coerce")
     df.rename(columns=COL_RENAME,inplace=True)
     act=df[df["_ldt"]>=today_ts].drop(columns=["_ldt"]).sort_values("Ticker")
@@ -808,8 +987,8 @@ def _parse_exercise(raw):
 
 def _fetch_underlying_prices(underlyings: list) -> dict:
     prices = {}
-    today_str = date.today().strftime("%Y-%m-%d")
-    week_ago = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
+    today_str = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")  # BUG FIX C
+    week_ago = ((datetime.now(timezone.utc) + timedelta(hours=7)).date() - timedelta(days=10)).strftime("%Y-%m-%d")  # BUG FIX C
     for sym in underlyings:
         for source in ["VCI", "KBS"]:
             try:
@@ -843,7 +1022,7 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
     print("BUOC 5 - Xuat data.json (bao gồm Black‑Scholes)")
     print("="*60)
 
-    today_ts = pd.Timestamp(date.today())
+    today_ts = pd.Timestamp((datetime.now(timezone.utc) + timedelta(hours=7)).date())  # BUG FIX C
     df_info = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
     df_info["_last_gd_dt"] = pd.to_datetime(df_info["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
 
@@ -993,7 +1172,7 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         if mat_date:
             try:
                 maturity = pd.to_datetime(mat_date, dayfirst=True)
-                T = (maturity - pd.Timestamp(date.today())).days / 365.0
+                T = (maturity - pd.Timestamp((datetime.now(timezone.utc) + timedelta(hours=7)).date())).days / 365.0  # BUG FIX C
             except:
                 T = 0.0
         else:
