@@ -246,6 +246,40 @@
     .signal-good   { background: var(--bg-green); color: var(--text-green); }
     .signal-neutral{ background: var(--bg-amber); color: var(--text-amber); }
 
+    /* ----- CW COMBO (searchable) ----- */
+    .cw-combo-wrap {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .cw-combo-input {
+      font-size: 13px; padding: 5px 28px 5px 10px;
+      border-radius: 6px; border: 0.5px solid var(--border2);
+      background: var(--surface); color: var(--text);
+      min-width: 220px; height: 32px; cursor: text;
+      outline: none; font-family: inherit;
+    }
+    .cw-combo-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(42,120,214,0.15); }
+    .cw-combo-arrow {
+      position: absolute; right: 8px; pointer-events: none;
+      color: var(--text3); font-size: 10px;
+    }
+    .cw-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--surface); border: 0.5px solid var(--border2);
+      border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      max-height: 280px; overflow-y: auto; min-width: 240px;
+      display: none;
+    }
+    .cw-dropdown.open { display: block; }
+    .cw-opt {
+      padding: 7px 12px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; color: var(--text);
+    }
+    .cw-opt:hover, .cw-opt.active { background: var(--surface2); }
+    .cw-opt .opt-ticker { font-weight: 600; min-width: 90px; }
+    .cw-opt .opt-under  { font-size: 11px; color: var(--text3); }
+    .cw-opt mark { background: rgba(42,120,214,0.2); border-radius: 2px; padding: 0 1px; font-style: normal; color: inherit; }
+    .cw-empty { padding: 10px 12px; font-size: 12px; color: var(--text3); text-align: center; }
+
     /* ----- RESPONSIVE ----- */
     @media (max-width: 800px) {
       .kpi-row { grid-template-columns: repeat(2, 1fr); }
@@ -409,8 +443,13 @@
   <!-- ═══ PANE: DRILL-DOWN ═══ -->
   <div id="pane-drilldown" class="hidden">
     <div class="drill-header">
-      <label>Chọn mã CW:</label>
-      <select id="sel-cw"></select>
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="drill-combo-wrap">
+        <input class="cw-combo-input" id="drill-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="drill-combo-drop"></div>
+      </div>
     </div>
     <div class="sec">
       <div class="info-grid" id="drill-info"></div>
@@ -449,7 +488,13 @@
   <div id="pane-blackscholes" class="hidden">
     <div class="drill-header" style="gap:16px;flex-wrap:wrap">
       <label style="font-weight:500">📐 Black‑Scholes Visualizer</label>
-      <label>Chọn CW: <select id="bs-sel-cw" style="min-width:180px;font-size:13px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer"></select></label>
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="bs-combo-wrap">
+        <input class="cw-combo-input" id="bs-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="bs-combo-drop"></div>
+      </div>
     </div>
 
     <!-- Thông số đầu vào BS (có thể chỉnh) -->
@@ -1118,13 +1163,118 @@ function jumpToDrill(ticker) {
   initDrill(ticker);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  SHARED: Searchable CW combo-box factory
+//  Dùng cho cả Drill-down và Black-Scholes tab
+// ═══════════════════════════════════════════════════════════════
+function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById(dropId);
+  let activeIdx = -1;
+  let currentTicker = initialTicker || null;
+
+  function highlight(text, query) {
+    if (!query) return text;
+    const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return text.replace(re, '<mark>$1</mark>');
+  }
+
+  function renderDrop(query) {
+    const q = (query || '').trim().toUpperCase();
+    const matches = q
+      ? pool.filter(d => d.ticker.includes(q) || d.underlying.toUpperCase().includes(q) || (d.issuer||'').toUpperCase().includes(q))
+      : pool;
+
+    if (matches.length === 0) {
+      drop.innerHTML = '<div class="cw-empty">Không tìm thấy mã CW nào</div>';
+    } else {
+      drop.innerHTML = matches.slice(0, 80).map((d, i) => `
+        <div class="cw-opt" data-ticker="${d.ticker}" data-idx="${i}">
+          <span class="opt-ticker">${highlight(d.ticker, q)}</span>
+          <span class="opt-under">${d.underlying} · ${d.issuer || ''}</span>
+        </div>`).join('');
+    }
+    activeIdx = -1;
+    drop.classList.add('open');
+
+    // click on option
+    drop.querySelectorAll('.cw-opt').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectTicker(el.dataset.ticker);
+      });
+    });
+  }
+
+  function selectTicker(ticker) {
+    const cw = pool.find(d => d.ticker === ticker);
+    if (!cw) return;
+    currentTicker = ticker;
+    input.value = `${cw.ticker} (${cw.underlying})`;
+    drop.classList.remove('open');
+    activeIdx = -1;
+    onSelect(ticker);
+  }
+
+  function moveActive(dir) {
+    const opts = drop.querySelectorAll('.cw-opt');
+    if (!opts.length) return;
+    opts[activeIdx]?.classList.remove('active');
+    activeIdx = Math.max(0, Math.min(opts.length - 1, activeIdx + dir));
+    const el = opts[activeIdx];
+    el.classList.add('active');
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('focus', () => renderDrop(input.value));
+  input.addEventListener('input', () => { activeIdx = -1; renderDrop(input.value); });
+  input.addEventListener('blur',  () => {
+    // small delay so mousedown on option fires first
+    setTimeout(() => {
+      drop.classList.remove('open');
+      // if input doesn't match current, restore it
+      if (currentTicker) {
+        const cw = pool.find(d => d.ticker === currentTicker);
+        if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+      }
+    }, 150);
+  });
+  input.addEventListener('keydown', e => {
+    if (!drop.classList.contains('open')) { renderDrop(input.value); return; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); moveActive(+1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const opts = drop.querySelectorAll('.cw-opt');
+      if (activeIdx >= 0 && opts[activeIdx]) {
+        selectTicker(opts[activeIdx].dataset.ticker);
+      } else if (opts.length > 0) {
+        selectTicker(opts[0].dataset.ticker);
+      }
+    }
+    else if (e.key === 'Escape') { drop.classList.remove('open'); input.blur(); }
+  });
+
+  // init display
+  if (initialTicker) {
+    const cw = pool.find(d => d.ticker === initialTicker);
+    if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+  }
+
+  return { selectTicker };
+}
+
 function initDrill(preselect) {
-  const sel = document.getElementById('sel-cw');
   const pool = allData;
-  sel.innerHTML = pool.map(d => `<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
-  sel.onchange = () => renderDrill(sel.value);
   const target = preselect || pool[0]?.ticker;
-  if (target) { sel.value = target; renderDrill(target); }
+  const combo = makeCWCombo({
+    inputId: 'drill-combo-input',
+    dropId:  'drill-combo-drop',
+    pool,
+    onSelect: renderDrill,
+    initialTicker: target,
+  });
+  if (target) renderDrill(target);
 }
 
 function renderDrill(ticker) {
@@ -1538,28 +1688,30 @@ function runBSCalc() {
   drawBSCharts(S, K, T, r, sigma, ratio);
 }
 
+function loadBSFromTicker(ticker) {
+  const cw = allData.find(d => d.ticker === ticker);
+  if (!cw) return;
+  document.getElementById('bs-S').value     = cw.underlying_price || '';
+  document.getElementById('bs-K').value     = cw.exercise || '';
+  const days = daysLeft(cw.maturity);
+  document.getElementById('bs-T').value     = days > 0 ? days : '';
+  document.getElementById('bs-sigma').value = cw.sigma || '';
+  document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
+  document.getElementById('bs-ratio').value = cw.ratio || 4;
+  runBSCalc();
+}
+
 function initBSTab() {
-  // Populate CW selector
-  const sel = document.getElementById('bs-sel-cw');
   const pool = allData.filter(d => d.status === 'active');
-  sel.innerHTML = pool.map(d => `<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
-  sel.onchange = () => {
-    const cw = allData.find(d => d.ticker === sel.value);
-    if (!cw) return;
-    document.getElementById('bs-S').value     = cw.underlying_price || '';
-    document.getElementById('bs-K').value     = cw.exercise || '';
-    const days = daysLeft(cw.maturity);
-    document.getElementById('bs-T').value     = days > 0 ? days : '';
-    document.getElementById('bs-sigma').value = cw.sigma || '';
-    document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
-    document.getElementById('bs-ratio').value = cw.ratio || 4;
-    runBSCalc();
-  };
-  // Auto-load first CW if available
-  if (pool.length > 0) {
-    sel.value = pool[0].ticker;
-    sel.dispatchEvent(new Event('change'));
-  }
+  const first = pool[0]?.ticker;
+  makeCWCombo({
+    inputId: 'bs-combo-input',
+    dropId:  'bs-combo-drop',
+    pool,
+    onSelect: loadBSFromTicker,
+    initialTicker: first,
+  });
+  if (first) loadBSFromTicker(first);
 }
 
 // ═══════════════════════════════════════════════════════════════
