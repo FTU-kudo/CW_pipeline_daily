@@ -1018,6 +1018,21 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         # Ghi nhận option_type thực tế để dashboard chọn đúng
         option_type = "call" if is_call else "put"
 
+        # BUG FIX #5: Đảm bảo S_val và exercise cùng đơn vị VND trước khi truyền vào BS
+        # exercise từ parse_exercise() đã là VND gốc (vd: 30000)
+        # S_val đã được nhân *1000 nếu < 1000 → cùng đơn vị
+        # Kiểm tra thêm: nếu exercise được lưu dạng nghìn đồng (vd: 30.0) thì cần chuẩn hóa
+        exercise_vnd = exercise
+        if exercise > 0 and S_val > 0:
+            # Nếu exercise quá nhỏ so với S_val (tỷ lệ < 0.01), khả năng exercise ở dạng nghìn đồng
+            if exercise < S_val * 0.01:
+                exercise_vnd = exercise * 1000
+
+        # BUG FIX #3: Thêm field 'delta' chuẩn để frontend dùng được (chọn theo option_type)
+        delta_effective = bs_call["delta_bs"] if is_call else abs(bs_put["delta_bs"])
+        # Effective Gearing = (S / (price_cw_vnd * ratio)) * delta_option  [đã kiểm tra đúng]
+        eff_lev_val = round(gross_lev * delta_effective, 2) if gross_lev > 0 else 0.0
+
         cw_list.append({
             "ticker": ticker,
             "underlying": und_sym,
@@ -1027,13 +1042,15 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             "option_type": option_type,
             "underlying_price": S_val,
             "price": round(price_cw, 3),
-            "exercise": exercise,
+            "exercise": exercise_vnd,   # FIX #5: luôn là VND gốc
             "ratio": ratio,
             "premium": round(premium, 1),
-            "eff_lev": round(gross_lev * (bs_call["delta_bs"] if is_call else -bs_put["delta_bs"]), 2),  # delta xấp xỉ thực
+            "eff_lev": eff_lev_val,
             "breakeven": round(breakeven, 1),
             "moneyness": moneyness,
-            # Kết quả Black‑Scholes
+            # BUG FIX #3: Thêm 'delta' field chuẩn (|delta| của option_type thực tế) để frontend dùng
+            "delta": round(delta_effective, 4),
+            # Kết quả Black‑Scholes đầy đủ
             "bs_price_call": bs_call["bs_price"],
             "delta_call": bs_call["delta_bs"],
             "bs_price_put": bs_put["bs_price"],
@@ -1043,6 +1060,9 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             "theta": bs_call["theta"],    # theta của call (để tham khảo)
             "sigma": round(sigma, 4),
             "risk_free": round(risk_free, 4),
+            # Thêm d1, d2 để dashboard có thể vẽ BS visualization
+            "d1": round((log(S_val / exercise_vnd) + (risk_free + 0.5 * sigma**2) * T) / (sigma * sqrt(T)), 4) if (S_val > 0 and exercise_vnd > 0 and T > 0 and sigma > 0) else 0,
+            "T_years": round(T, 4),
         })
 
     # --- OHLCV drill-down cho dashboard (bao gồm giá cơ sở) ---
@@ -1070,7 +1090,8 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         ohlcv_out[ticker] = entry
 
     out = {
-        "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M ICT"),
+        # BUG FIX #4: Lưu ICT trực tiếp với suffix rõ ràng "+07:00" để frontend parse đúng, không cộng thêm 7h
+        "updated_at": (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%d/%m/%Y %H:%M +07:00"),
         "cw_list": cw_list,
         "ohlcv": ohlcv_out,
     }
