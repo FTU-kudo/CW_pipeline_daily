@@ -284,6 +284,7 @@
     <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
     <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
+    <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
   </div>
 
   <!-- GLOBAL FILTERS (Overview + Table) -->
@@ -443,6 +444,64 @@
       </div>
     </div>
   </div>
+
+  <!-- ═══ PANE: BLACK-SCHOLES VISUALIZER ═══ -->
+  <div id="pane-blackscholes" class="hidden">
+    <div class="drill-header" style="gap:16px;flex-wrap:wrap">
+      <label style="font-weight:500">📐 Black‑Scholes Visualizer</label>
+      <label>Chọn CW: <select id="bs-sel-cw" style="min-width:180px;font-size:13px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer"></select></label>
+    </div>
+
+    <!-- Thông số đầu vào BS (có thể chỉnh) -->
+    <div style="padding:0.5rem 1.5rem">
+      <div class="card" style="margin-bottom:10px">
+        <div class="sec-title" style="padding-top:0.5rem">Thông số Black‑Scholes (chỉnh thủ công)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding-bottom:0.5rem">
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">S – Giá cơ sở (VND)</div><input id="bs-S" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="21000"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">K – Giá thực hiện (VND)</div><input id="bs-K" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="22000"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">T – Ngày còn lại</div><input id="bs-T" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="180"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">σ – Sigma (độ biến động)</div><input id="bs-sigma" type="number" step="0.001" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="0.290"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">r – Lãi suất phi rủi ro</div><input id="bs-r" type="number" step="0.0001" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="0.0465"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Ratio – Tỷ lệ chuyển đổi</div><input id="bs-ratio" type="number" step="0.1" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="4"></div>
+        </div>
+        <button onclick="runBSCalc()" style="margin-top:4px;padding:6px 18px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:13px;cursor:pointer;font-weight:500">Tính lại</button>
+      </div>
+
+      <!-- Kết quả BS -->
+      <div class="info-grid" id="bs-results" style="margin-bottom:10px"></div>
+
+      <!-- Biểu đồ: Giá option vs S (sensitivity) -->
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <div class="sec-title">Giá quyền chọn vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:220px"><canvas id="c-bs-price-vs-s"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec-title">Delta vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:220px"><canvas id="c-bs-delta-vs-s"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Biểu đồ: Greeks vs Thời gian -->
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <div class="sec-title">Giá option vs Thời gian T (ngày còn lại)</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-bs-price-vs-t"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec-title">Gamma & Vega vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-bs-gamma-vega"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Volatility Smile Simulator -->
+      <div class="sec-title">Bề mặt Premium — Sigma × Moneyness (S/K)</div>
+      <div class="card" style="margin-bottom:10px">
+        <div style="position:relative;height:220px"><canvas id="c-bs-vol-surface"></canvas></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -595,22 +654,14 @@ async function loadData() {
       hour: '2-digit', minute: '2-digit'
     });
 
-    // Chuyển updated_at (UTC) → UTC+7
+    // BUG FIX #4: pipeline lưu ICT trực tiếp (dd/mm/yyyy HH:MM +07:00), hiển thị thẳng không cộng thêm 7h
     let updatedDisplay = '—';
     if (json.updated_at) {
       const raw = json.updated_at.trim();
+      // Format: "dd/mm/yyyy HH:MM +07:00" — dùng trực tiếp, không convert
       const parts = raw.split(' ');
-      if (parts.length >= 3) {
-        const [d, m, y] = parts[0].split('/').map(Number);
-        const [h, min] = parts[1].split(':').map(Number);
-        const utc = new Date(Date.UTC(y, m-1, d, h, min));
-        const vn = new Date(utc.getTime() + 7*60*60*1000);
-        const dd = String(vn.getUTCDate()).padStart(2,'0');
-        const mm = String(vn.getUTCMonth()+1).padStart(2,'0');
-        const yy = vn.getUTCFullYear();
-        const hh = String(vn.getUTCHours()).padStart(2,'0');
-        const mi = String(vn.getUTCMinutes()).padStart(2,'0');
-        updatedDisplay = `${dd}/${mm}/${yy} ${hh}:${mi} UTC+7`;
+      if (parts.length >= 2) {
+        updatedDisplay = `${parts[0]} ${parts[1]} UTC+7`;
       }
     }
     document.getElementById('meta-text').textContent =
@@ -788,7 +839,7 @@ function drawTable() {
       <td>${d.breakeven}k</td>
       <td style="font-size:11px">${d.maturity}</td>
       <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
-      <td>${d.delta ? d.delta.toFixed(3) : '—'}</td>
+      <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
       <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
       <td><span class="pill ${d.status === 'active' ? 'active-badge' : 'expired-badge'}">${d.status === 'active' ? 'Active' : 'Expired'}</span></td>
     </tr>
@@ -887,7 +938,7 @@ function drawTop10(data) {
         <div class="tc-metrics">
           <div class="tc-metric"><span>Premium</span>${d.premium.toFixed(1)}%</div>
           <div class="tc-metric"><span>Đòn bẩy</span>${d.eff_lev.toFixed(1)}×</div>
-          <div class="tc-metric"><span>Delta</span>${d.delta ? d.delta.toFixed(3) : '—'}</div>
+          <div class="tc-metric"><span>Delta</span>${d.delta != null ? d.delta.toFixed(3) : '—'}</div>
           <div class="tc-metric"><span>Sigma</span>${d.sigma ? d.sigma.toFixed(3) : '—'}</div>
         </div>
         <div style="margin-top:6px">${scoreBar(d.score, i<3 ? '#eda100' : '#2a78d6')}</div>
@@ -946,7 +997,7 @@ function drawOpTable(data) {
         <td>${d.eff_lev.toFixed(2)}×</td>
         <td>${d.days_left}</td>
         <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
-        <td>${d.delta ? d.delta.toFixed(3) : '—'}</td>
+        <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
         <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
         <td>${scoreBar(d.s_prem, '#1baf7a')}</td>
         <td>${scoreBar(d.s_lev, '#2a78d6')}</td>
@@ -997,7 +1048,8 @@ function runScoring() {
   const levs  = pool.map(d => d.eff_lev);
   const vols  = pool.map(d => avgVolume(d.ticker));
   const days  = pool.map(d => daysLeft(d.maturity));
-  const deltas = pool.map(d => d.delta || 0.5);
+  // BUG FIX #3: 'delta' field chuẩn đã có trong data.json (pipeline fix), fallback 0.5 nếu N/A
+  const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
   const sigmas = pool.map(d => d.sigma || 0);
 
   const minP = Math.min(...prems), maxP = Math.max(...prems);
@@ -1093,9 +1145,14 @@ function renderDrill(ticker) {
     { lbl: 'Moneyness', val: cw.moneyness },
     { lbl: 'Premium', val: cw.premium+'%' },
     { lbl: 'Đòn bẩy HQ', val: cw.eff_lev+'×' },
-    { lbl: 'Delta', val: cw.delta ? cw.delta.toFixed(3) : '—' },
+    { lbl: 'Delta', val: cw.delta != null ? cw.delta.toFixed(3) : '—' },
     { lbl: 'Sigma', val: cw.sigma ? cw.sigma.toFixed(4) : '—' },
-    { lbl: 'Giá Call (BS)', val: cw.bs_price_call ? cw.bs_price_call.toFixed(1) : '—' }
+    { lbl: 'Giá BS (Call)', val: cw.bs_price_call ? cw.bs_price_call.toFixed(3)+' k' : '—' },
+    { lbl: 'Giá BS (Put)', val: cw.bs_price_put ? cw.bs_price_put.toFixed(3)+' k' : '—' },
+    { lbl: 'Gamma', val: cw.gamma ? cw.gamma.toFixed(6) : '—' },
+    { lbl: 'Vega', val: cw.vega ? cw.vega.toFixed(2) : '—' },
+    { lbl: 'Theta/ngày', val: cw.theta ? cw.theta.toFixed(4) : '—' },
+    { lbl: 'Lãi suất RF', val: cw.risk_free ? (cw.risk_free*100).toFixed(2)+'%' : '—' }
   ].map(i => `<div class="info-item"><div class="lbl">${i.lbl}</div><div class="val">${i.val}</div></div>`).join('');
 
   destroyChart('drill-price');
@@ -1106,10 +1163,11 @@ function renderDrill(ticker) {
   if (o.dates && o.dates.length > 0) {
     const labels = o.dates;
     const close = o.close || [];
+    const openPrices = o.open || [];   // BUG FIX #2: đổi tên tránh xung đột với window.open()
     const high = o.high || [];
     const low = o.low || [];
     const volume = o.volume || [];
-    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, open, high, low, volume);
+    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, openPrices, high, low, volume);
   } else {
     // Nếu không có dữ liệu, hiển thị thông báo
     document.getElementById('c-drill-price').parentNode.innerHTML = `
@@ -1271,11 +1329,242 @@ function switchTab(tab, btn) {
   document.getElementById('pane-overview').classList.toggle('hidden', tab !== 'overview');
   document.getElementById('pane-opportunity').classList.toggle('hidden', tab !== 'opportunity');
   document.getElementById('pane-drilldown').classList.toggle('hidden', tab !== 'drilldown');
-  document.getElementById('global-filters').classList.toggle('hidden', tab === 'opportunity');
+  document.getElementById('pane-blackscholes').classList.toggle('hidden', tab !== 'blackscholes');
+  // global-filters: ẩn khi tab opportunity hoặc blackscholes
+  document.getElementById('global-filters').classList.toggle('hidden', tab === 'opportunity' || tab === 'blackscholes');
   if (tab === 'drilldown') initDrill();
   if (tab === 'opportunity') runScoring();
+  if (tab === 'blackscholes') initBSTab();
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  BLACK-SCHOLES JS ENGINE (mirror Python backend)
+// ═══════════════════════════════════════════════════════════════
+function normCDF(x) {
+  // Abramowitz and Stegun approximation for N(x)
+  const a1 =  0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t * Math.exp(-x*x);
+  return 0.5 * (1.0 + sign * y);
+}
+function normPDF(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+
+function bsCalc(S, K, T_days, r, sigma, ratio, type) {
+  const T = T_days / 365.0;
+  if (S <= 0 || K <= 0 || T <= 0 || sigma <= 0) return null;
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  let price, delta, theta;
+  if (type === 'call') {
+    price = S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2);
+    delta = normCDF(d1);
+    theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) - r*K*Math.exp(-r*T)*normCDF(d2)) / 365.0;
+  } else {
+    price = K*Math.exp(-r*T)*normCDF(-d2) - S*normCDF(-d1);
+    delta = normCDF(d1) - 1;
+    theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) + r*K*Math.exp(-r*T)*normCDF(-d2)) / 365.0;
+  }
+  const bs_price_cw = price / 1000.0 / ratio;  // nghìn đồng
+  const gamma = normPDF(d1) / (S * sigma * Math.sqrt(T)) / ratio;
+  const vega  = S * normPDF(d1) * Math.sqrt(T) / 100.0 / ratio;
+  return { d1, d2, price_option: price, bs_price_cw, delta, gamma, vega, theta };
+}
+
+function bsGetInputs() {
+  return {
+    S:     parseFloat(document.getElementById('bs-S').value)     || 21000,
+    K:     parseFloat(document.getElementById('bs-K').value)     || 22000,
+    T:     parseFloat(document.getElementById('bs-T').value)     || 180,
+    sigma: parseFloat(document.getElementById('bs-sigma').value) || 0.29,
+    r:     parseFloat(document.getElementById('bs-r').value)     || 0.0465,
+    ratio: parseFloat(document.getElementById('bs-ratio').value) || 4,
+  };
+}
+
+function renderBSResults(S, K, T, r, sigma, ratio) {
+  const call = bsCalc(S, K, T, r, sigma, ratio, 'call');
+  const put  = bsCalc(S, K, T, r, sigma, ratio, 'put');
+  if (!call || !put) return;
+  const moneyness = S > K*1.02 ? 'ITM' : S < K*0.98 ? 'OTM' : 'ATM';
+  const sk = (S/K).toFixed(3);
+  const items = [
+    { lbl: 'Moneyness (S/K)', val: `${sk} – ${moneyness}` },
+    { lbl: 'd₁', val: call.d1.toFixed(4) },
+    { lbl: 'd₂', val: call.d2.toFixed(4) },
+    { lbl: 'Giá Call (BS) nghìn đ', val: call.bs_price_cw.toFixed(3), color: 'var(--green)' },
+    { lbl: 'Giá Put (BS) nghìn đ',  val: put.bs_price_cw.toFixed(3),  color: 'var(--red)' },
+    { lbl: 'Delta Call', val: call.delta.toFixed(4), color: 'var(--blue)' },
+    { lbl: 'Delta Put',  val: put.delta.toFixed(4),  color: 'var(--coral)' },
+    { lbl: 'Gamma', val: call.gamma.toFixed(6) },
+    { lbl: 'Vega',  val: call.vega.toFixed(4) },
+    { lbl: 'Theta Call / ngày', val: call.theta.toFixed(4), color: 'var(--amber)' },
+    { lbl: 'Theta Put / ngày',  val: put.theta.toFixed(4) },
+    { lbl: 'Put-Call Parity Δ', val: Math.abs(call.bs_price_cw - put.bs_price_cw - (S - K*Math.exp(-r*T/365.0))/1000/ratio).toFixed(6) },
+  ];
+  document.getElementById('bs-results').innerHTML = items.map(it =>
+    `<div class="info-item"><div class="lbl">${it.lbl}</div>
+     <div class="val" style="${it.color ? 'color:'+it.color : ''}">${it.val}</div></div>`
+  ).join('');
+}
+
+function drawBSCharts(S, K, T, r, sigma, ratio) {
+  // --- 1) Price vs S ---
+  const sRange = Array.from({length: 80}, (_, i) => Math.round(K * (0.5 + i * 0.015)));
+  const callPrices = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const putPrices  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const intrinsicCall = sRange.map(s => Math.max(s - K, 0) / 1000 / ratio);
+  destroyChart('bs-price-vs-s');
+  charts['bs-price-vs-s'] = new Chart(document.getElementById('c-bs-price-vs-s').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Call (BS)', data: callPrices, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Put (BS)',  data: putPrices,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Intrinsic Call', data: intrinsicCall, borderColor: '#eda100', borderWidth: 1, borderDash: [4,3], pointRadius: 0, tension: 0 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } },
+        annotation: { annotations: { vline: { type:'line', xMin: sRange.findIndex(s=>Math.abs(s-S)<(K*0.015)), xMax: sRange.findIndex(s=>Math.abs(s-S)<(K*0.015)), borderColor:'rgba(150,150,150,0.7)', borderWidth:1, borderDash:[4,3] } } } },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK,maxTicksLimit:10} }, y: { grid:{color:GRID}, ticks:{color:TICK}, beginAtZero:true } }
+    }
+  });
+
+  // --- 2) Delta vs S ---
+  const callDeltas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.delta.toFixed(4) : 0; });
+  const putDeltas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.delta.toFixed(4) : 0; });
+  destroyChart('bs-delta-vs-s');
+  charts['bs-delta-vs-s'] = new Chart(document.getElementById('c-bs-delta-vs-s').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Δ Call', data: callDeltas, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: { target: 'origin', above: 'rgba(27,175,122,0.08)' } },
+        { label: 'Δ Put',  data: putDeltas,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: { target: 'origin', below: 'rgba(227,73,72,0.08)' } },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK,maxTicksLimit:10} }, y: { grid:{color:GRID}, ticks:{color:TICK}, min:-1, max:1 } }
+    }
+  });
+
+  // --- 3) Price vs Time ---
+  const tRange = Array.from({length:60}, (_,i) => Math.round(T * (1 - i/60))).filter(t => t >= 1);
+  const callPT = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const putPT  = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  destroyChart('bs-price-vs-t');
+  charts['bs-price-vs-t'] = new Chart(document.getElementById('c-bs-price-vs-t').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: tRange.map(t => t+'d'),
+      datasets: [
+        { label: 'Call', data: callPT, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Put',  data: putPT,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:TICK, maxTicksLimit:8}, reverse: true },
+        y: { grid:{color:GRID}, ticks:{color:TICK}, beginAtZero:true }
+      }
+    }
+  });
+
+  // --- 4) Gamma & Vega vs S ---
+  const gammas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.gamma.toFixed(6) : 0; });
+  const vegas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +(c.vega/100).toFixed(4) : 0; });
+  destroyChart('bs-gamma-vega');
+  charts['bs-gamma-vega'] = new Chart(document.getElementById('c-bs-gamma-vega').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Gamma', data: gammas, borderColor: '#4a3aa7', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y' },
+        { label: 'Vega/100', data: vegas, borderColor: '#eb6834', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1' },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:TICK, maxTicksLimit:10} },
+        y:  { grid:{color:GRID}, ticks:{color:TICK}, position:'left' },
+        y1: { grid:{display:false}, ticks:{color:TICK}, position:'right' }
+      }
+    }
+  });
+
+  // --- 5) Vol Surface: Premium (%) vs sigma × S/K ---
+  const sigmaArr = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40];
+  const skArr    = [0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30];
+  const volColors = ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#eb6834'];
+  const volDatasets = sigmaArr.map((sig, si) => ({
+    label: `σ=${(sig*100).toFixed(0)}%`,
+    data: skArr.map(sk => {
+      const sv = K * sk;
+      const c = bsCalc(sv, K, T, r, sig, ratio, 'call');
+      if (!c) return 0;
+      const intrinsic = Math.max(sv - K, 0);
+      const cw_equiv  = c.bs_price_cw * 1000 * ratio;
+      return sv > 0 ? +((cw_equiv - intrinsic) / sv * 100).toFixed(2) : 0;
+    }),
+    borderColor: volColors[si],
+    borderWidth: 2,
+    pointRadius: 3,
+    tension: 0.3,
+    fill: false,
+  }));
+  destroyChart('bs-vol-surface');
+  charts['bs-vol-surface'] = new Chart(document.getElementById('c-bs-vol-surface').getContext('2d'), {
+    type: 'line',
+    data: { labels: skArr.map(sk => 'S/K='+sk.toFixed(2)), datasets: volDatasets },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(1)}% premium` } }
+      },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK} }, y: { grid:{color:GRID}, ticks:{color:TICK, callback: v=>v+'%'}, title:{display:true,text:'Premium %',color:TICK,font:{size:11}} } }
+    }
+  });
+}
+
+function runBSCalc() {
+  const { S, K, T, sigma, r, ratio } = bsGetInputs();
+  renderBSResults(S, K, T, r, sigma, ratio);
+  drawBSCharts(S, K, T, r, sigma, ratio);
+}
+
+function initBSTab() {
+  // Populate CW selector
+  const sel = document.getElementById('bs-sel-cw');
+  const pool = allData.filter(d => d.status === 'active');
+  sel.innerHTML = pool.map(d => `<option value="${d.ticker}">${d.ticker} (${d.underlying})</option>`).join('');
+  sel.onchange = () => {
+    const cw = allData.find(d => d.ticker === sel.value);
+    if (!cw) return;
+    document.getElementById('bs-S').value     = cw.underlying_price || '';
+    document.getElementById('bs-K').value     = cw.exercise || '';
+    const days = daysLeft(cw.maturity);
+    document.getElementById('bs-T').value     = days > 0 ? days : '';
+    document.getElementById('bs-sigma').value = cw.sigma || '';
+    document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
+    document.getElementById('bs-ratio').value = cw.ratio || 4;
+    runBSCalc();
+  };
+  // Auto-load first CW if available
+  if (pool.length > 0) {
+    sel.value = pool[0].ticker;
+    sel.dispatchEvent(new Event('change'));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB SWITCH (updated to include blackscholes)
+// ═══════════════════════════════════════════════════════════════
 // ── START ──────────────────────────────────────────────────────
 loadData();
 </script>
