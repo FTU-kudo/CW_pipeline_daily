@@ -1623,7 +1623,11 @@ function renderDrill(ticker) {
   // EG_i = (dCW_i / CW_{i-1}) / (dS_i / S_{i-1})
   // Dùng rolling 5 phiên để làm mịn nhiễu (CW thanh khoản thấp → giá nhảy bậc)
   const ROLL = 5;
-  const egRaw = o.close.map((p, i) => {
+
+  // BUG FIX EG: Kiểm tra underlying_close có dữ liệu thực không
+  const hasUnderlying = o.underlying_close && o.underlying_close.some(v => v > 0);
+
+  const egRaw = !hasUnderlying ? [] : o.close.map((p, i) => {
     if (i === 0) return null;
     const S0 = o.underlying_close[i - 1], S1 = o.underlying_close[i];
     const C0 = o.close[i - 1],            C1 = p;
@@ -1714,10 +1718,15 @@ function renderDrill(ticker) {
       }]
     });
   } else {
+    const msg = !hasUnderlying
+      ? 'Chưa có dữ liệu giá cổ phiếu cơ sở để tính Effective Gearing'
+      : o.dates && o.dates.length <= 1
+        ? 'Cần ≥ 2 phiên giao dịch để tính Effective Gearing'
+        : 'Chưa đủ dữ liệu để tính Effective Gearing';
     document.getElementById('c-drill-greeks').parentNode.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;height:160px;
                   color:var(--text3);font-size:13px;background:var(--surface2);border-radius:8px;">
-        Chưa đủ dữ liệu để tính Effective Gearing
+        ${msg}
       </div>
     `;
   }
