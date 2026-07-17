@@ -269,8 +269,8 @@ DELAY        = 0.1
 
 OHLCV_START_DATE = "2023-01-01"
 FILTER_DATE      = date(2024, 1, 2)
-MAX_RETRIES      = 5
-RETRY_DELAY      = 5.0
+MAX_RETRIES      = 3        # FIX: giảm từ 5 → 3; worst-case 1 CW = 3×30s+2×4s = 98s thay vì 170s
+RETRY_DELAY      = 4.0      # FIX: giảm từ 5.0 → 4.0s
 REQUEST_DELAY    = 0.6
 
 CACHE_DIR       = "output/cache"
@@ -669,43 +669,132 @@ def _normalise_ohlcv(df, symbol):
     keep = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
     return df[keep].dropna(subset=["time"])
 
-def fetch_one(symbol, start_str, end_str):
+def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
+    """
+    Fetch OHLCV cho 1 CW/underlying.
+
+    FIX 1: Trigger KBS fallback khi ReadTimeout (không chỉ 403)
+    FIX 2: Giới hạn read_timeout trong vnstock SDK call xuống 20s (thay vì 30s mặc định)
+    FIX 3: Circuit breaker — nếu VCI liên tiếp timeout >= CIRCUIT_OPEN_AFTER lần,
+           tự động skip VCI và dùng KBS cho các lần gọi tiếp trong cùng 1 run
+    """
+    CIRCUIT_OPEN_AFTER = 6   # số lần timeout liên tiếp toàn cục để mở circuit
+    VCI_READ_TIMEOUT   = 20  # giây — giảm từ 30s mặc định của SDK
+
     start = _to_ymd(start_str)
     end   = _to_ymd(end_str)
-    for attempt in range(1, MAX_RETRIES+1):
+
+    # _vci_circuit là dict mutable dùng chung toàn bộ run: {"fails": N, "open": bool}
+    if _vci_circuit is None:
+        _vci_circuit = fetch_one._circuit  # dùng state cấp module
+
+    def _try_vci():
+        from vnstock.api.quote import Quote
+        import requests as _req
+        # FIX 2: monkey-patch session timeout của vnstock nếu có thể,
+        # nếu không thì dùng threading.Timer để hard-cap
+        q = Quote(symbol=symbol, source="VCI")
+        # Thử set timeout trực tiếp trên session nếu SDK expose nó
+        if hasattr(q, 'session') and hasattr(q.session, 'request'):
+            q.session.request = lambda method, url, **kw: (
+                kw.update({"timeout": (10, VCI_READ_TIMEOUT)}) or
+                type(q.session).request(q.session, method, url, **kw)
+            )
+        df = q.history(start=start, end=end, interval="1D")
+        return df
+
+    def _try_kbs():
+        from vnstock.api.quote import Quote as Q2
+        q2 = Q2(symbol=symbol, source="KBS")
+        df2 = q2.history(start=start, end=end, interval="1D")
+        return df2
+
+    def _normalise(df):
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return _normalise_ohlcv(df, symbol)
+
+    # FIX 3: Nếu circuit đang open → bỏ qua VCI luôn, thử KBS trực tiếp
+    if _vci_circuit.get("open"):
         try:
-            from vnstock.api.quote import Quote
-            q  = Quote(symbol=symbol, source="VCI")
-            df = q.history(start=start, end=end, interval="1D")
+            df = _try_kbs()
+            result = _normalise(df)
+            if not result.empty:
+                return result
+        except Exception:
+            pass
+        return pd.DataFrame()
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            df = _try_vci()
+            # Thành công → reset fail streak
+            _vci_circuit["fails"] = 0
             if df is None or df.empty:
                 return pd.DataFrame()
-            return _normalise_ohlcv(df, symbol)
+            return _normalise(df)
+
         except Exception as e:
             msg = str(e)
-            is_rl = any(k in msg.lower() for k in
-                        ["rate limit","429","too many","quota","throttle",
-                         "gian han api","gioi han","rate_limit","exceeded"])
+            is_timeout = any(k in msg.lower() for k in
+                             ["timed out", "timeout", "read timeout", "connect timeout",
+                              "connectionerror", "remotedisconnected"])
+            is_rl  = any(k in msg.lower() for k in
+                         ["rate limit","429","too many","quota","throttle",
+                          "gian han api","gioi han","rate_limit","exceeded"])
             is_403 = "403" in msg or "forbidden" in msg.lower()
+
             if is_rl:
                 wait = 60
-                print(f"      RL {symbol} #{attempt} → tu dong cho {wait}s roi thu lai...")
+                print(f"      RL {symbol} #{attempt} → cho {wait}s roi thu lai...")
                 time.sleep(wait)
                 continue
+
+            # FIX 1: ReadTimeout → tăng fail streak, thử KBS ngay thay vì retry VCI
+            if is_timeout:
+                _vci_circuit["fails"] = _vci_circuit.get("fails", 0) + 1
+                print(f"      TIMEOUT {symbol} #{attempt} | VCI streak={_vci_circuit['fails']}")
+
+                # FIX 3: Mở circuit nếu đủ ngưỡng
+                if _vci_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                    _vci_circuit["open"] = True
+                    print(f"      [CIRCUIT OPEN] VCI unstable ({_vci_circuit['fails']} timeouts) "
+                          f"→ chuyển sang KBS cho toàn bộ run")
+
+                # FIX 1: Thử KBS ngay thay vì retry VCI tiếp
+                try:
+                    df2 = _try_kbs()
+                    result = _normalise(df2)
+                    if not result.empty:
+                        print(f"      KBS fallback OK {symbol}")
+                        return result
+                except Exception as e2:
+                    print(f"      KBS fallback FAIL {symbol}: {str(e2)[:50]}")
+
+                # KBS cũng fail → nếu còn attempt thì retry VCI, ngược lại bỏ
+                if attempt < MAX_RETRIES:
+                    time.sleep(RETRY_DELAY)
+                continue
+
+            # 403 hoặc lỗi khác → thử KBS ở attempt đầu
             if is_403 and attempt == 1:
                 try:
-                    from vnstock.api.quote import Quote as Q2
-                    q2 = Q2(symbol=symbol, source="KBS")
-                    df2 = q2.history(start=start, end=end, interval="1D")
-                    if df2 is not None and not df2.empty:
-                        return _normalise_ohlcv(df2, symbol)
+                    df2 = _try_kbs()
+                    result = _normalise(df2)
+                    if not result.empty:
+                        return result
                 except Exception:
                     pass
-            wait = RETRY_DELAY
-            tag  = "403" if is_403 else "ERR"
-            print(f"      {tag} {symbol} #{attempt} wait {wait:.0f}s | {msg[:60]}")
+
+            tag = "403" if is_403 else "ERR"
+            print(f"      {tag} {symbol} #{attempt} wait {RETRY_DELAY:.0f}s | {msg[:60]}")
             if attempt < MAX_RETRIES:
-                time.sleep(wait)
+                time.sleep(RETRY_DELAY)
+
     return None
+
+# Circuit breaker state — dict mutable dùng chung cho cả run (reset khi module load lại)
+fetch_one._circuit = {"fails": 0, "open": False}
 
 def _is_trading_day_closed() -> bool:
     now_ict = datetime.now(timezone.utc) + timedelta(hours=7)
@@ -738,8 +827,9 @@ def step2_ohlcv(df_vs):
         print(f"   Full load - {len(tickers)} ma tu {OHLCV_START_DATE}")
         print(f"   end_str = {end_str} (today+1, VCI exclusive)")
         rows=[]; failed=[]; skipped=[]
+        fetch_one._circuit = {"fails": 0, "open": False}  # reset circuit cho run mới
         for i,sym in enumerate(tickers,1):
-            df_r = fetch_one(sym, OHLCV_START_DATE, end_str)
+            df_r = fetch_one(sym, OHLCV_START_DATE, end_str, fetch_one._circuit)
             if df_r is None:
                 failed.append(sym)
                 print(f"  [{i:>4}/{len(tickers)}] FAIL {sym}")
@@ -839,8 +929,9 @@ def step2_ohlcv(df_vs):
     DELAY_FAIL  = 0.3
     new_rows = []; backfill_rows = []; failed = []; n_ok = 0; n_empty = 0
     t_fetch_start = time.time()
+    fetch_one._circuit = {"fails": 0, "open": False}  # reset circuit cho run mới
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
-        df_r = fetch_one(sym, start_str, end_str)
+        df_r = fetch_one(sym, start_str, end_str, fetch_one._circuit)
         if df_r is None:
             failed.append(sym)
             print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
@@ -1071,7 +1162,7 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
                 continue
             next_day = (last_und + timedelta(days=1)).strftime("%Y-%m-%d")
             print(f"   underlying {sym}: incremental {next_day} → {end_str}")
-            df_u_new = fetch_one(sym, next_day, end_str)
+            df_u_new = fetch_one(sym, next_day, end_str, fetch_one._circuit)
             if df_u_new is not None and not df_u_new.empty:
                 df_u_new["time_dt"] = pd.to_datetime(df_u_new["time"], dayfirst=True, errors="coerce")
                 df_u_new = df_u_new[df_u_new["time_dt"].notna()].copy()
@@ -1086,7 +1177,7 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             time.sleep(0.4)
             continue
         print(f"   underlying {sym}: full fetch tu {OHLCV_START_DATE} → {end_str}")
-        df_u = fetch_one(sym, OHLCV_START_DATE, end_str)
+        df_u = fetch_one(sym, OHLCV_START_DATE, end_str, fetch_one._circuit)
         if df_u is not None and not df_u.empty:
             df_u["time_dt"] = pd.to_datetime(df_u["time"], dayfirst=True, errors="coerce")
             df_u = df_u[df_u["time_dt"].notna()].copy()
@@ -1187,25 +1278,19 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             sigma = 0.25   # fallback nếu không đủ dữ liệu
 
         bs_call = bs_put = {"bs_price": 0, "delta_bs": 0, "gamma": 0, "vega": 0, "theta": 0}
-        if S_val > 0 and exercise > 0 and T > 0 and sigma > 0:
-            bs_call = black_scholes_option(S_val, exercise, T, risk_free, sigma, ratio, 'call')
-            bs_put  = black_scholes_option(S_val, exercise, T, risk_free, sigma, ratio, 'put')
-        else:
-            # Vẫn trả về dict rỗng
-            pass
 
-        # Ghi nhận option_type thực tế để dashboard chọn đúng
-        option_type = "call" if is_call else "put"
-
-        # BUG FIX #5: Đảm bảo S_val và exercise cùng đơn vị VND trước khi truyền vào BS
-        # exercise từ parse_exercise() đã là VND gốc (vd: 30000)
-        # S_val đã được nhân *1000 nếu < 1000 → cùng đơn vị
-        # Kiểm tra thêm: nếu exercise được lưu dạng nghìn đồng (vd: 30.0) thì cần chuẩn hóa
+        # BUG FIX ordering: tính exercise_vnd TRƯỚC khi gọi BS (không phải sau!)
+        # exercise từ parse_exercise() có thể là nghìn đồng → chuẩn hóa về VND gốc
         exercise_vnd = exercise
         if exercise > 0 and S_val > 0:
-            # Nếu exercise quá nhỏ so với S_val (tỷ lệ < 0.01), khả năng exercise ở dạng nghìn đồng
-            if exercise < S_val * 0.01:
+            if exercise < S_val * 0.01:   # tỷ lệ < 0.01 → khả năng exercise ở dạng nghìn đồng
                 exercise_vnd = exercise * 1000
+
+        if S_val > 0 and exercise_vnd > 0 and T > 0 and sigma > 0:
+            bs_call = black_scholes_option(S_val, exercise_vnd, T, risk_free, sigma, ratio, 'call')
+            bs_put  = black_scholes_option(S_val, exercise_vnd, T, risk_free, sigma, ratio, 'put')
+        else:
+            pass
 
         # BUG FIX #3: Thêm field 'delta' chuẩn để frontend dùng được (chọn theo option_type)
         delta_effective = bs_call["delta_bs"] if is_call else abs(bs_put["delta_bs"])
@@ -1253,9 +1338,30 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         sub = sub.sort_index()
         und_sym = df_info.loc[df_info["ma_cw"] == ticker, "ck_co_so"]
         und_sym = und_sym.values[0] if len(und_sym) else ""
-        und_ser = underlying_price_series.get(und_sym, {})
+
+        # BUG FIX EG: Build underlying_close bằng reindex + ffill thay vì dict lookup
+        # Vấn đề cũ: und_ser.get(d, 0) → trả 0 khi ngày không khớp chính xác
+        # (CW giao dịch vào ngày mà underlying không có dữ liệu, hoặc format lệch)
+        df_und = underlying_ohlcv.get(und_sym, pd.DataFrame())
+        if not df_und.empty and "close" in df_und.columns:
+            # Reindex underlying theo index của CW, forward-fill để điền ngày thiếu
+            und_aligned = df_und["close"].reindex(sub.index, method="ffill")
+            underlying_close = []
+            for v in und_aligned:
+                try:
+                    price = float(v)
+                    if price > 0 and price < 1000:
+                        price *= 1000
+                    underlying_close.append(round(price) if price > 0 else 0)
+                except Exception:
+                    underlying_close.append(0)
+        else:
+            # Fallback: thử dùng dict (backward compat)
+            und_ser = underlying_price_series.get(und_sym, {})
+            dates_str = sub.index.strftime("%d/%m/%Y").tolist()
+            underlying_close = [und_ser.get(d, 0) for d in dates_str]
+
         dates = sub.index.strftime("%d/%m/%Y").tolist()
-        underlying_close = [und_ser.get(d, 0) for d in dates]
         entry = {
             "dates": dates,
             "close": [round(float(v), 3) for v in sub["close"]],
