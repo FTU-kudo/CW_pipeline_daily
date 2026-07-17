@@ -876,7 +876,6 @@ def step2_ohlcv(df_vs):
     to_fetch = []
     skipped_count = 0
     new_count = 0
-    backfill_count = 0
 
     for sym in tickers:
         # Xác định start_str đúng cho CW này (ưu tiên ngay_gd_dau_tien)
@@ -889,21 +888,10 @@ def step2_ohlcv(df_vs):
                 to_fetch.append((sym, start_str, "NaT-reload"))
 
             elif last.date() >= last_expected_session:
-                # Cache đã đủ phiên mới nhất — nhưng kiểm tra back-fill:
-                # BUG FIX A CORE: CW mới có thể bị thiếu phiên đầu tiên
-                # vì lần fetch đầu trả về empty (vnstock chưa index kịp).
-                # Kiểm tra: first_trading_map[sym] < first session trong cache
-                first_in_cache = df_cache.loc[df_cache["Ticker"] == sym, "time_dt"].min()
-                if pd.notna(first_in_cache) and sym in first_trading_map:
-                    expected_start = pd.to_datetime(first_trading_map[sym])
-                    # Nếu phiên đầu trong cache muộn hơn ngay_gd_dau_tien + 2 ngày → cần back-fill
-                    gap_days = (first_in_cache - expected_start).days
-                    if gap_days > 2:
-                        backfill_start = first_trading_map[sym]
-                        backfill_end = (first_in_cache - timedelta(days=1)).strftime("%Y-%m-%d")
-                        to_fetch.append((sym, backfill_start, f"backfill-{backfill_start}→{backfill_end}"))
-                        backfill_count += 1
-                        continue
+                # Cache đã đủ phiên mới nhất — skip
+                # NOTE: Không back-fill phiên đầu tiên bị thiếu vì đó là
+                # "shadow trading" (giá +0%, không có giao dịch thực).
+                # VCI/KBS/TCBS/SSI đều không có data cho các phiên này.
                 skipped_count += 1
 
             else:
@@ -916,8 +904,7 @@ def step2_ohlcv(df_vs):
 
     print(f"   Skip (cache du)   : {skipped_count} ma")
     print(f"   Can fetch moi     : {new_count} ma")
-    print(f"   Back-fill phien   : {backfill_count} ma  ← BUG FIX A")
-    print(f"   Can update phien  : {len(to_fetch) - new_count - backfill_count} ma")
+    print(f"   Can update phien  : {len(to_fetch) - new_count} ma")
     print(f"   Tong can fetch    : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
     if not to_fetch:
         print("   → Cache day du, SKIP toan bo OHLCV fetch.")
@@ -927,7 +914,7 @@ def step2_ohlcv(df_vs):
     DELAY_OK    = REQUEST_DELAY
     DELAY_EMPTY = 0.15
     DELAY_FAIL  = 0.3
-    new_rows = []; backfill_rows = []; failed = []; n_ok = 0; n_empty = 0
+    new_rows = []; failed = []; n_ok = 0; n_empty = 0
     t_fetch_start = time.time()
     fetch_one._circuit = {"fails": 0, "open": False}  # reset circuit cho run mới
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
@@ -938,16 +925,11 @@ def step2_ohlcv(df_vs):
             time.sleep(DELAY_FAIL)
         elif df_r.empty:
             n_empty += 1
-            if "new" in lbl or "NaT" in lbl or "backfill" in lbl:
+            if "new" in lbl or "NaT" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
             time.sleep(DELAY_EMPTY)
         else:
-            # BUG FIX A: back-fill rows được xử lý riêng để prepend (thêm vào đầu)
-            if "backfill" in lbl:
-                backfill_rows.append(df_r)
-                print(f"  [{i:>4}/{len(to_fetch)}] BACKFILL {sym} +{len(df_r)} phien ({lbl})")
-            else:
-                new_rows.append(df_r)
+            new_rows.append(df_r)
             n_ok += 1
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
                 elapsed = time.time() - t_fetch_start
@@ -955,11 +937,10 @@ def step2_ohlcv(df_vs):
                 print(f"  [{i:>4}/{len(to_fetch)}] OK {sym} +{len(df_r)} ({lbl}) | OK={n_ok} ETA={eta:.1f}ph")
             time.sleep(DELAY_OK)
     df_cache.drop(columns=["time_dt"], inplace=True)
-    print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count} | BACKFILL={len(backfill_rows)}")
+    print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count}")
     if failed: print(f"   Failed: {failed[:10]}")
-    all_new_rows = backfill_rows + new_rows   # BUG FIX A: gộp back-fill + phiên mới
-    if all_new_rows:
-        df_add = pd.concat(all_new_rows, ignore_index=True)
+    if new_rows:
+        df_add = pd.concat(new_rows, ignore_index=True)
         bad_mask = df_cache["time"].isna() | (df_cache["time"].astype(str) == "NaT")
         n_bad = bad_mask.sum()
         if n_bad > 0:
