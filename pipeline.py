@@ -1274,6 +1274,7 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             pass
 
         # BUG FIX #3: Thêm field 'delta' chuẩn để frontend dùng được (chọn theo option_type)
+        option_type = "call" if is_call else "put"   # ← khai báo trước khi dùng trong cw_list
         delta_effective = bs_call["delta_bs"] if is_call else abs(bs_put["delta_bs"])
         # Effective Gearing = (S / (price_cw_vnd * ratio)) * delta_option  [đã kiểm tra đúng]
         eff_lev_val = round(gross_lev * delta_effective, 2) if gross_lev > 0 else 0.0
