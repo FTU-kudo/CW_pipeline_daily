@@ -299,8 +299,6 @@
     }
     .guide-table tr:last-child td { border-bottom: none; }
     .guide-table tr:hover td { background: var(--surface2); transition: background 0.1s; }
-    .guide-highlight td { background: rgba(227,73,72,0.04); }
-    .guide-highlight td:first-child { border-left: 3px solid var(--red); padding-left: 11px; }
     .guide-table code {
       font-size: 11.5px; background: var(--surface2);
       padding: 1px 6px; border-radius: 4px;
@@ -649,10 +647,9 @@
               <tr>
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
-              </tr>
-              <tr class="guide-highlight">
+              <tr>
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
-                <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
+                <td>Giá lý thuyết của 1 chứng quyền mua, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
               <tr>
                 <td><span class="gtag gtag-red">Giá Put (BS)</span></td>
