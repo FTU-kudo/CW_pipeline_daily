@@ -1543,13 +1543,13 @@ function renderDrill(ticker) {
     volume: [], underlying_close: []
   };
 
-  // Info grid – đã bổ sung Giá cơ sở hiện tại
+  // Info grid – thứ tự mới: Underlying, Giá cơ sở, Hòa vốn, Giá thực hiện, Nhà phát hành, ...
   document.getElementById('drill-info').innerHTML = [
     { lbl: 'Underlying', val: cw.underlying },
     { lbl: 'Giá cơ sở', val: cw.underlying_price ? (cw.underlying_price/1000).toFixed(2)+'k' : '—' },
-    { lbl: 'Nhà phát hành', val: cw.issuer },
-    { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
     { lbl: 'Hòa vốn (**)', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
+    { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
+    { lbl: 'Nhà phát hành', val: cw.issuer },
     { lbl: 'Tỷ lệ CD', val: cw.ratio+':1' },
     { lbl: 'Đáo hạn', val: cw.maturity },
     { lbl: 'Moneyness', val: cw.moneyness },
