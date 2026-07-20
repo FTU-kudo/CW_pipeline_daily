@@ -299,6 +299,8 @@
     }
     .guide-table tr:last-child td { border-bottom: none; }
     .guide-table tr:hover td { background: var(--surface2); transition: background 0.1s; }
+    .guide-highlight td { background: rgba(227,73,72,0.04); }
+    .guide-highlight td:first-child { border-left: 3px solid var(--red); padding-left: 11px; }
     .guide-table code {
       font-size: 11.5px; background: var(--surface2);
       padding: 1px 6px; border-radius: 4px;
@@ -350,9 +352,9 @@
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
-    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
@@ -407,7 +409,7 @@
             <th>Tỷ lệ CD</th>
             <th class="sortable" data-col="premium">Premium %</th>
             <th class="sortable" data-col="eff_lev">Đòn bẩy</th>
-            <th class="sortable" data-col="breakeven">Break‑even</th>
+            <th class="sortable" data-col="breakeven" title="(**) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi">Hòa vốn **</th>
             <th>Đáo hạn</th>
             <th>Moneyness</th>
             <th>Delta</th>
@@ -416,6 +418,11 @@
           </tr></thead>
           <tbody id="tbl-body"></tbody>
         </table>
+        <div style="font-size:11px;color:var(--text3);padding:6px 4px 2px">
+          (**) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi &nbsp;|&nbsp;
+          <span style="color:var(--green)">●</span> dưới giá cơ sở &nbsp;
+          <span style="color:var(--red)">●</span> trên giá cơ sở (cần underlying tăng thêm để có lãi)
+        </div>
       </div>
     </div>
   </div>
@@ -647,9 +654,10 @@
               <tr>
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
-              <tr>
+              </tr>
+              <tr class="guide-highlight">
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
-                <td>Giá lý thuyết của 1 chứng quyền mua, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
+                <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
               <tr>
                 <td><span class="gtag gtag-red">Giá Put (BS)</span></td>
@@ -1131,7 +1139,7 @@ function drawTable() {
       <td>${d.ratio}:1</td>
       <td style="color:${d.premium > 0 ? 'var(--green)' : 'var(--red)'}">${d.premium > 0 ? '+' : ''}${d.premium}%</td>
       <td>${d.eff_lev}×</td>
-      <td>${d.breakeven}k</td>
+      <td style="color:${d.breakeven && d.underlying_price && d.breakeven*1000 > d.underlying_price ? 'var(--red)' : d.breakeven ? 'var(--green)' : ''}">${d.breakeven ? d.breakeven.toFixed(1)+'k' : '—'}</td>
       <td style="font-size:11px">${d.maturity}</td>
       <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
       <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
@@ -1235,6 +1243,7 @@ function drawTop10(data) {
           <div class="tc-metric"><span>Đòn bẩy</span>${d.eff_lev.toFixed(1)}×</div>
           <div class="tc-metric"><span>Delta</span>${d.delta != null ? d.delta.toFixed(3) : '—'}</div>
           <div class="tc-metric"><span>Sigma</span>${d.sigma ? d.sigma.toFixed(3) : '—'}</div>
+          <div class="tc-metric" style="color:${d.breakeven && d.underlying_price && d.breakeven*1000 > d.underlying_price ? 'var(--red)' : 'var(--green)'}"><span style="color:var(--text3)">Hòa vốn</span>${d.breakeven ? d.breakeven.toFixed(1)+'k' : '—'}</div>
         </div>
         <div style="margin-top:6px">${scoreBar(d.score, i<3 ? '#eda100' : '#2a78d6')}</div>
       </div>
@@ -1540,6 +1549,7 @@ function renderDrill(ticker) {
     { lbl: 'Underlying', val: cw.underlying },
     { lbl: 'Nhà phát hành', val: cw.issuer },
     { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
+    { lbl: 'Hòa vốn (**)', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
     { lbl: 'Tỷ lệ CD', val: cw.ratio+':1' },
     { lbl: 'Đáo hạn', val: cw.maturity },
     { lbl: 'Moneyness', val: cw.moneyness },
@@ -1553,7 +1563,7 @@ function renderDrill(ticker) {
     { lbl: 'Vega', val: cw.vega ? cw.vega.toFixed(2) : '—' },
     { lbl: 'Theta/ngày', val: cw.theta ? cw.theta.toFixed(4) : '—' },
     { lbl: 'Lãi suất RF', val: cw.risk_free ? (cw.risk_free*100).toFixed(2)+'%' : '—' }
-  ].map(i => `<div class="info-item"><div class="lbl">${i.lbl}</div><div class="val">${i.val}</div></div>`).join('');
+  ].map(i => `<div class="info-item"><div class="lbl">${i.lbl}</div><div class="val" style="${i.color ? 'color:'+i.color : ''}">${i.val}</div></div>`).join('');
 
   destroyChart('drill-price');
   destroyChart('prem-hist');
