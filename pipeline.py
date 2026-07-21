@@ -64,6 +64,61 @@ def black_scholes_option(S: float, K: float, T: float, r: float, sigma: float,
         "theta":    round(theta, 6)
     }
 
+def implied_volatility(market_price_cw: float, S: float, K: float, T: float,
+                       r: float, ratio: float, option_type: str = 'call',
+                       tol: float = 1e-6, max_iter: int = 100):
+    """
+    Tính Implied Volatility bằng Brent's method.
+    market_price_cw : giá CW thị trường (nghìn đồng)
+    Trả về IV (annualised, dạng thập phân) hoặc None nếu không hội tụ.
+
+    IV > HV  → thị trường định giá rủi ro cao hơn lịch sử → CW đang đắt
+    IV < HV  → thị trường định giá rủi ro thấp hơn lịch sử → CW đang rẻ
+    """
+    if S <= 0 or K <= 0 or T <= 0 or market_price_cw <= 0:
+        return None
+
+    lo, hi = 0.005, 5.0   # [0.5%, 500%] — bao phủ mọi trường hợp thực tế VN
+
+    def objective(sigma):
+        bs = black_scholes_option(S, K, T, r, sigma, ratio, option_type)
+        return bs["bs_price"] - market_price_cw
+
+    try:
+        # Brentq yêu cầu hai biên đổi dấu nhau
+        f_lo, f_hi = objective(lo), objective(hi)
+        if f_lo * f_hi > 0:
+            return None   # giá CW ngoài vùng định giá BS có thể giải được
+        from scipy.optimize import brentq
+        iv = brentq(objective, lo, hi, xtol=tol, maxiter=max_iter)
+        return round(iv, 4) if iv > 0 else None
+    except Exception:
+        return None
+
+
+def iv_rank_percentile(iv_today: float, iv_history: list) -> dict:
+    """
+    Tính IV Rank (IVR) và IV Percentile (IVP) từ chuỗi IV lịch sử.
+
+    IVR = (IV_today - IV_min) / (IV_max - IV_min) × 100
+      < 30 → IV đang thấp → CW rẻ hơn lịch sử → thời điểm mua tốt
+      > 70 → IV đang cao → CW đắt hơn lịch sử → thận trọng
+
+    IVP = % số ngày lịch sử có IV thấp hơn IV hôm nay
+      Ít bị ảnh hưởng bởi spike cực đoan hơn IVR
+    """
+    valid = [v for v in (iv_history or []) if v and v > 0]
+    if not valid or not iv_today or iv_today <= 0:
+        return {"iv_rank": None, "iv_pct": None}
+
+    iv_min, iv_max = min(valid), max(valid)
+    iv_rank = round((iv_today - iv_min) / (iv_max - iv_min) * 100, 1) \
+              if iv_max > iv_min else 50.0
+    iv_pct  = round(sum(1 for v in valid if v < iv_today) / len(valid) * 100, 1)
+
+    return {"iv_rank": iv_rank, "iv_pct": iv_pct}
+
+
 def historical_volatility(prices: np.ndarray, window: int = 252) -> float:
     """
     Ước lượng độ biến động lịch sử (annualized) từ chuỗi giá đóng cửa.
@@ -276,6 +331,7 @@ REQUEST_DELAY    = 0.6
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
 OHLCV_CACHE     = f"{CACHE_DIR}/ohlcv.parquet"
+IV_CACHE        = f"{CACHE_DIR}/iv_history.parquet"   # lưu chuỗi IV hàng ngày cho mỗi CW
 OUTPUT_FILE     = "output/cw_master.xlsx"
 
 # ══════════════════════════════════════════════════════════════════
@@ -1273,6 +1329,25 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         else:
             pass
 
+        # ── Implied Volatility ─────────────────────────────────────────
+        # Tính IV từ giá thị trường CW hiện tại (price_cw, đơn vị nghìn đồng)
+        # Chỉ tính khi có đủ điều kiện: giá CW > 0, T > 0, S > 0, K > 0
+        iv_val = None
+        if price_cw > 0 and S_val > 0 and exercise_vnd > 0 and T > 0:
+            iv_val = implied_volatility(
+                market_price_cw = price_cw,
+                S = S_val, K = exercise_vnd, T = T,
+                r = risk_free, ratio = ratio,
+                option_type = "call" if is_call else "put"
+            )
+
+        # IV vs HV comparison signal
+        iv_vs_hv = None
+        if iv_val and sigma > 0:
+            # > 0: IV cao hơn HV → CW đang đắt so với biến động lịch sử
+            # < 0: IV thấp hơn HV → CW đang rẻ so với biến động lịch sử
+            iv_vs_hv = round((iv_val - sigma) / sigma * 100, 1)  # % chênh lệch
+
         # BUG FIX #3: Thêm field 'delta' chuẩn để frontend dùng được (chọn theo option_type)
         option_type = "call" if is_call else "put"   # ← khai báo trước khi dùng trong cw_list
         delta_effective = bs_call["delta_bs"] if is_call else abs(bs_put["delta_bs"])
@@ -1306,10 +1381,54 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
             "theta": bs_call["theta"],    # theta của call (để tham khảo)
             "sigma": round(sigma, 4),
             "risk_free": round(risk_free, 4),
+            # ── Implied Volatility ──────────────────────────────────────
+            "iv": iv_val,                          # IV hôm nay (float hoặc None)
+            "iv_vs_hv": iv_vs_hv,                  # % chênh lệch IV vs HV (+ = đắt, - = rẻ)
+            # iv_rank và iv_pct sẽ được điền sau khi load IV history cache
             # Thêm d1, d2 để dashboard có thể vẽ BS visualization
             "d1": round((log(S_val / exercise_vnd) + (risk_free + 0.5 * sigma**2) * T) / (sigma * sqrt(T)), 4) if (S_val > 0 and exercise_vnd > 0 and T > 0 and sigma > 0) else 0,
             "T_years": round(T, 4),
         })
+
+    # ── Cập nhật IV history cache và tính IV Rank / IV Percentile ──────
+    # IV history cache: parquet với columns [ticker, date, iv]
+    # Mỗi ngày pipeline chạy, append IV hôm nay cho từng CW active
+    today_str_ict = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")
+
+    # Load cache cũ
+    if os.path.exists(IV_CACHE):
+        iv_df = pd.read_parquet(IV_CACHE)
+    else:
+        iv_df = pd.DataFrame(columns=["ticker", "date", "iv"])
+
+    # Append IV hôm nay (chỉ CW có IV tính được)
+    new_iv_rows = [
+        {"ticker": cw["ticker"], "date": today_str_ict, "iv": cw["iv"]}
+        for cw in cw_list
+        if cw.get("iv") is not None
+    ]
+    if new_iv_rows:
+        df_new_iv = pd.DataFrame(new_iv_rows)
+        # Xóa duplicate nếu pipeline chạy 2 lần trong ngày
+        iv_df = pd.concat([iv_df, df_new_iv], ignore_index=True)
+        iv_df["date"] = iv_df["date"].astype(str)
+        iv_df.drop_duplicates(subset=["ticker", "date"], keep="last", inplace=True)
+        # Chỉ giữ 365 ngày gần nhất để tránh cache phình to
+        iv_df = iv_df[iv_df["date"] >= (
+            pd.Timestamp(today_str_ict) - timedelta(days=365)
+        ).strftime("%Y-%m-%d")]
+        iv_df.to_parquet(IV_CACHE, index=False)
+        print(f"   IV history cache: {len(iv_df):,} rows | {iv_df['ticker'].nunique()} mã")
+
+    # Tính IV Rank / IV Percentile cho từng CW dùng 252 ngày gần nhất
+    iv_by_ticker = iv_df.groupby("ticker")["iv"].apply(list).to_dict() if not iv_df.empty else {}
+    for cw in cw_list:
+        hist = iv_by_ticker.get(cw["ticker"], [])
+        ivr = iv_rank_percentile(cw.get("iv"), hist)
+        cw["iv_rank"] = ivr["iv_rank"]   # None nếu < 2 ngày lịch sử
+        cw["iv_pct"]  = ivr["iv_pct"]
+
+    print(f"   IV computed: {sum(1 for c in cw_list if c.get('iv') is not None)} / {len(cw_list)} CW")
 
     # --- OHLCV drill-down cho dashboard (bao gồm giá cơ sở) ---
     ohlcv_out = {}
