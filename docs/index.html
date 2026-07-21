@@ -352,9 +352,9 @@
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
-    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
@@ -432,7 +432,9 @@
             <th>Đáo hạn</th>
             <th>Moneyness</th>
             <th>Delta</th>
-            <th>Sigma</th>
+            <th>Sigma (HV)</th>
+            <th title="Implied Volatility: độ biến động ngầm định từ giá thị trường CW">IV</th>
+            <th title="IV Rank 0–100: thấp (<30) = IV đang rẻ so với 52 tuần qua, cao (>70) = đắt">IVR</th>
             <th>Trạng thái</th>
           </tr></thead>
           <tbody id="tbl-body"></tbody>
@@ -462,7 +464,7 @@
       <label>Đòn bẩy <input type="range" id="w-lev" min="0" max="100" value="20"> <span id="wv-lev">20%</span></label>
       <label>Thanh khoản <input type="range" id="w-vol" min="0" max="100" value="15"> <span id="wv-vol">15%</span></label>
       <label>Delta <input type="range" id="w-delta" min="0" max="100" value="25"> <span id="wv-delta">25%</span></label>
-      <label>Sigma thấp <input type="range" id="w-sigma" min="0" max="100" value="15"> <span id="wv-sigma">15%</span></label>
+      <label>IV Rank thấp <input type="range" id="w-sigma" min="0" max="100" value="15"> <span id="wv-sigma">15%</span></label>
       <button onclick="resetWeights()" style="font-size:11px;padding:3px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer">Reset</button>
     </div>
 
@@ -493,7 +495,7 @@
             <th>Hạng</th><th>Mã CW</th><th>Underlying</th><th>Nhà PH</th><th>Giá CW</th>
             <th>Premium %</th><th>Đòn bẩy</th><th>Ngày còn</th><th>Moneyness</th>
             <th>Delta</th><th>Sigma</th>
-            <th>P</th><th>L</th><th>V</th><th>Δ</th><th>σ</th>
+            <th>P</th><th>L</th><th>V</th><th>Δ</th><th title="IV Rank thấp = CW đang rẻ so với lịch sử biến động">IVR</th>
             <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng</th>
           </tr></thead>
           <tbody id="op-tbl-body"></tbody>
@@ -674,6 +676,7 @@
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
               </tr>
+              <tr class="guide-highlight">
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
                 <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
@@ -700,6 +703,25 @@
               <tr>
                 <td><span class="gtag gtag-purple">Eff. Gearing (×)</span></td>
                 <td>Đòn bẩy hiệu dụng = <code>(S / CW_value) × |Delta|</code>. Cho biết khi cổ phiếu tăng 1%, CW tăng bao nhiêu %. Khác với đòn bẩy thô (gross gearing) vì đã điều chỉnh theo xác suất Delta.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV – Implied Volatility</span></td>
+                <td>Độ biến động <strong>ngầm định</strong> từ giá thị trường CW, tính ngược từ công thức Black-Scholes. Khác với Sigma (HV – lịch sử), IV phản ánh kỳ vọng của thị trường về biến động <em>tương lai</em>.<br>
+                  • <span style="color:var(--green);font-weight:500">IV &lt; HV</span>: thị trường định giá rủi ro thấp hơn lịch sử → CW đang <strong>rẻ</strong> tương đối<br>
+                  • <span style="color:var(--red);font-weight:500">IV &gt; HV</span>: thị trường định giá rủi ro cao hơn lịch sử → CW đang <strong>đắt</strong> tương đối
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV Rank (IVR)</span></td>
+                <td>Vị trí của IV hôm nay trong khoảng [IV_min, IV_max] của 52 tuần qua: <code>IVR = (IV − IV_min) / (IV_max − IV_min) × 100</code><br>
+                  • <span style="color:var(--green);font-weight:500">IVR &lt; 30</span>: IV đang thấp so với lịch sử → thời điểm mua tốt, CW rẻ hơn bình thường<br>
+                  • <span style="color:var(--red);font-weight:500">IVR &gt; 70</span>: IV đang cao → CW đắt hơn bình thường, thận trọng<br>
+                  Được dùng thay thế "Sigma thấp" trong scoring engine vì chính xác hơn.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV Percentile (IVP)</span></td>
+                <td>% số ngày trong 52 tuần qua có IV thấp hơn IV hôm nay. Ít bị ảnh hưởng bởi các spike cực đoan hơn IVR. IVP = 20% nghĩa là 80% thời gian trong năm qua IV cao hơn hôm nay → CW đang rất rẻ.</td>
               </tr>
             </tbody>
           </table>
@@ -790,8 +812,8 @@
                 <td>Ưu tiên Delta trong vùng 0.3–0.7 (OTM vừa phải, tiềm năng tăng tốt): <code>score = 100 × (1 − |delta − 0.5| × 2)</code>. Trọng số mặc định: <strong>25%</strong>.</td>
               </tr>
               <tr>
-                <td><span class="gtag gtag-green">Sigma thấp</span></td>
-                <td>CW có σ thấp hơn được ưu tiên (premium rẻ hơn, ít rủi ro hơn): <code>score = 100 × (1 − normalize(sigma))</code>. Trọng số mặc định: <strong>15%</strong>.</td>
+                <td><span class="gtag gtag-green">IV Rank thấp</span></td>
+                <td>CW có IV Rank thấp hơn được ưu tiên — IV đang rẻ so với lịch sử 52 tuần: <code>score = 100 − IV_Rank</code>. IVR = 0 → điểm 100, IVR = 100 → điểm 0. Fallback về Sigma thấp nếu chưa có đủ IV history (CW mới niêm yết). Trọng số mặc định: <strong>15%</strong>.</td>
               </tr>
             </tbody>
           </table>
@@ -1162,6 +1184,8 @@ function drawTable() {
       <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
       <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
       <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
+      <td style="color:${d.iv && d.sigma ? (d.iv < d.sigma ? 'var(--green)' : 'var(--red)') : ''}">${d.iv ? d.iv.toFixed(4) : '—'}</td>
+      <td style="font-weight:500;color:${d.iv_rank != null ? (d.iv_rank < 30 ? 'var(--green)' : d.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : ''}">${d.iv_rank != null ? d.iv_rank.toFixed(0) : '—'}</td>
       <td><span class="pill ${d.status === 'active' ? 'active-badge' : 'expired-badge'}">${d.status === 'active' ? 'Active' : 'Expired'}</span></td>
     </tr>
   `).join('');
@@ -1187,7 +1211,7 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (OPPORTUNITY)
 // ═══════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 60;
+const MIN_DAYS_LEFT = 90;
 const SAFETY = { MAX_LEV: 15, MIN_PRICE: 0.20, MAX_OTM_DEPTH: 0.85, MAX_PREMIUM: 50 };
 
 function safetyCheck(d) {
@@ -1261,6 +1285,7 @@ function drawTop10(data) {
           <div class="tc-metric"><span>Đòn bẩy</span>${d.eff_lev.toFixed(1)}×</div>
           <div class="tc-metric"><span>Delta</span>${d.delta != null ? d.delta.toFixed(3) : '—'}</div>
           <div class="tc-metric"><span>Sigma</span>${d.sigma ? d.sigma.toFixed(3) : '—'}</div>
+          <div class="tc-metric" style="color:${d.iv_rank != null ? (d.iv_rank < 30 ? 'var(--green)' : d.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : ''}"><span style="color:var(--text3)">IVR</span>${d.iv_rank != null ? d.iv_rank.toFixed(0) : (d.iv ? d.iv.toFixed(3) : '—')}</div>
           <div class="tc-metric" style="color:${d.breakeven && d.underlying_price && d.breakeven*1000 > d.underlying_price ? 'var(--red)' : 'var(--green)'}"><span style="color:var(--text3)">Hòa vốn</span>${d.breakeven ? d.breakeven.toFixed(1)+'k' : '—'}</div>
         </div>
         <div style="margin-top:6px">${scoreBar(d.score, i<3 ? '#eda100' : '#2a78d6')}</div>
@@ -1370,16 +1395,26 @@ function runScoring() {
   const levs  = pool.map(d => d.eff_lev);
   const vols  = pool.map(d => avgVolume(d.ticker));
   const days  = pool.map(d => daysLeft(d.maturity));
-  // BUG FIX #3: 'delta' field chuẩn đã có trong data.json (pipeline fix), fallback 0.5 nếu N/A
   const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
-  const sigmas = pool.map(d => d.sigma || 0);
+
+  // IV Rank scoring: IVR thấp (<30) → IV đang rẻ so với lịch sử → điểm cao
+  // Fallback: nếu chưa có IV history (CW mới), dùng sigma thấp thay thế
+  // ivScores: 0–100, cao = IVR thấp = CW rẻ tương đối
+  const ivScores = pool.map(d => {
+    if (d.iv_rank != null) return 100 - d.iv_rank;   // IVR thấp → score cao
+    if (d.sigma) {
+      // Fallback: chuẩn hóa sigma (sigma thấp = score cao)
+      const allSigmas = pool.map(x => x.sigma || 0);
+      const mn = Math.min(...allSigmas), mx = Math.max(...allSigmas);
+      return mx > mn ? (1 - (d.sigma - mn) / (mx - mn)) * 100 : 50;
+    }
+    return 50;  // không có dữ liệu → điểm trung bình
+  });
 
   const minP = Math.min(...prems), maxP = Math.max(...prems);
   const minL = Math.min(...levs),  maxL = Math.max(...levs);
   const minV = Math.min(...vols),  maxV = Math.max(...vols);
-  const minD = Math.min(...days),  maxD = Math.max(...days);
   const minDel = Math.min(...deltas), maxDel = Math.max(...deltas);
-  const minSig = Math.min(...sigmas), maxSig = Math.max(...sigmas);
 
   const { wp, wl, wv, wd, ws } = getWeights();
 
@@ -1388,18 +1423,18 @@ function runScoring() {
     const sl = normalize(levs[i],  minL, maxL, false);
     const sv = normalize(vols[i],  minV, maxV, false);
     const sd = normalize(deltas[i], minDel, maxDel, false);
-    const ss = normalize(sigmas[i], minSig, maxSig, true);
+    const ss = ivScores[i];  // đã ở dạng 0–100, không cần normalize thêm
     const total = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
     return {
       ...d,
       days_left: days[i],
       avg_vol: Math.round(vols[i]),
-      s_prem: Math.round(sp),
-      s_lev: Math.round(sl),
-      s_vol: Math.round(sv),
+      s_prem:  Math.round(sp),
+      s_lev:   Math.round(sl),
+      s_vol:   Math.round(sv),
       s_delta: Math.round(sd),
-      s_sigma: Math.round(ss),
-      score: Math.round(total)
+      s_sigma: Math.round(ss),   // giữ tên s_sigma để tương thích UI
+      score:   Math.round(total)
     };
   }).sort((a,b) => b.score - a.score);
 
@@ -1576,7 +1611,14 @@ function renderDrill(ticker) {
     { lbl: 'Premium', val: cw.premium+'%' },
     { lbl: 'Đòn bẩy HQ', val: cw.eff_lev+'×' },
     { lbl: 'Delta', val: cw.delta != null ? cw.delta.toFixed(3) : '—' },
-    { lbl: 'Sigma', val: cw.sigma ? cw.sigma.toFixed(4) : '—' },
+    { lbl: 'Sigma (HV)', val: cw.sigma ? cw.sigma.toFixed(4) : '—' },
+    { lbl: 'IV (Implied)', val: cw.iv ? cw.iv.toFixed(4) : '—',
+      color: cw.iv && cw.sigma ? (cw.iv < cw.sigma ? 'var(--green)' : 'var(--red)') : undefined },
+    { lbl: 'IV vs HV', val: cw.iv_vs_hv != null ? (cw.iv_vs_hv > 0 ? '+' : '') + cw.iv_vs_hv + '%' : '—',
+      color: cw.iv_vs_hv != null ? (cw.iv_vs_hv < 0 ? 'var(--green)' : 'var(--red)') : undefined },
+    { lbl: 'IV Rank', val: cw.iv_rank != null ? cw.iv_rank.toFixed(0) : '—',
+      color: cw.iv_rank != null ? (cw.iv_rank < 30 ? 'var(--green)' : cw.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : undefined },
+    { lbl: 'IV Percentile', val: cw.iv_pct != null ? cw.iv_pct.toFixed(0) + '%' : '—' },
     { lbl: 'Giá BS (Call)', val: cw.bs_price_call ? cw.bs_price_call.toFixed(3)+' k' : '—' },
     { lbl: 'Giá BS (Put)', val: cw.bs_price_put ? cw.bs_price_put.toFixed(3)+' k' : '—' },
     { lbl: 'Gamma', val: cw.gamma ? cw.gamma.toFixed(6) : '—' },
