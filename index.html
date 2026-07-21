@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CW Dashboard – Black‑Scholes</title>
   <!-- Chỉ dùng Chart.js core -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     /* ----- RESET & VARIABLES (giữ nguyên như cũ) ----- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -300,6 +299,8 @@
     }
     .guide-table tr:last-child td { border-bottom: none; }
     .guide-table tr:hover td { background: var(--surface2); transition: background 0.1s; }
+    .guide-highlight td { background: rgba(227,73,72,0.04); }
+    .guide-highlight td:first-child { border-left: 3px solid var(--red); padding-left: 11px; }
     .guide-table code {
       font-size: 11.5px; background: var(--surface2);
       padding: 1px 6px; border-radius: 4px;
@@ -356,6 +357,25 @@
     <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
+  </div>
+
+  <!-- DISCLAIMER BANNER — hiện ở tất cả các tab -->
+  <div id="disclaimer-banner" style="
+    display:flex; align-items:flex-start; gap:10px;
+    padding: 8px 1.5rem; font-size: 12px; line-height: 1.6;
+    background: var(--bg-amber); color: var(--text-amber);
+    border-bottom: 0.5px solid rgba(237,161,0,0.3);
+  ">
+    <span style="font-size:15px;flex-shrink:0;margin-top:1px">⚠️</span>
+    <span>
+      <strong>Tuyên bố miễn trừ trách nhiệm:</strong>
+      Toàn bộ thông tin, số liệu và phân tích trên Dashboard này — bao gồm giá lý thuyết Black-Scholes,
+      chỉ số Greeks, điểm xếp hạng cơ hội — chỉ mang tính chất <strong>tham khảo và nghiên cứu</strong>,
+      không phải khuyến nghị hay lời kêu gọi đầu tư.
+      Chứng quyền có bảo đảm (CW) là công cụ tài chính có đòn bẩy cao, tiềm ẩn rủi ro mất toàn bộ vốn.
+      Nhà đầu tư cần tự đánh giá rủi ro, tham khảo chuyên gia tài chính có chuyên môn và chịu trách nhiệm
+      hoàn toàn với quyết định đầu tư của mình.
+    </span>
   </div>
 
   <!-- GLOBAL FILTERS (Overview + Table) -->
@@ -654,7 +674,6 @@
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
               </tr>
-              <tr>
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
                 <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
@@ -1168,7 +1187,7 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (OPPORTUNITY)
 // ═══════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 90;
+const MIN_DAYS_LEFT = 60;
 const SAFETY = { MAX_LEV: 15, MIN_PRICE: 0.20, MAX_OTM_DEPTH: 0.85, MAX_PREMIUM: 50 };
 
 function safetyCheck(d) {
@@ -1543,12 +1562,13 @@ function renderDrill(ticker) {
     volume: [], underlying_close: []
   };
 
-  // Info grid – thứ tự mới: Underlying, Giá cơ sở, Hòa vốn, Giá thực hiện, Nhà phát hành, ...
+  // Info grid
   document.getElementById('drill-info').innerHTML = [
-    { lbl: 'Underlying', val: cw.underlying },
+    { lbl: 'Giá CW (nghìn đ)', val: cw.price ? cw.price.toFixed(3) : '—' },
+    { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
     { lbl: 'Giá cơ sở', val: cw.underlying_price ? (cw.underlying_price/1000).toFixed(2)+'k' : '—' },
     { lbl: 'Hòa vốn (**)', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
-    { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
+    { lbl: 'Underlying', val: cw.underlying },
     { lbl: 'Nhà phát hành', val: cw.issuer },
     { lbl: 'Tỷ lệ CD', val: cw.ratio+':1' },
     { lbl: 'Đáo hạn', val: cw.maturity },
