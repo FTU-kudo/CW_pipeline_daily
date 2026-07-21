@@ -352,9 +352,9 @@
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
-    <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
@@ -676,7 +676,7 @@
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
               </tr>
-              <tr class="guide-highlight">
+              <tr>
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
                 <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
@@ -1211,7 +1211,7 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (OPPORTUNITY)
 // ═══════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 90;
+const MIN_DAYS_LEFT = 60;
 const SAFETY = { MAX_LEV: 15, MIN_PRICE: 0.20, MAX_OTM_DEPTH: 0.85, MAX_PREMIUM: 50 };
 
 function safetyCheck(d) {
