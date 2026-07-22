@@ -352,9 +352,9 @@
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
-    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
@@ -676,7 +676,7 @@
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
               </tr>
-              <tr>
+              <tr class="guide-highlight">
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
                 <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
@@ -858,6 +858,7 @@ const TICK = isDark ? '#898781' : '#898781';
 const charts = {};
 let allData = [], ohlcvData = {}, filtered = [], sortCol = '', sortDir = 1;
 let scored = [];
+let lastSelectedTicker = null;   // nhớ CW đang xem, dùng chung giữa Drill-down và BS tab
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
@@ -1211,7 +1212,7 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (OPPORTUNITY)
 // ═══════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 60;
+const MIN_DAYS_LEFT = 90;
 const SAFETY = { MAX_LEV: 15, MIN_PRICE: 0.20, MAX_OTM_DEPTH: 0.85, MAX_PREMIUM: 50 };
 
 function safetyCheck(d) {
@@ -1466,6 +1467,7 @@ function resetWeights() {
 //  DRILL-DOWN (sử dụng hàm drawPriceChart mới)
 // ═══════════════════════════════════════════════════════════════
 function jumpToDrill(ticker) {
+  lastSelectedTicker = ticker;   // ghi nhớ ngay khi click từ Top10/scoring table
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   document.querySelectorAll('.tab')[2].classList.add('on');
   document.getElementById('pane-overview').classList.add('hidden');
@@ -1592,6 +1594,7 @@ function initDrill(preselect) {
 function renderDrill(ticker) {
   const cw = allData.find(d => d.ticker === ticker);
   if (!cw) return;
+  lastSelectedTicker = ticker;   // ghi nhớ CW đang xem để BS tab dùng lại
   const o = ohlcvData[ticker] || {
     dates: [], open: [], high: [], low: [], close: [],
     volume: [], underlying_close: []
@@ -2036,15 +2039,18 @@ function loadBSFromTicker(ticker) {
 
 function initBSTab() {
   const pool = allData.filter(d => d.status === 'active');
-  const first = pool[0]?.ticker;
+  // Ưu tiên: CW đang xem ở Drill-down → CW đầu danh sách (fallback)
+  const target = (lastSelectedTicker && pool.find(d => d.ticker === lastSelectedTicker))
+                 ? lastSelectedTicker
+                 : pool[0]?.ticker;
   makeCWCombo({
     inputId: 'bs-combo-input',
     dropId:  'bs-combo-drop',
     pool,
-    onSelect: loadBSFromTicker,
-    initialTicker: first,
+    onSelect: ticker => { lastSelectedTicker = ticker; loadBSFromTicker(ticker); },
+    initialTicker: target,
   });
-  if (first) loadBSFromTicker(first);
+  if (target) loadBSFromTicker(target);
 }
 
 // ═══════════════════════════════════════════════════════════════
