@@ -68,7 +68,9 @@ def implied_volatility(market_price_cw: float, S: float, K: float, T: float,
                        r: float, ratio: float, option_type: str = 'call',
                        tol: float = 1e-6, max_iter: int = 100):
     """
-    Tính Implied Volatility bằng Brent's method.
+    Tính Implied Volatility bằng Newton-Raphson + Bisection fallback.
+    Không dùng scipy → không phụ thuộc external package ngoài requirements.txt.
+
     market_price_cw : giá CW thị trường (nghìn đồng)
     Trả về IV (annualised, dạng thập phân) hoặc None nếu không hội tụ.
 
@@ -78,20 +80,57 @@ def implied_volatility(market_price_cw: float, S: float, K: float, T: float,
     if S <= 0 or K <= 0 or T <= 0 or market_price_cw <= 0:
         return None
 
-    lo, hi = 0.005, 5.0   # [0.5%, 500%] — bao phủ mọi trường hợp thực tế VN
+    lo, hi = 0.005, 5.0   # [0.5%, 500%]
+
+    def bs_price(sigma):
+        return black_scholes_option(S, K, T, r, sigma, ratio, option_type)["bs_price"]
 
     def objective(sigma):
-        bs = black_scholes_option(S, K, T, r, sigma, ratio, option_type)
-        return bs["bs_price"] - market_price_cw
+        return bs_price(sigma) - market_price_cw
 
     try:
-        # Brentq yêu cầu hai biên đổi dấu nhau
-        f_lo, f_hi = objective(lo), objective(hi)
+        f_lo = objective(lo)
+        f_hi = objective(hi)
+
+        # Kiểm tra biên: nếu cùng dấu thì không có nghiệm trong [lo, hi]
         if f_lo * f_hi > 0:
-            return None   # giá CW ngoài vùng định giá BS có thể giải được
-        from scipy.optimize import brentq
-        iv = brentq(objective, lo, hi, xtol=tol, maxiter=max_iter)
-        return round(iv, 4) if iv > 0 else None
+            return None
+
+        # ── Bước 1: Newton-Raphson với seed = sigma HV xấp xỉ ────────
+        # Seed khởi đầu: dùng Brenner-Subrahmanyam approximation
+        # sigma_approx ≈ sqrt(2π/T) × (C/S) — hội tụ nhanh khi gần ATM
+        sigma = max(lo, min(hi, sqrt(2 * 3.14159265 / T) * market_price_cw * ratio / S))
+
+        for _ in range(max_iter // 2):
+            f_val = objective(sigma)
+            if abs(f_val) < tol:
+                return round(sigma, 4)
+            # Vega của option (dV/dsigma) — dùng làm đạo hàm trong Newton
+            vega_raw = S * norm_pdf(
+                (log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * sqrt(T))
+            ) * sqrt(T) / 1000.0 / ratio
+            if vega_raw < 1e-10:
+                break   # vega quá nhỏ → chuyển sang bisection
+            sigma_new = sigma - f_val / vega_raw
+            sigma_new = max(lo, min(hi, sigma_new))   # clamp trong biên
+            if abs(sigma_new - sigma) < tol:
+                return round(sigma_new, 4)
+            sigma = sigma_new
+
+        # ── Bước 2: Bisection thuần Python (chậm hơn nhưng luôn hội tụ) ──
+        for _ in range(max_iter):
+            mid = (lo + hi) / 2.0
+            f_mid = objective(mid)
+            if abs(f_mid) < tol or (hi - lo) / 2.0 < tol:
+                return round(mid, 4)
+            if f_lo * f_mid < 0:
+                hi = mid
+            else:
+                lo = mid
+                f_lo = f_mid
+
+        return round((lo + hi) / 2.0, 4)
+
     except Exception:
         return None
 
