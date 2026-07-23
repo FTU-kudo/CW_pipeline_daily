@@ -492,10 +492,24 @@
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>Hạng</th><th>Mã CW</th><th>Underlying</th><th>Nhà PH</th><th>Giá CW</th>
-            <th>Premium %</th><th>Đòn bẩy</th><th>Ngày còn</th><th>Moneyness</th>
-            <th>Delta</th><th>Sigma</th>
-            <th>P</th><th>L</th><th>V</th><th>Δ</th><th title="IV Rank thấp = CW đang rẻ so với lịch sử biến động">IVR</th>
+            <th>Hạng</th>
+            <th>Mã CW</th>
+            <th>Underlying</th>
+            <th>Nhà PH</th>
+            <th>Giá CW</th>
+            <th>Premium %</th>
+            <th>Đòn bẩy</th>
+            <th>Ngày còn</th>
+            <th>Moneyness</th>
+            <th>Delta</th>
+            <th>Sigma</th>
+            <th title="Score: Premium thấp (0–100)">P</th>
+            <th title="Score: Đòn bẩy cao (0–100)">L</th>
+            <th title="Score: Thanh khoản (0–100)">V</th>
+            <th title="Score: Delta vùng 0.3–0.7 (0–100)">Δ</th>
+            <th title="Score: IV Rank thấp = CW rẻ so với lịch sử (0–100)">IVR</th>
+            <th title="Penalty: Hòa vốn &gt; 10% so với giá hiện tại (−điểm)" style="color:var(--red)">P.BE</th>
+            <th title="Penalty: IV &gt; HV × 1.20, CW đắt so với biến động thực (−điểm)" style="color:var(--red)">P.IV</th>
             <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng</th>
           </tr></thead>
           <tbody id="op-tbl-body"></tbody>
@@ -604,7 +618,7 @@
       </div>
 
       <!-- Volatility Smile Simulator -->
-      <div class="sec-title">Bề mặt Premium — Sigma × Moneyness (S/K)</div>
+      <div class="sec-title">Premium Surface — Sigma × Moneyness (S/K)</div>
       <div class="card" style="margin-bottom:10px">
         <div style="position:relative;height:220px"><canvas id="c-bs-vol-surface"></canvas></div>
       </div>
@@ -773,7 +787,7 @@
                 </td>
               </tr>
               <tr>
-                <td><span class="gtag gtag-blue">Bề mặt Premium</span></td>
+                <td><span class="gtag gtag-blue">Premium Surface</span></td>
                 <td>
                   Đồ thị phân tích độ đắt rẻ của chứng quyền (Premium %) dựa trên Moneyness và Độ biến động.<br>
                   • Đỉnh của các đường cong luôn nằm ở mức S/K = 1.00 (ATM): đây là vùng giá trị thời gian lớn nhất, khiến nhà đầu tư phải trả mức phí (Premium) cao nhất so với giá trị thực tế<br>
@@ -858,6 +872,7 @@ const TICK = isDark ? '#898781' : '#898781';
 const charts = {};
 let allData = [], ohlcvData = {}, filtered = [], sortCol = '', sortDir = 1;
 let scored = [];
+let lastSelectedTicker = null;   // nhớ CW đang xem, dùng chung giữa Drill-down và BS tab
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
@@ -1330,11 +1345,27 @@ function drawScatter(data) {
 
 function drawOpTable(data) {
   const mp = { ITM:'itm', OTM:'otm', ATM:'atm' };
-  document.getElementById('op-tbl-body').innerHTML = data.map((d,i) => {
-    const sk = d.underlying_price > 0 && d.exercise > 0 ? (d.underlying_price / d.exercise).toFixed(2) : '—';
-    const skColor = parseFloat(sk) < 0.9 ? 'var(--red)' : parseFloat(sk) < 1.0 ? 'var(--amber)' : 'var(--green)';
+  document.getElementById('op-tbl-body').innerHTML = data.map((d, i) => {
+
+    // Màu penalty: đỏ nếu có penalty, xanh nếu không
+    const p1Color = d.penalty1 > 0 ? 'var(--red)'   : 'var(--green)';
+    const p2Color = d.penalty2 > 0 ? 'var(--red)'   : 'var(--green)';
+    const p1Text  = d.penalty1 > 0 ? `-${d.penalty1}` : '0';
+    const p2Text  = d.penalty2 > 0 ? `-${d.penalty2}` : '0';
+
+    // Màu breakeven: đỏ nếu vượt giá cơ sở
+    const beColor = d.breakeven && d.underlying_price &&
+                    d.breakeven * 1000 > d.underlying_price
+                    ? 'var(--red)' : 'var(--green)';
+
+    // Màu IV vs HV
+    const ivColor = d.iv && d.sigma
+                    ? (d.iv < d.sigma ? 'var(--green)' : 'var(--red)')
+                    : '';
+
     return `
-      <tr style="${i<3 ? 'font-weight:500' : ''};cursor:pointer" onclick="jumpToDrill('${d.ticker}')">
+      <tr style="${i < 3 ? 'font-weight:500' : ''};cursor:pointer"
+          onclick="jumpToDrill('${d.ticker}')">
         <td>${rankBadge(i)}</td>
         <td><strong>${d.ticker}</strong></td>
         <td>${d.underlying}</td>
@@ -1343,14 +1374,30 @@ function drawOpTable(data) {
         <td style="color:var(--green)">${d.premium.toFixed(1)}%</td>
         <td>${d.eff_lev.toFixed(2)}×</td>
         <td>${d.days_left}</td>
-        <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
+        <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
         <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
         <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
-        <td>${scoreBar(d.s_prem, '#1baf7a')}</td>
-        <td>${scoreBar(d.s_lev, '#2a78d6')}</td>
-        <td>${scoreBar(d.s_vol, '#4a3aa7')}</td>
+
+        <!-- Base scores -->
+        <td>${scoreBar(d.s_prem,  '#1baf7a')}</td>
+        <td>${scoreBar(d.s_lev,   '#2a78d6')}</td>
+        <td>${scoreBar(d.s_vol,   '#4a3aa7')}</td>
         <td>${scoreBar(d.s_delta, '#e87ba4')}</td>
         <td>${scoreBar(d.s_sigma, '#eb6834')}</td>
+
+        <!-- Penalty 1: Breakeven gap -->
+        <td style="font-weight:600;color:${p1Color};text-align:center"
+            title="Hòa vốn: ${d.breakeven ? (d.breakeven.toFixed(1)+'k') : '—'}">
+          ${p1Text}
+        </td>
+
+        <!-- Penalty 2: IV/HV -->
+        <td style="font-weight:600;color:${p2Color};text-align:center"
+            title="IV: ${d.iv ? d.iv.toFixed(4) : '—'} | HV: ${d.sigma ? d.sigma.toFixed(4) : '—'}">
+          ${p2Text}
+        </td>
+
+        <!-- Final score -->
         <td style="background:var(--bg-blue)">${scoreBar(d.score, '#eda100')}</td>
       </tr>
     `;
@@ -1366,17 +1413,18 @@ function updateOpKPI(data, rejectedCount) {
 }
 
 function runScoring() {
-  const opUnder = document.getElementById('op-under').value;
-  const opMoney = document.getElementById('op-money').value;
+  const opUnder   = document.getElementById('op-under').value;
+  const opMoney   = document.getElementById('op-money').value;
   const opPremMax = +document.getElementById('op-prem-max').value;
-  const topN = +document.getElementById('op-topn').value;
+  const topN      = +document.getElementById('op-topn').value;
 
+  // ── Bộ lọc cứng (hard filter) ──────────────────────────────
   let rejected = [];
   let pool = allData.filter(d => {
-    if (d.status !== 'active') return false;
+    if (d.status !== 'active')              return false;
     if (daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
     if (d.premium <= 0 || d.premium > opPremMax) return false;
-    if (d.price <= 0 || d.eff_lev <= 0) return false;
+    if (d.price <= 0 || d.eff_lev <= 0)    return false;
     if (opUnder && d.underlying !== opUnder) return false;
     if (opMoney && d.moneyness !== opMoney) return false;
     const reason = safetyCheck(d);
@@ -1385,58 +1433,96 @@ function runScoring() {
   });
 
   if (pool.length === 0) {
-    document.getElementById('top10-grid').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
+    document.getElementById('top10-grid').innerHTML =
+      '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
     document.getElementById('op-tbl-body').innerHTML = '';
     updateOpKPI([], 0);
     return;
   }
 
-  const prems = pool.map(d => d.premium);
-  const levs  = pool.map(d => d.eff_lev);
-  const vols  = pool.map(d => avgVolume(d.ticker));
-  const days  = pool.map(d => daysLeft(d.maturity));
+  // ── Tính raw metrics ────────────────────────────────────────
+  const prems  = pool.map(d => d.premium);
+  const levs   = pool.map(d => d.eff_lev);
+  const vols   = pool.map(d => avgVolume(d.ticker));
+  const days   = pool.map(d => daysLeft(d.maturity));
   const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
 
-  // IV Rank scoring: IVR thấp (<30) → IV đang rẻ so với lịch sử → điểm cao
-  // Fallback: nếu chưa có IV history (CW mới), dùng sigma thấp thay thế
-  // ivScores: 0–100, cao = IVR thấp = CW rẻ tương đối
+  // IV Rank: IVR thấp → score cao; fallback sigma nếu chưa có history
   const ivScores = pool.map(d => {
-    if (d.iv_rank != null) return 100 - d.iv_rank;   // IVR thấp → score cao
+    if (d.iv_rank != null) return 100 - d.iv_rank;
     if (d.sigma) {
-      // Fallback: chuẩn hóa sigma (sigma thấp = score cao)
-      const allSigmas = pool.map(x => x.sigma || 0);
-      const mn = Math.min(...allSigmas), mx = Math.max(...allSigmas);
+      const allS = pool.map(x => x.sigma || 0);
+      const mn = Math.min(...allS), mx = Math.max(...allS);
       return mx > mn ? (1 - (d.sigma - mn) / (mx - mn)) * 100 : 50;
     }
-    return 50;  // không có dữ liệu → điểm trung bình
+    return 50;
   });
 
   const minP = Math.min(...prems), maxP = Math.max(...prems);
   const minL = Math.min(...levs),  maxL = Math.max(...levs);
   const minV = Math.min(...vols),  maxV = Math.max(...vols);
-  const minDel = Math.min(...deltas), maxDel = Math.max(...deltas);
+  const minD = Math.min(...deltas),maxD = Math.max(...deltas);
 
   const { wp, wl, wv, wd, ws } = getWeights();
 
-  scored = pool.map((d,i) => {
-    const sp = normalize(prems[i], minP, maxP, true);
-    const sl = normalize(levs[i],  minL, maxL, false);
-    const sv = normalize(vols[i],  minV, maxV, false);
-    const sd = normalize(deltas[i], minDel, maxDel, false);
-    const ss = ivScores[i];  // đã ở dạng 0–100, không cần normalize thêm
-    const total = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
+  // ── Tính điểm + penalty ────────────────────────────────────
+  scored = pool.map((d, i) => {
+
+    // Base scores (0–100)
+    const sp = normalize(prems[i],  minP, maxP, true);   // premium thấp → cao
+    const sl = normalize(levs[i],   minL, maxL, false);  // đòn bẩy cao → cao
+    const sv = normalize(vols[i],   minV, maxV, false);  // thanh khoản cao → cao
+    const sd = normalize(deltas[i], minD, maxD, false);  // delta cao → cao
+    const ss = ivScores[i];
+
+    let base = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
+
+    // ────────────────────────────────────────────────────────
+    // PENALTY 1 — Breakeven quá xa (> 10% so với giá hiện tại)
+    // Lý do: CW cần underlying tăng mạnh mới hòa vốn → rủi ro cao
+    // CHDB2602 ví dụ: hòa vốn +14% → trừ 20 điểm
+    // ────────────────────────────────────────────────────────
+    let penalty1 = 0;
+    if (d.breakeven && d.underlying_price && d.underlying_price > 0) {
+      const breakeven_vnd    = d.breakeven * 1000;
+      const breakeven_gap    = (breakeven_vnd - d.underlying_price) / d.underlying_price;
+      if (breakeven_gap > 0.10) {
+        // Penalize tuyến tính: mỗi 1% vượt ngưỡng 10% → trừ 2 điểm, tối đa 30
+        penalty1 = Math.min(30, Math.round((breakeven_gap - 0.10) * 200));
+      }
+    }
+
+    // ────────────────────────────────────────────────────────
+    // PENALTY 2 — IV đắt hơn HV > 20%
+    // Lý do: thị trường định giá rủi ro cao hơn thực tế lịch sử
+    // CHDB2602 ví dụ: IV/HV = +29.2% → trừ thêm ~9 điểm
+    // ────────────────────────────────────────────────────────
+    let penalty2 = 0;
+    if (d.iv && d.sigma && d.sigma > 0) {
+      const iv_hv_ratio = d.iv / d.sigma;
+      if (iv_hv_ratio > 1.20) {
+        // Mỗi 10% IV vượt ngưỡng 120% → trừ 3 điểm, tối đa 20
+        penalty2 = Math.min(20, Math.round((iv_hv_ratio - 1.20) * 30));
+      }
+    }
+
+    const totalPenalty = penalty1 + penalty2;
+    const finalScore   = Math.max(0, Math.round(base - totalPenalty));
+
     return {
       ...d,
-      days_left: days[i],
-      avg_vol: Math.round(vols[i]),
-      s_prem:  Math.round(sp),
-      s_lev:   Math.round(sl),
-      s_vol:   Math.round(sv),
-      s_delta: Math.round(sd),
-      s_sigma: Math.round(ss),   // giữ tên s_sigma để tương thích UI
-      score:   Math.round(total)
+      days_left:     days[i],
+      avg_vol:       Math.round(vols[i]),
+      s_prem:        Math.round(sp),
+      s_lev:         Math.round(sl),
+      s_vol:         Math.round(sv),
+      s_delta:       Math.round(sd),
+      s_sigma:       Math.round(ss),
+      penalty1,
+      penalty2,
+      score:         finalScore,
     };
-  }).sort((a,b) => b.score - a.score);
+  }).sort((a, b) => b.score - a.score);
 
   updateOpKPI(scored, rejected.length);
   drawTop10(scored.slice(0, topN));
@@ -1466,6 +1552,7 @@ function resetWeights() {
 //  DRILL-DOWN (sử dụng hàm drawPriceChart mới)
 // ═══════════════════════════════════════════════════════════════
 function jumpToDrill(ticker) {
+  lastSelectedTicker = ticker;   // ghi nhớ ngay khi click từ Top10/scoring table
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   document.querySelectorAll('.tab')[2].classList.add('on');
   document.getElementById('pane-overview').classList.add('hidden');
@@ -1592,6 +1679,7 @@ function initDrill(preselect) {
 function renderDrill(ticker) {
   const cw = allData.find(d => d.ticker === ticker);
   if (!cw) return;
+  lastSelectedTicker = ticker;   // ghi nhớ CW đang xem để BS tab dùng lại
   const o = ohlcvData[ticker] || {
     dates: [], open: [], high: [], low: [], close: [],
     volume: [], underlying_close: []
@@ -2036,15 +2124,18 @@ function loadBSFromTicker(ticker) {
 
 function initBSTab() {
   const pool = allData.filter(d => d.status === 'active');
-  const first = pool[0]?.ticker;
+  // Ưu tiên: CW đang xem ở Drill-down → CW đầu danh sách (fallback)
+  const target = (lastSelectedTicker && pool.find(d => d.ticker === lastSelectedTicker))
+                 ? lastSelectedTicker
+                 : pool[0]?.ticker;
   makeCWCombo({
     inputId: 'bs-combo-input',
     dropId:  'bs-combo-drop',
     pool,
-    onSelect: loadBSFromTicker,
-    initialTicker: first,
+    onSelect: ticker => { lastSelectedTicker = ticker; loadBSFromTicker(ticker); },
+    initialTicker: target,
   });
-  if (first) loadBSFromTicker(first);
+  if (target) loadBSFromTicker(target);
 }
 
 // ═══════════════════════════════════════════════════════════════
