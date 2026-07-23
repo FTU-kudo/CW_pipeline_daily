@@ -352,9 +352,9 @@
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
+    <button class="tab on"  onclick="switchTab('overview',this)">Tổng quan</button>
     <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
-    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">Drill‑down</button>
     <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
@@ -492,24 +492,10 @@
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>Hạng</th>
-            <th>Mã CW</th>
-            <th>Underlying</th>
-            <th>Nhà PH</th>
-            <th>Giá CW</th>
-            <th>Premium %</th>
-            <th>Đòn bẩy</th>
-            <th>Ngày còn</th>
-            <th>Moneyness</th>
-            <th>Delta</th>
-            <th>Sigma</th>
-            <th title="Score: Premium thấp (0–100)">P</th>
-            <th title="Score: Đòn bẩy cao (0–100)">L</th>
-            <th title="Score: Thanh khoản (0–100)">V</th>
-            <th title="Score: Delta vùng 0.3–0.7 (0–100)">Δ</th>
-            <th title="Score: IV Rank thấp = CW rẻ so với lịch sử (0–100)">IVR</th>
-            <th title="Penalty: Hòa vốn &gt; 10% so với giá hiện tại (−điểm)" style="color:var(--red)">P.BE</th>
-            <th title="Penalty: IV &gt; HV × 1.20, CW đắt so với biến động thực (−điểm)" style="color:var(--red)">P.IV</th>
+            <th>Hạng</th><th>Mã CW</th><th>Underlying</th><th>Nhà PH</th><th>Giá CW</th>
+            <th>Premium %</th><th>Đòn bẩy</th><th>Ngày còn</th><th>Moneyness</th>
+            <th>Delta</th><th>Sigma</th>
+            <th>P</th><th>L</th><th>V</th><th>Δ</th><th title="IV Rank thấp = CW đang rẻ so với lịch sử biến động">IVR</th>
             <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng</th>
           </tr></thead>
           <tbody id="op-tbl-body"></tbody>
@@ -618,7 +604,7 @@
       </div>
 
       <!-- Volatility Smile Simulator -->
-      <div class="sec-title">Premium Surface — Sigma × Moneyness (S/K)</div>
+      <div class="sec-title">Bề mặt Premium — Sigma × Moneyness (S/K)</div>
       <div class="card" style="margin-bottom:10px">
         <div style="position:relative;height:220px"><canvas id="c-bs-vol-surface"></canvas></div>
       </div>
@@ -690,7 +676,7 @@
                 <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
                 <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
               </tr>
-              <tr>
+              <tr class="guide-highlight">
                 <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
                 <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
               </tr>
@@ -787,7 +773,7 @@
                 </td>
               </tr>
               <tr>
-                <td><span class="gtag gtag-blue">Premium Surface</span></td>
+                <td><span class="gtag gtag-blue">Bề mặt Premium</span></td>
                 <td>
                   Đồ thị phân tích độ đắt rẻ của chứng quyền (Premium %) dựa trên Moneyness và Độ biến động.<br>
                   • Đỉnh của các đường cong luôn nằm ở mức S/K = 1.00 (ATM): đây là vùng giá trị thời gian lớn nhất, khiến nhà đầu tư phải trả mức phí (Premium) cao nhất so với giá trị thực tế<br>
@@ -828,6 +814,24 @@
               <tr>
                 <td><span class="gtag gtag-green">IV Rank thấp</span></td>
                 <td>CW có IV Rank thấp hơn được ưu tiên — IV đang rẻ so với lịch sử 52 tuần: <code>score = 100 − IV_Rank</code>. IVR = 0 → điểm 100, IVR = 100 → điểm 0. Fallback về Sigma thấp nếu chưa có đủ IV history (CW mới niêm yết). Trọng số mặc định: <strong>15%</strong>.</td>
+              </tr>
+              <tr style="background:rgba(227,73,72,0.04)">
+                <td><span class="gtag gtag-red">⛔ Loại: IV đắt hơn HV &gt;15%</span></td>
+                <td>
+                  <strong>Điều kiện loại mới:</strong> CW bị loại khỏi pool nếu <code>IV &gt; HV × 1.15</code> — tức thị trường đang định giá biến động tương lai cao hơn lịch sử trên 15%.<br>
+                  • Ý nghĩa: nhà đầu tư đang trả quá nhiều cho kỳ vọng biến động, rủi ro không xứng với giá trả<br>
+                  • Ví dụ: CHDB2602 có IV vs HV = +24.5% → bị loại đúng, dù premium và đòn bẩy trông hấp dẫn<br>
+                  • Chỉ áp dụng khi có đủ dữ liệu IV (không phạt CW chưa có IV history)
+                </td>
+              </tr>
+              <tr style="background:rgba(227,73,72,0.04)">
+                <td><span class="gtag gtag-red">⛔ Loại: Giá &gt; BS × 1.20</span></td>
+                <td>
+                  <strong>Điều kiện loại mới:</strong> CW bị loại nếu giá thị trường cao hơn giá Black-Scholes trên 20%.<br>
+                  • Ý nghĩa: CW đang bị thổi phồng — nhà đầu tư đang trả quá cao so với giá trị lý thuyết<br>
+                  • Ví dụ: CHDB2602 giá thị trường 0.440k vs BS 0.312k = đắt hơn 41% → bị loại<br>
+                  • Ngưỡng 20% để chừa buffer cho bid-ask spread và thanh khoản thấp bình thường
+                </td>
               </tr>
             </tbody>
           </table>
@@ -1226,17 +1230,52 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING ENGINE (OPPORTUNITY)
 // ═══════════════════════════════════════════════════════════════
-const MIN_DAYS_LEFT = 60;
-const SAFETY = { MAX_LEV: 15, MIN_PRICE: 0.20, MAX_OTM_DEPTH: 0.85, MAX_PREMIUM: 50 };
+const MIN_DAYS_LEFT = 90;
+const SAFETY = {
+  MAX_LEV:       15,     // Đòn bẩy tối đa
+  MIN_PRICE:     0.20,   // Giá CW tối thiểu (nghìn đồng)
+  MAX_OTM_DEPTH: 0.85,   // S/K tối thiểu (OTM quá sâu)
+  MAX_PREMIUM:   50,     // Premium tối đa (%)
+  MAX_IV_VS_HV:  0.15,   // IV cao hơn HV tối đa 15% → CW đắt so với lịch sử
+  MAX_MKT_VS_BS: 0.20,   // Giá thị trường cao hơn giá BS tối đa 20%
+};
 
 function safetyCheck(d) {
-  if (d.eff_lev > SAFETY.MAX_LEV) return `Đòn bẩy quá cao (${d.eff_lev.toFixed(1)}× > ${SAFETY.MAX_LEV}×)`;
-  if (d.price < SAFETY.MIN_PRICE) return `Giá quá thấp (${d.price.toFixed(2)} < ${SAFETY.MIN_PRICE})`;
-  if (d.premium > SAFETY.MAX_PREMIUM) return `Premium quá cao (${d.premium.toFixed(1)}% > ${SAFETY.MAX_PREMIUM}%)`;
+  if (d.eff_lev > SAFETY.MAX_LEV)
+    return `Đòn bẩy quá cao (${d.eff_lev.toFixed(1)}× > ${SAFETY.MAX_LEV}×)`;
+
+  if (d.price < SAFETY.MIN_PRICE)
+    return `Giá quá thấp (${d.price.toFixed(2)} < ${SAFETY.MIN_PRICE})`;
+
+  if (d.premium > SAFETY.MAX_PREMIUM)
+    return `Premium quá cao (${d.premium.toFixed(1)}% > ${SAFETY.MAX_PREMIUM}%)`;
+
   if (d.underlying_price > 0 && d.exercise > 0) {
     const sk = d.underlying_price / d.exercise;
-    if (sk < SAFETY.MAX_OTM_DEPTH) return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
+    if (sk < SAFETY.MAX_OTM_DEPTH)
+      return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
   }
+
+  // ── Điều kiện mới #1: IV cao hơn HV quá 15% → thị trường định giá đắt ──
+  // IV > HV × (1 + MAX_IV_VS_HV) nghĩa là nhà đầu tư đang trả premium
+  // cho kỳ vọng biến động cao hơn lịch sử — rủi ro không xứng với giá trả
+  // Chỉ áp dụng khi có đủ dữ liệu IV (iv != null và sigma > 0)
+  if (d.iv != null && d.sigma > 0) {
+    const iv_vs_hv_ratio = (d.iv - d.sigma) / d.sigma;
+    if (iv_vs_hv_ratio > SAFETY.MAX_IV_VS_HV)
+      return `IV đắt hơn HV ${(iv_vs_hv_ratio * 100).toFixed(1)}% (ngưỡng: +${SAFETY.MAX_IV_VS_HV * 100}%)`;
+  }
+
+  // ── Điều kiện mới #2: Giá thị trường > Giá BS × (1 + MAX_MKT_VS_BS) ──
+  // CW được thị trường định giá cao hơn lý thuyết >20% → đang bị thổi phồng
+  // Dùng bs_price_call vì thị trường VN chỉ có call warrant
+  const bs_ref = d.option_type === 'call' ? d.bs_price_call : d.bs_price_put;
+  if (bs_ref && bs_ref > 0 && d.price > 0) {
+    const mkt_vs_bs = (d.price - bs_ref) / bs_ref;
+    if (mkt_vs_bs > SAFETY.MAX_MKT_VS_BS)
+      return `Giá thị trường đắt hơn BS ${(mkt_vs_bs * 100).toFixed(1)}% (ngưỡng: +${SAFETY.MAX_MKT_VS_BS * 100}%)`;
+  }
+
   return null;
 }
 
@@ -1345,27 +1384,11 @@ function drawScatter(data) {
 
 function drawOpTable(data) {
   const mp = { ITM:'itm', OTM:'otm', ATM:'atm' };
-  document.getElementById('op-tbl-body').innerHTML = data.map((d, i) => {
-
-    // Màu penalty: đỏ nếu có penalty, xanh nếu không
-    const p1Color = d.penalty1 > 0 ? 'var(--red)'   : 'var(--green)';
-    const p2Color = d.penalty2 > 0 ? 'var(--red)'   : 'var(--green)';
-    const p1Text  = d.penalty1 > 0 ? `-${d.penalty1}` : '0';
-    const p2Text  = d.penalty2 > 0 ? `-${d.penalty2}` : '0';
-
-    // Màu breakeven: đỏ nếu vượt giá cơ sở
-    const beColor = d.breakeven && d.underlying_price &&
-                    d.breakeven * 1000 > d.underlying_price
-                    ? 'var(--red)' : 'var(--green)';
-
-    // Màu IV vs HV
-    const ivColor = d.iv && d.sigma
-                    ? (d.iv < d.sigma ? 'var(--green)' : 'var(--red)')
-                    : '';
-
+  document.getElementById('op-tbl-body').innerHTML = data.map((d,i) => {
+    const sk = d.underlying_price > 0 && d.exercise > 0 ? (d.underlying_price / d.exercise).toFixed(2) : '—';
+    const skColor = parseFloat(sk) < 0.9 ? 'var(--red)' : parseFloat(sk) < 1.0 ? 'var(--amber)' : 'var(--green)';
     return `
-      <tr style="${i < 3 ? 'font-weight:500' : ''};cursor:pointer"
-          onclick="jumpToDrill('${d.ticker}')">
+      <tr style="${i<3 ? 'font-weight:500' : ''};cursor:pointer" onclick="jumpToDrill('${d.ticker}')">
         <td>${rankBadge(i)}</td>
         <td><strong>${d.ticker}</strong></td>
         <td>${d.underlying}</td>
@@ -1374,30 +1397,14 @@ function drawOpTable(data) {
         <td style="color:var(--green)">${d.premium.toFixed(1)}%</td>
         <td>${d.eff_lev.toFixed(2)}×</td>
         <td>${d.days_left}</td>
-        <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
+        <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
         <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
         <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
-
-        <!-- Base scores -->
-        <td>${scoreBar(d.s_prem,  '#1baf7a')}</td>
-        <td>${scoreBar(d.s_lev,   '#2a78d6')}</td>
-        <td>${scoreBar(d.s_vol,   '#4a3aa7')}</td>
+        <td>${scoreBar(d.s_prem, '#1baf7a')}</td>
+        <td>${scoreBar(d.s_lev, '#2a78d6')}</td>
+        <td>${scoreBar(d.s_vol, '#4a3aa7')}</td>
         <td>${scoreBar(d.s_delta, '#e87ba4')}</td>
         <td>${scoreBar(d.s_sigma, '#eb6834')}</td>
-
-        <!-- Penalty 1: Breakeven gap -->
-        <td style="font-weight:600;color:${p1Color};text-align:center"
-            title="Hòa vốn: ${d.breakeven ? (d.breakeven.toFixed(1)+'k') : '—'}">
-          ${p1Text}
-        </td>
-
-        <!-- Penalty 2: IV/HV -->
-        <td style="font-weight:600;color:${p2Color};text-align:center"
-            title="IV: ${d.iv ? d.iv.toFixed(4) : '—'} | HV: ${d.sigma ? d.sigma.toFixed(4) : '—'}">
-          ${p2Text}
-        </td>
-
-        <!-- Final score -->
         <td style="background:var(--bg-blue)">${scoreBar(d.score, '#eda100')}</td>
       </tr>
     `;
@@ -1413,18 +1420,17 @@ function updateOpKPI(data, rejectedCount) {
 }
 
 function runScoring() {
-  const opUnder   = document.getElementById('op-under').value;
-  const opMoney   = document.getElementById('op-money').value;
+  const opUnder = document.getElementById('op-under').value;
+  const opMoney = document.getElementById('op-money').value;
   const opPremMax = +document.getElementById('op-prem-max').value;
-  const topN      = +document.getElementById('op-topn').value;
+  const topN = +document.getElementById('op-topn').value;
 
-  // ── Bộ lọc cứng (hard filter) ──────────────────────────────
   let rejected = [];
   let pool = allData.filter(d => {
-    if (d.status !== 'active')              return false;
+    if (d.status !== 'active') return false;
     if (daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
     if (d.premium <= 0 || d.premium > opPremMax) return false;
-    if (d.price <= 0 || d.eff_lev <= 0)    return false;
+    if (d.price <= 0 || d.eff_lev <= 0) return false;
     if (opUnder && d.underlying !== opUnder) return false;
     if (opMoney && d.moneyness !== opMoney) return false;
     const reason = safetyCheck(d);
@@ -1433,96 +1439,58 @@ function runScoring() {
   });
 
   if (pool.length === 0) {
-    document.getElementById('top10-grid').innerHTML =
-      '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
+    document.getElementById('top10-grid').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
     document.getElementById('op-tbl-body').innerHTML = '';
     updateOpKPI([], 0);
     return;
   }
 
-  // ── Tính raw metrics ────────────────────────────────────────
-  const prems  = pool.map(d => d.premium);
-  const levs   = pool.map(d => d.eff_lev);
-  const vols   = pool.map(d => avgVolume(d.ticker));
-  const days   = pool.map(d => daysLeft(d.maturity));
+  const prems = pool.map(d => d.premium);
+  const levs  = pool.map(d => d.eff_lev);
+  const vols  = pool.map(d => avgVolume(d.ticker));
+  const days  = pool.map(d => daysLeft(d.maturity));
   const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
 
-  // IV Rank: IVR thấp → score cao; fallback sigma nếu chưa có history
+  // IV Rank scoring: IVR thấp (<30) → IV đang rẻ so với lịch sử → điểm cao
+  // Fallback: nếu chưa có IV history (CW mới), dùng sigma thấp thay thế
+  // ivScores: 0–100, cao = IVR thấp = CW rẻ tương đối
   const ivScores = pool.map(d => {
-    if (d.iv_rank != null) return 100 - d.iv_rank;
+    if (d.iv_rank != null) return 100 - d.iv_rank;   // IVR thấp → score cao
     if (d.sigma) {
-      const allS = pool.map(x => x.sigma || 0);
-      const mn = Math.min(...allS), mx = Math.max(...allS);
+      // Fallback: chuẩn hóa sigma (sigma thấp = score cao)
+      const allSigmas = pool.map(x => x.sigma || 0);
+      const mn = Math.min(...allSigmas), mx = Math.max(...allSigmas);
       return mx > mn ? (1 - (d.sigma - mn) / (mx - mn)) * 100 : 50;
     }
-    return 50;
+    return 50;  // không có dữ liệu → điểm trung bình
   });
 
   const minP = Math.min(...prems), maxP = Math.max(...prems);
   const minL = Math.min(...levs),  maxL = Math.max(...levs);
   const minV = Math.min(...vols),  maxV = Math.max(...vols);
-  const minD = Math.min(...deltas),maxD = Math.max(...deltas);
+  const minDel = Math.min(...deltas), maxDel = Math.max(...deltas);
 
   const { wp, wl, wv, wd, ws } = getWeights();
 
-  // ── Tính điểm + penalty ────────────────────────────────────
-  scored = pool.map((d, i) => {
-
-    // Base scores (0–100)
-    const sp = normalize(prems[i],  minP, maxP, true);   // premium thấp → cao
-    const sl = normalize(levs[i],   minL, maxL, false);  // đòn bẩy cao → cao
-    const sv = normalize(vols[i],   minV, maxV, false);  // thanh khoản cao → cao
-    const sd = normalize(deltas[i], minD, maxD, false);  // delta cao → cao
-    const ss = ivScores[i];
-
-    let base = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
-
-    // ────────────────────────────────────────────────────────
-    // PENALTY 1 — Breakeven quá xa (> 10% so với giá hiện tại)
-    // Lý do: CW cần underlying tăng mạnh mới hòa vốn → rủi ro cao
-    // CHDB2602 ví dụ: hòa vốn +14% → trừ 20 điểm
-    // ────────────────────────────────────────────────────────
-    let penalty1 = 0;
-    if (d.breakeven && d.underlying_price && d.underlying_price > 0) {
-      const breakeven_vnd    = d.breakeven * 1000;
-      const breakeven_gap    = (breakeven_vnd - d.underlying_price) / d.underlying_price;
-      if (breakeven_gap > 0.10) {
-        // Penalize tuyến tính: mỗi 1% vượt ngưỡng 10% → trừ 2 điểm, tối đa 30
-        penalty1 = Math.min(30, Math.round((breakeven_gap - 0.10) * 200));
-      }
-    }
-
-    // ────────────────────────────────────────────────────────
-    // PENALTY 2 — IV đắt hơn HV > 20%
-    // Lý do: thị trường định giá rủi ro cao hơn thực tế lịch sử
-    // CHDB2602 ví dụ: IV/HV = +29.2% → trừ thêm ~9 điểm
-    // ────────────────────────────────────────────────────────
-    let penalty2 = 0;
-    if (d.iv && d.sigma && d.sigma > 0) {
-      const iv_hv_ratio = d.iv / d.sigma;
-      if (iv_hv_ratio > 1.20) {
-        // Mỗi 10% IV vượt ngưỡng 120% → trừ 3 điểm, tối đa 20
-        penalty2 = Math.min(20, Math.round((iv_hv_ratio - 1.20) * 30));
-      }
-    }
-
-    const totalPenalty = penalty1 + penalty2;
-    const finalScore   = Math.max(0, Math.round(base - totalPenalty));
-
+  scored = pool.map((d,i) => {
+    const sp = normalize(prems[i], minP, maxP, true);
+    const sl = normalize(levs[i],  minL, maxL, false);
+    const sv = normalize(vols[i],  minV, maxV, false);
+    const sd = normalize(deltas[i], minDel, maxDel, false);
+    const ss = ivScores[i];  // đã ở dạng 0–100, không cần normalize thêm
+    const total = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
     return {
       ...d,
-      days_left:     days[i],
-      avg_vol:       Math.round(vols[i]),
-      s_prem:        Math.round(sp),
-      s_lev:         Math.round(sl),
-      s_vol:         Math.round(sv),
-      s_delta:       Math.round(sd),
-      s_sigma:       Math.round(ss),
-      penalty1,
-      penalty2,
-      score:         finalScore,
+      days_left: days[i],
+      avg_vol: Math.round(vols[i]),
+      s_prem:  Math.round(sp),
+      s_lev:   Math.round(sl),
+      s_vol:   Math.round(sv),
+      s_delta: Math.round(sd),
+      s_sigma: Math.round(ss),   // giữ tên s_sigma để tương thích UI
+      score:   Math.round(total)
     };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a,b) => b.score - a.score);
 
   updateOpKPI(scored, rejected.length);
   drawTop10(scored.slice(0, topN));
