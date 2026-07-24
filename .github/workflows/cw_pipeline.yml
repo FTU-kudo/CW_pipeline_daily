@@ -60,10 +60,10 @@ jobs:
           path: output/cw_master.xlsx
           retention-days: 30
 
-      - name: Deploy dashboard to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-          publish_branch: gh-pages
-          commit_message: "deploy: dashboard $(date +'%Y-%m-%d %H:%M UTC')"
+      # - name: Deploy dashboard to GitHub Pages
+      #   uses: peaceiris/actions-gh-pages@v3
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: ./docs
+      #     publish_branch: gh-pages
+      #     commit_message: "deploy: dashboard $(date +'%Y-%m-%d %H:%M UTC')"
