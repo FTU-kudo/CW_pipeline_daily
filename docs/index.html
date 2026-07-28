@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CW Dashboard – Black‑Scholes</title>
-  <!-- Chỉ dùng Chart.js core -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
-    /* ----- RESET & VARIABLES (giữ nguyên như cũ) ----- */
+    /* ----- RESET & VARIABLES ----- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #f7f7f5; --surface: #fff; --surface2: #f2f2ef;
@@ -306,7 +305,6 @@
       padding: 1px 6px; border-radius: 4px;
       border: 0.5px solid var(--border2); font-family: monospace;
     }
-    /* Tag pills inside guide table */
     .gtag {
       display: inline-block; font-size: 11.5px; font-weight: 600;
       padding: 2px 8px; border-radius: 5px; white-space: nowrap;
@@ -359,7 +357,7 @@
     <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
   </div>
 
-  <!-- DISCLAIMER BANNER — hiện ở tất cả các tab -->
+  <!-- DISCLAIMER BANNER -->
   <div id="disclaimer-banner" style="
     display:flex; align-items:flex-start; gap:10px;
     padding: 8px 1.5rem; font-size: 12px; line-height: 1.6;
@@ -419,24 +417,26 @@
       <div class="sec-title">Bảng so sánh CW</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr>
-            <th class="sortable" data-col="ticker">Mã CW</th>
-            <th class="sortable" data-col="underlying">Underlying</th>
-            <th>Nhà PH</th>
-            <th class="sortable" data-col="price">Giá CW</th>
-            <th>Giá TH</th>
-            <th>Tỷ lệ CD</th>
-            <th class="sortable" data-col="premium">Premium %</th>
-            <th class="sortable" data-col="eff_lev">Đòn bẩy</th>
-            <th class="sortable" data-col="breakeven" title="(**) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi">Hòa vốn **</th>
-            <th>Đáo hạn</th>
-            <th>Moneyness</th>
-            <th>Delta</th>
-            <th>Sigma (HV)</th>
-            <th title="Implied Volatility: độ biến động ngầm định từ giá thị trường CW">IV</th>
-            <th title="IV Rank 0–100: thấp (<30) = IV đang rẻ so với 52 tuần qua, cao (>70) = đắt">IVR</th>
-            <th>Trạng thái</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th class="sortable" data-col="ticker" title="Mã chứng quyền">Mã CW</th>
+              <th class="sortable" data-col="underlying" title="Cổ phiếu cơ sở">Underlying</th>
+              <th class="sortable" data-col="issuer" title="Nhà phát hành chứng quyền">Nhà PH</th>
+              <th class="sortable" data-col="price" title="Giá giao dịch hiện tại của chứng quyền trên thị trường">Giá CW</th>
+              <th class="sortable" data-col="strike" title="Giá thực hiện: Mức giá mà nhà đầu tư có quyền mua cổ phiếu khi chứng quyền đáo hạn (Strike price)">Giá TH</th>
+              <th class="sortable" data-col="ratio" title="Tỷ lệ chuyển đổi: Số lượng chứng quyền cần thiết để đổi lấy 1 cổ phiếu cơ sở. VD: ratio = 4 nghĩa là 4 CW = 1 cổ phiếu.">Tỷ lệ CD</th>
+              <th class="sortable" data-col="premium" title="Phí bảo hiểm (Premium %): CW có premium thấp hơn được ưu tiên. Premium càng gần 0% → điểm càng cao.">Premium %</th>
+              <th class="sortable" data-col="eff_lev" title="Đòn bẩy hiệu dụng (Effective Gearing): Cho biết khi cổ phiếu tăng 1%, CW tăng bao nhiêu %. Đã điều chỉnh theo xác suất Delta.">Đòn bẩy</th>
+              <th class="sortable" data-col="breakeven" title="Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi">Hòa vốn *</th>
+              <th class="sortable" data-col="maturity" title="Thời gian tính từ hiện tại đến ngày đáo hạn (Time to maturity). Trong tính toán nội bộ, quy đổi ra tỷ lệ năm (T/365 hoặc T/252).">Đáo hạn</th>
+              <th class="sortable" data-col="moneyness" title="Trạng thái của quyền chọn: ITM (In-The-Money / Có lãi) khi S > K, ATM (At-The-Money / Ngang giá) khi S = K, OTM (Out-of-The-Money / Chịu lỗ) khi S < K.">Moneyness</th>
+              <th class="sortable" data-col="delta" title="Delta: Mức độ thay đổi giá CW khi giá cổ phiếu cơ sở thay đổi 1 đơn vị. Call Delta nằm trong [0,1]: ATM ≈ 0.5, Deep ITM ≈ 1, Deep OTM → 0.">Delta</th>
+              <th class="sortable" data-col="sigma" title="Sigma (HV): Độ biến động lịch sử (Historical Volatility), tính bằng HV 252 phiên.">Sigma (HV)</th>
+              <th class="sortable" data-col="iv" title="IV (Implied Volatility): Độ biến động ngầm định từ giá thị trường CW, tính ngược từ công thức Black-Scholes. IV < HV → CW rẻ tương đối; IV > HV → CW đắt tương đối.">IV</th>
+              <th class="sortable" data-col="ivr" title="IV Rank: Vị trí của IV hôm nay trong khoảng [IV_min, IV_max] của 52 tuần qua. IVR = (IV - IV_min)/(IV_max - IV_min)×100. IVR < 30 → CW rẻ; IVR > 70 → CW đắt.">IVR</th>
+              <th class="sortable" data-col="status" title="Trạng thái hiện tại của chứng quyền (Ví dụ: đang giao dịch, sắp đáo hạn, ...)">Trạng thái</th>
+            </tr>
+          </thead>
           <tbody id="tbl-body"></tbody>
         </table>
         <div style="font-size:11px;color:var(--text3);padding:6px 4px 2px">
@@ -818,18 +818,16 @@
               <tr style="background:rgba(227,73,72,0.04)">
                 <td><span class="gtag gtag-red">⛔ Loại: IV đắt hơn HV &gt;15%</span></td>
                 <td>
-                  <strong>Điều kiện loại mới:</strong> CW bị loại khỏi pool nếu <code>IV &gt; HV × 1.15</code> — tức thị trường đang định giá biến động tương lai cao hơn lịch sử trên 15%.<br>
+                  <strong>Điều kiện loại:</strong> CW bị loại khỏi pool nếu <code>IV &gt; HV × 1.15</code> — tức thị trường đang định giá biến động tương lai cao hơn lịch sử trên 15%.<br>
                   • Ý nghĩa: nhà đầu tư đang trả quá nhiều cho kỳ vọng biến động, rủi ro không xứng với giá trả<br>
-                  • Ví dụ: CHDB2602 có IV vs HV = +24.5% → bị loại đúng, dù premium và đòn bẩy trông hấp dẫn<br>
                   • Chỉ áp dụng khi có đủ dữ liệu IV (không phạt CW chưa có IV history)
                 </td>
               </tr>
               <tr style="background:rgba(227,73,72,0.04)">
                 <td><span class="gtag gtag-red">⛔ Loại: Giá &gt; BS × 1.20</span></td>
                 <td>
-                  <strong>Điều kiện loại mới:</strong> CW bị loại nếu giá thị trường cao hơn giá Black-Scholes trên 20%.<br>
+                  <strong>Điều kiện loại:</strong> CW bị loại nếu giá thị trường cao hơn giá Black-Scholes trên 20%.<br>
                   • Ý nghĩa: CW đang bị thổi phồng — nhà đầu tư đang trả quá cao so với giá trị lý thuyết<br>
-                  • Ví dụ: CHDB2602 giá thị trường 0.440k vs BS 0.312k = đắt hơn 41% → bị loại<br>
                   • Ngưỡng 20% để chừa buffer cho bid-ask spread và thanh khoản thấp bình thường
                 </td>
               </tr>
@@ -858,7 +856,7 @@
 
       <!-- Footer note -->
       <div style="font-size:11px;color:var(--text3);text-align:center;padding-top:0.5rem;border-top:0.5px solid var(--border2)">
-        Tài liệu này được tạo tự động và cập nhật cùng với hệ thống pipeline · Dữ liệu nguồn: Vietstock, vnstock, HNX · Mô hình: Black-Scholes (European Call/Put)
+        ©️ Tài liệu này được tạo tự động và cập nhật cùng với hệ thống pipeline · Dữ liệu nguồn: Vietstock, vnstock, HNX · Mô hình: Black-Scholes (European Call/Put)
       </div>
     </div>
   </div>
@@ -893,7 +891,7 @@ function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
       borderColor: 'rgba(42,120,214,0.25)',
       borderWidth: 0.8,
       pointRadius: 0,
-      fill: '+1',                               // fill xuống dataset Low ngay dưới
+      fill: '+1',
       backgroundColor: 'rgba(42,120,214,0.08)',
       order: 4,
       yAxisID: 'y',
@@ -910,7 +908,6 @@ function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
     });
   }
 
-  // Đường Open — segment.borderDash là cú pháp đúng với Chart.js 3+
   if (open && open.length === labels.length) {
     datasets.push({
       label: 'Open',
@@ -921,11 +918,10 @@ function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
       fill: false,
       order: 2,
       yAxisID: 'y',
-      segment: { borderDash: () => [4, 3] },   // nét đứt đúng cú pháp Chart.js 3+
+      segment: { borderDash: () => [4, 3] },
     });
   }
 
-  // Đường Close
   if (close && close.length === labels.length) {
     datasets.push({
       label: 'Close',
@@ -940,7 +936,6 @@ function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
     });
   }
 
-  // Khối lượng
   if (volume && volume.length === labels.length) {
     datasets.push({
       label: 'Khối lượng',
@@ -1016,11 +1011,9 @@ async function loadData() {
       hour: '2-digit', minute: '2-digit'
     });
 
-    // BUG FIX #4: pipeline lưu ICT trực tiếp (dd/mm/yyyy HH:MM +07:00), hiển thị thẳng không cộng thêm 7h
     let updatedDisplay = '—';
     if (json.updated_at) {
       const raw = json.updated_at.trim();
-      // Format: "dd/mm/yyyy HH:MM +07:00" — dùng trực tiếp, không convert
       const parts = raw.split(' ');
       if (parts.length >= 2) {
         updatedDisplay = `${parts[0]} ${parts[1]} UTC+7`;
@@ -1232,12 +1225,12 @@ function renderOverview() {
 // ═══════════════════════════════════════════════════════════════
 const MIN_DAYS_LEFT = 60;
 const SAFETY = {
-  MAX_LEV:       15,     // Đòn bẩy tối đa
-  MIN_PRICE:     0.20,   // Giá CW tối thiểu (nghìn đồng)
-  MAX_OTM_DEPTH: 0.85,   // S/K tối thiểu (OTM quá sâu)
-  MAX_PREMIUM:   50,     // Premium tối đa (%)
-  MAX_IV_VS_HV:  0.15,   // IV cao hơn HV tối đa 15% → CW đắt so với lịch sử
-  MAX_MKT_VS_BS: 0.20,   // Giá thị trường cao hơn giá BS tối đa 20%
+  MAX_LEV:       15,
+  MIN_PRICE:     0.20,
+  MAX_OTM_DEPTH: 0.85,
+  MAX_PREMIUM:   50,
+  MAX_IV_VS_HV:  0.15,
+  MAX_MKT_VS_BS: 0.20,
 };
 
 function safetyCheck(d) {
@@ -1256,19 +1249,12 @@ function safetyCheck(d) {
       return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
   }
 
-  // ── Điều kiện mới #1: IV cao hơn HV quá 15% → thị trường định giá đắt ──
-  // IV > HV × (1 + MAX_IV_VS_HV) nghĩa là nhà đầu tư đang trả premium
-  // cho kỳ vọng biến động cao hơn lịch sử — rủi ro không xứng với giá trả
-  // Chỉ áp dụng khi có đủ dữ liệu IV (iv != null và sigma > 0)
   if (d.iv != null && d.sigma > 0) {
     const iv_vs_hv_ratio = (d.iv - d.sigma) / d.sigma;
     if (iv_vs_hv_ratio > SAFETY.MAX_IV_VS_HV)
       return `IV đắt hơn HV ${(iv_vs_hv_ratio * 100).toFixed(1)}% (ngưỡng: +${SAFETY.MAX_IV_VS_HV * 100}%)`;
   }
 
-  // ── Điều kiện mới #2: Giá thị trường > Giá BS × (1 + MAX_MKT_VS_BS) ──
-  // CW được thị trường định giá cao hơn lý thuyết >20% → đang bị thổi phồng
-  // Dùng bs_price_call vì thị trường VN chỉ có call warrant
   const bs_ref = d.option_type === 'call' ? d.bs_price_call : d.bs_price_put;
   if (bs_ref && bs_ref > 0 && d.price > 0) {
     const mkt_vs_bs = (d.price - bs_ref) / bs_ref;
@@ -1451,18 +1437,14 @@ function runScoring() {
   const days  = pool.map(d => daysLeft(d.maturity));
   const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
 
-  // IV Rank scoring: IVR thấp (<30) → IV đang rẻ so với lịch sử → điểm cao
-  // Fallback: nếu chưa có IV history (CW mới), dùng sigma thấp thay thế
-  // ivScores: 0–100, cao = IVR thấp = CW rẻ tương đối
   const ivScores = pool.map(d => {
-    if (d.iv_rank != null) return 100 - d.iv_rank;   // IVR thấp → score cao
+    if (d.iv_rank != null) return 100 - d.iv_rank;
     if (d.sigma) {
-      // Fallback: chuẩn hóa sigma (sigma thấp = score cao)
       const allSigmas = pool.map(x => x.sigma || 0);
       const mn = Math.min(...allSigmas), mx = Math.max(...allSigmas);
       return mx > mn ? (1 - (d.sigma - mn) / (mx - mn)) * 100 : 50;
     }
-    return 50;  // không có dữ liệu → điểm trung bình
+    return 50;
   });
 
   const minP = Math.min(...prems), maxP = Math.max(...prems);
@@ -1477,7 +1459,7 @@ function runScoring() {
     const sl = normalize(levs[i],  minL, maxL, false);
     const sv = normalize(vols[i],  minV, maxV, false);
     const sd = normalize(deltas[i], minDel, maxDel, false);
-    const ss = ivScores[i];  // đã ở dạng 0–100, không cần normalize thêm
+    const ss = ivScores[i];
     const total = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
     return {
       ...d,
@@ -1487,7 +1469,7 @@ function runScoring() {
       s_lev:   Math.round(sl),
       s_vol:   Math.round(sv),
       s_delta: Math.round(sd),
-      s_sigma: Math.round(ss),   // giữ tên s_sigma để tương thích UI
+      s_sigma: Math.round(ss),
       score:   Math.round(total)
     };
   }).sort((a,b) => b.score - a.score);
@@ -1498,7 +1480,6 @@ function runScoring() {
   drawOpTable(scored.slice(0, topN));
 }
 
-// ── Event listeners cho opportunity ──────────────────────────
 ['op-under','op-money','op-prem-max','op-topn'].forEach(id =>
   document.getElementById(id).addEventListener('change', runScoring)
 );
@@ -1520,19 +1501,21 @@ function resetWeights() {
 //  DRILL-DOWN (sử dụng hàm drawPriceChart mới)
 // ═══════════════════════════════════════════════════════════════
 function jumpToDrill(ticker) {
-  lastSelectedTicker = ticker;   // ghi nhớ ngay khi click từ Top10/scoring table
+  lastSelectedTicker = ticker;
+  sessionStorage.setItem('selectedCW', ticker);
+  // chuyển tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   document.querySelectorAll('.tab')[2].classList.add('on');
   document.getElementById('pane-overview').classList.add('hidden');
   document.getElementById('pane-opportunity').classList.add('hidden');
   document.getElementById('pane-drilldown').classList.remove('hidden');
   document.getElementById('global-filters').classList.remove('hidden');
+  // Khởi tạo drill với ticker đã chọn
   initDrill(ticker);
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  SHARED: Searchable CW combo-box factory
-//  Dùng cho cả Drill-down và Black-Scholes tab
 // ═══════════════════════════════════════════════════════════════
 function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
   const input = document.getElementById(inputId);
@@ -1564,7 +1547,6 @@ function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
     activeIdx = -1;
     drop.classList.add('open');
 
-    // click on option
     drop.querySelectorAll('.cw-opt').forEach(el => {
       el.addEventListener('mousedown', e => {
         e.preventDefault();
@@ -1580,6 +1562,9 @@ function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
     input.value = `${cw.ticker} (${cw.underlying})`;
     drop.classList.remove('open');
     activeIdx = -1;
+    // Gọi callback và cập nhật lastSelectedTicker
+    lastSelectedTicker = ticker;
+    sessionStorage.setItem('selectedCW', ticker);
     onSelect(ticker);
   }
 
@@ -1596,10 +1581,8 @@ function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
   input.addEventListener('focus', () => renderDrop(input.value));
   input.addEventListener('input', () => { activeIdx = -1; renderDrop(input.value); });
   input.addEventListener('blur',  () => {
-    // small delay so mousedown on option fires first
     setTimeout(() => {
       drop.classList.remove('open');
-      // if input doesn't match current, restore it
       if (currentTicker) {
         const cw = pool.find(d => d.ticker === currentTicker);
         if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
@@ -1633,7 +1616,19 @@ function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
 
 function initDrill(preselect) {
   const pool = allData;
-  const target = preselect || pool[0]?.ticker;
+  // Nếu không có preselect, dùng lastSelectedTicker nếu tồn tại và hợp lệ
+  let target = preselect || lastSelectedTicker;
+  if (!target || !pool.some(d => d.ticker === target)) {
+    // fallback: lấy CW đầu tiên trong pool (active ưu tiên)
+    const activePool = pool.filter(d => d.status === 'active');
+    target = activePool.length ? activePool[0].ticker : pool[0]?.ticker;
+  }
+  if (!target) return;
+
+  // Gán lại lastSelectedTicker để đồng bộ
+  lastSelectedTicker = target;
+  sessionStorage.setItem('selectedCW', target);
+
   const combo = makeCWCombo({
     inputId: 'drill-combo-input',
     dropId:  'drill-combo-drop',
@@ -1641,13 +1636,14 @@ function initDrill(preselect) {
     onSelect: renderDrill,
     initialTicker: target,
   });
-  if (target) renderDrill(target);
+  renderDrill(target);
 }
 
 function renderDrill(ticker) {
   const cw = allData.find(d => d.ticker === ticker);
   if (!cw) return;
-  lastSelectedTicker = ticker;   // ghi nhớ CW đang xem để BS tab dùng lại
+  lastSelectedTicker = ticker;
+  sessionStorage.setItem('selectedCW', ticker);
   const o = ohlcvData[ticker] || {
     dates: [], open: [], high: [], low: [], close: [],
     volume: [], underlying_close: []
@@ -1687,17 +1683,15 @@ function renderDrill(ticker) {
   destroyChart('prem-hist');
   destroyChart('drill-greeks');
 
-  // 1) Biểu đồ giá + volume (dùng hàm mới)
   if (o.dates && o.dates.length > 0) {
     const labels = o.dates;
     const close = o.close || [];
-    const openPrices = o.open || [];   // BUG FIX #2: đổi tên tránh xung đột với window.open()
+    const openPrices = o.open || [];
     const high = o.high || [];
     const low = o.low || [];
     const volume = o.volume || [];
     charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, openPrices, high, low, volume);
   } else {
-    // Nếu không có dữ liệu, hiển thị thông báo
     document.getElementById('c-drill-price').parentNode.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;">
         Không có dữ liệu giá
@@ -1705,15 +1699,13 @@ function renderDrill(ticker) {
     `;
   }
 
-  // 2) Premium history
-  // underlying_close = gia CK co so (VND) theo tung ngay (lay tu OHLCV underlying)
-  // Premium = (Gia CW * ratio * 1000 - max(S-K,0)) / S * 100
+  // Premium history
   const premHist = o.close.map((p, i) => {
     const S = (o.underlying_close && o.underlying_close[i]) ? o.underlying_close[i] : 0;
     if (S <= 0) return null;
-    const cwVnd      = p * 1000;                        // gia CW -> VND
-    const intrinsic  = Math.max(S - cw.exercise, 0);   // gia tri noi tai (VND)
-    const cwEquiv    = cwVnd * cw.ratio;                // quy doi 1 CP
+    const cwVnd      = p * 1000;
+    const intrinsic  = Math.max(S - cw.exercise, 0);
+    const cwEquiv    = cwVnd * cw.ratio;
     return +((cwEquiv - intrinsic) / S * 100).toFixed(2);
   });
   if (o.dates && o.dates.length > 0) {
@@ -1744,12 +1736,8 @@ function renderDrill(ticker) {
     });
   }
 
-  // 3) Effective Gearing theo ngày
-  // EG_i = (dCW_i / CW_{i-1}) / (dS_i / S_{i-1})
-  // Dùng rolling 5 phiên để làm mịn nhiễu (CW thanh khoản thấp → giá nhảy bậc)
+  // Effective Gearing
   const ROLL = 5;
-
-  // BUG FIX EG: Kiểm tra underlying_close có dữ liệu thực không
   const hasUnderlying = o.underlying_close && o.underlying_close.some(v => v > 0);
 
   const egRaw = !hasUnderlying ? [] : o.close.map((p, i) => {
@@ -1759,18 +1747,16 @@ function renderDrill(ticker) {
     if (!S0 || !S1 || S0 <= 0 || C0 <= 0) return null;
     const rS = (S1 - S0) / S0;
     const rC = (C1 - C0) / C0;
-    if (Math.abs(rS) < 0.0005) return null;   // bỏ ngày underlying đứng giá → EG vô nghĩa
+    if (Math.abs(rS) < 0.0005) return null;
     const eg = rC / rS;
-    return (eg > 50 || eg < -20) ? null : +eg.toFixed(2);  // clip outlier
+    return (eg > 50 || eg < -20) ? null : +eg.toFixed(2);
   });
 
-  // Rolling mean ROLL phiên
   const egSmooth = egRaw.map((_, i) => {
     const window = egRaw.slice(Math.max(0, i - ROLL + 1), i + 1).filter(v => v !== null);
     return window.length >= 2 ? +(window.reduce((a, b) => a + b, 0) / window.length).toFixed(2) : null;
   });
 
-  // Trung bình 20 phiên gần nhất (hiển thị trong legend)
   const egRecent = egSmooth.filter(v => v !== null).slice(-20);
   const egAvg    = egRecent.length
     ? (egRecent.reduce((a, b) => a + b, 0) / egRecent.length).toFixed(1)
@@ -1780,7 +1766,6 @@ function renderDrill(ticker) {
 
   const hasEG = egSmooth.some(v => v !== null);
   if (hasEG && o.dates && o.dates.length > 1) {
-    // Màu theo giá trị: xanh khi EG cao (CW khuếch đại tốt), đỏ khi âm
     charts['drill-greeks'] = new Chart(document.getElementById('c-drill-greeks').getContext('2d'), {
       type: 'line',
       data: {
@@ -1814,15 +1799,12 @@ function renderDrill(ticker) {
           y: {
             grid: { color: GRID },
             ticks: { color: TICK, callback: v => v + '×' },
-            // Đường tham chiếu EG=1 (không đòn bẩy)
             afterDataLimits: axis => {
               axis.min = Math.min(axis.min, 0);
               axis.max = Math.max(axis.max, 2);
             }
           }
-        },
-        // Đường kẻ ngang EG=1 làm tham chiếu
-        plugins2: []
+        }
       },
       plugins: [{
         id: 'eg-baseline',
@@ -1868,19 +1850,24 @@ function switchTab(tab, btn) {
   document.getElementById('pane-drilldown').classList.toggle('hidden', tab !== 'drilldown');
   document.getElementById('pane-blackscholes').classList.toggle('hidden', tab !== 'blackscholes');
   document.getElementById('pane-guide').classList.toggle('hidden', tab !== 'guide');
-  // global-filters: chỉ hiện ở overview và drilldown
   const showFilters = tab === 'overview' || tab === 'drilldown';
   document.getElementById('global-filters').classList.toggle('hidden', !showFilters);
-  if (tab === 'drilldown') initDrill();
-  if (tab === 'opportunity') runScoring();
-  if (tab === 'blackscholes') initBSTab();
+
+  if (tab === 'drilldown') {
+    initDrill(lastSelectedTicker);
+  }
+  if (tab === 'opportunity') {
+    runScoring();
+  }
+  if (tab === 'blackscholes') {
+    initBSTab();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  BLACK-SCHOLES JS ENGINE (mirror Python backend)
+//  BLACK-SCHOLES JS ENGINE
 // ═══════════════════════════════════════════════════════════════
 function normCDF(x) {
-  // Abramowitz and Stegun approximation for N(x)
   const a1 =  0.254829592, a2 = -0.284496736, a3 = 1.421413741;
   const a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
   const sign = x < 0 ? -1 : 1;
@@ -1906,7 +1893,7 @@ function bsCalc(S, K, T_days, r, sigma, ratio, type) {
     delta = normCDF(d1) - 1;
     theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) + r*K*Math.exp(-r*T)*normCDF(-d2)) / 365.0;
   }
-  const bs_price_cw = price / 1000.0 / ratio;  // nghìn đồng
+  const bs_price_cw = price / 1000.0 / ratio;
   const gamma = normPDF(d1) / (S * sigma * Math.sqrt(T)) / ratio;
   const vega  = S * normPDF(d1) * Math.sqrt(T) / 100.0 / ratio;
   return { d1, d2, price_option: price, bs_price_cw, delta, gamma, vega, theta };
@@ -1950,7 +1937,7 @@ function renderBSResults(S, K, T, r, sigma, ratio) {
 }
 
 function drawBSCharts(S, K, T, r, sigma, ratio) {
-  // --- 1) Price vs S ---
+  // Price vs S
   const sRange = Array.from({length: 80}, (_, i) => Math.round(K * (0.5 + i * 0.015)));
   const callPrices = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
   const putPrices  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
@@ -1967,13 +1954,12 @@ function drawBSCharts(S, K, T, r, sigma, ratio) {
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } },
-        annotation: { annotations: { vline: { type:'line', xMin: sRange.findIndex(s=>Math.abs(s-S)<(K*0.015)), xMax: sRange.findIndex(s=>Math.abs(s-S)<(K*0.015)), borderColor:'rgba(150,150,150,0.7)', borderWidth:1, borderDash:[4,3] } } } },
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
       scales: { x: { grid:{display:false}, ticks:{color:TICK,maxTicksLimit:10} }, y: { grid:{color:GRID}, ticks:{color:TICK}, beginAtZero:true } }
     }
   });
 
-  // --- 2) Delta vs S ---
+  // Delta vs S
   const callDeltas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.delta.toFixed(4) : 0; });
   const putDeltas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.delta.toFixed(4) : 0; });
   destroyChart('bs-delta-vs-s');
@@ -1992,7 +1978,7 @@ function drawBSCharts(S, K, T, r, sigma, ratio) {
     }
   });
 
-  // --- 3) Price vs Time ---
+  // Price vs Time
   const tRange = Array.from({length:60}, (_,i) => Math.round(T * (1 - i/60))).filter(t => t >= 1);
   const callPT = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
   const putPT  = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
@@ -2015,7 +2001,7 @@ function drawBSCharts(S, K, T, r, sigma, ratio) {
     }
   });
 
-  // --- 4) Gamma & Vega vs S ---
+  // Gamma & Vega vs S
   const gammas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.gamma.toFixed(6) : 0; });
   const vegas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +(c.vega/100).toFixed(4) : 0; });
   destroyChart('bs-gamma-vega');
@@ -2038,7 +2024,7 @@ function drawBSCharts(S, K, T, r, sigma, ratio) {
     }
   });
 
-  // --- 5) Vol Surface: Premium (%) vs sigma × S/K ---
+  // Vol Surface
   const sigmaArr = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40];
   const skArr    = [0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30];
   const volColors = ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#eb6834'];
@@ -2107,9 +2093,22 @@ function initBSTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  TAB SWITCH (updated to include blackscholes)
+//  START
 // ═══════════════════════════════════════════════════════════════
-// ── START ──────────────────────────────────────────────────────
+// Khôi phục lastSelectedTicker từ sessionStorage
+const savedTicker = sessionStorage.getItem('selectedCW');
+if (savedTicker) lastSelectedTicker = savedTicker;
+
+// Đảm bảo các tab ban đầu
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+document.querySelectorAll('.tab')[0].classList.add('on');
+document.getElementById('pane-overview').classList.remove('hidden');
+document.getElementById('pane-opportunity').classList.add('hidden');
+document.getElementById('pane-drilldown').classList.add('hidden');
+document.getElementById('pane-blackscholes').classList.add('hidden');
+document.getElementById('pane-guide').classList.add('hidden');
+document.getElementById('global-filters').classList.remove('hidden');
+
 loadData();
 </script>
 </body>
