@@ -440,7 +440,7 @@
           <tbody id="tbl-body"></tbody>
         </table>
         <div style="font-size:11px;color:var(--text3);padding:6px 4px 2px">
-          (**) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi &nbsp;|&nbsp;
+          (*) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi &nbsp;|&nbsp;
           <span style="color:var(--green)">●</span> dưới giá cơ sở &nbsp;
           <span style="color:var(--red)">●</span> trên giá cơ sở (cần underlying tăng thêm để có lãi)
         </div>
@@ -1654,7 +1654,7 @@ function renderDrill(ticker) {
     { lbl: 'Giá CW (nghìn đ)', val: cw.price ? cw.price.toFixed(3) : '—' },
     { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
     { lbl: 'Giá cơ sở', val: cw.underlying_price ? (cw.underlying_price/1000).toFixed(2)+'k' : '—' },
-    { lbl: 'Hòa vốn (**)', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
+    { lbl: 'Hòa vốn', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
     { lbl: 'Underlying', val: cw.underlying },
     { lbl: 'Nhà phát hành', val: cw.issuer },
     { lbl: 'Tỷ lệ CD', val: cw.ratio+':1' },
