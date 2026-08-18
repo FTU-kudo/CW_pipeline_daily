@@ -611,21 +611,34 @@ def _probe_prefix(prefix: str, known: set, sess) -> list[str]:
         n += 1
     return found
 
+N_MISS_TOLERANCE     = 3          # cho phép N lần 404 liên tiếp trước khi dừng probe
+MAX_PROBE_ATTEMPTS   = 20         # AN TOÀN: tối đa 20 lần thử/prefix, bất kể miss_streak
+DISCOVERY_TIME_BUDGET = 15 * 60   # AN TOÀN: toàn bộ bước discovery không vượt quá 15 phút
+
 def discover_new_cw_codes(known: set) -> list[str]:
     """
     BUG FIX B: Phát hiện CW mới NGOÀI template tĩnh bằng adaptive probing.
     Chạy sau khi đã xử lý new_codes từ template — chỉ probe các prefix
     mà MAX_ISSUANCE của template có thể đã bị vượt qua.
+
+    SAFETY FIX (17/08/2026): Thêm giới hạn cứng (MAX_PROBE_ATTEMPTS) và
+    ngân sách thời gian toàn cục (DISCOVERY_TIME_BUDGET) để tránh vòng lặp
+    chạy vô hạn nếu Vietstock đổi cấu trúc trang khiến miss_streak không
+    bao giờ tăng đủ 3 (nguyên nhân gây treo 3h ở run #89/#90).
     """
     print("   [Discovery] Adaptive probing cho CW ngoài template tĩnh...")
     sess = get_session()
     all_new = []
+    t_start = time.time()
 
     for stock in BASE_STOCKS:
         prefix_base = stock  # vd: "CHPG"
         for yy in YEARS:
+            if time.time() - t_start > DISCOVERY_TIME_BUDGET:
+                print(f"   [Discovery] Vượt ngân sách thời gian ({DISCOVERY_TIME_BUDGET/60:.0f} phút) → dừng discovery sớm, dùng dữ liệu đã thu thập.")
+                return all_new
+
             prefix = f"{prefix_base}{yy}"  # vd: "CHPG26"
-            # Tìm số thứ tự lớn nhất đã biết cho prefix này
             existing_nums = [
                 int(c.replace(prefix, ""))
                 for c in known
@@ -633,20 +646,26 @@ def discover_new_cw_codes(known: set) -> list[str]:
             ]
             max_known = max(existing_nums) if existing_nums else 0
 
-            # Chỉ probe tiếp nếu đã có CW gần MAX_ISSUANCE (ngưỡng 80%)
-            # hoặc nếu đây là năm hiện tại (26) → luôn probe
             current_yy = str((datetime.now(timezone.utc) + timedelta(hours=7)).year)[-2:]
             is_current_year = (yy == current_yy)
             near_limit = max_known >= int(MAX_ISSUANCE * 0.8)
 
             if not (is_current_year or near_limit):
-                continue  # prefix này không cần probe thêm
+                continue
 
-            # Probe từ max_known+1 trở đi
             probe_start = max(max_known + 1, MAX_ISSUANCE + 1)
             miss_streak = 0
             n = probe_start
+            attempts = 0
             while True:
+                attempts += 1
+                if attempts > MAX_PROBE_ATTEMPTS:
+                    print(f"   [Discovery] {prefix}: dừng sau {MAX_PROBE_ATTEMPTS} lần thử (safety cap, không phải miss_streak)")
+                    break
+                if time.time() - t_start > DISCOVERY_TIME_BUDGET:
+                    print(f"   [Discovery] Vượt ngân sách thời gian → dừng giữa chừng tại {prefix}")
+                    return all_new
+
                 code = f"{prefix}{n:02d}"
                 if code in known:
                     miss_streak = 0
