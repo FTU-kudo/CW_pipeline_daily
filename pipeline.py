@@ -371,8 +371,8 @@ MAX_WORKERS  = 10
 TIMEOUT      = 12
 DELAY        = 0.1
 
-OHLCV_START_DATE = "2023-01-01"
-FILTER_DATE      = date(2024, 1, 2)
+OHLCV_START_DATE = "2023-01-01"  # Lấy từ đầu 2023 (CACB2301 trở đi)
+FILTER_DATE      = date(2023, 1, 1)  # Bao gồm tất cả CW từ 2023 (CACB2301 trở đi)
 MAX_RETRIES      = 3        # FIX: giảm từ 5 → 3; worst-case 1 CW = 3×30s+2×4s = 98s thay vì 170s
 RETRY_DELAY      = 4.0      # FIX: giảm từ 5.0 → 4.0s
 REQUEST_DELAY    = 1.2      # FIX: 1.2s/req = 50 req/min → an toàn dưới ngưỡng 60 req/min (Community tier)
