@@ -61,7 +61,7 @@ jobs:
           git diff --cached --quiet \
             && echo "Cache khong thay doi." \
             || (git commit -m "cache: OHLCV update $(date +'%Y-%m-%d %H:%M UTC')" \
-                && git pull --rebase \
+                && git pull --rebase --autostash \
                 && git push)
 
       # ── Bước 2: Commit data.json + Excel (chỉ khi pipeline thành công) ──
@@ -73,7 +73,7 @@ jobs:
           git diff --cached --quiet \
             && echo "Khong co thay doi moi." \
             || (git commit -m "update: CW data $(date +'%Y-%m-%d %H:%M UTC')" \
-                && git pull --rebase \
+                && git pull --rebase --autostash \
                 && git push)
 
       - name: Upload Excel as Artifact
