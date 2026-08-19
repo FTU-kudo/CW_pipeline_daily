@@ -193,19 +193,29 @@ def fetch_vnstock_yields(start_date: str, end_date: str) -> pd.DataFrame:
         return pd.DataFrame()
     try:
         api_key = os.getenv('VNSTOCK_API_KEY')
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            vs = Vnstock(token=api_key) if api_key else Vnstock()
-            if hasattr(vs, 'bond'):
-                bond_data = vs.bond(source='VCI')
-                if hasattr(bond_data, 'bond_yield'):
-                    df = bond_data.bond_yield(start_date=start_date, end_date=end_date)
-                    if not df.empty and 'date' in df.columns:
-                        df['date'] = pd.to_datetime(df['date'])
-                        df = df.set_index('date').sort_index()
-                        standard_tenors = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '15Y']
-                        avail = [c for c in standard_tenors if c in df.columns]
-                        if avail:
-                            return df[avail].dropna()
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+        
+        def _fetch():
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                vs = Vnstock(token=api_key) if api_key else Vnstock()
+                if hasattr(vs, 'bond'):
+                    bond_data = vs.bond(source='VCI')
+                    if hasattr(bond_data, 'bond_yield'):
+                        df = bond_data.bond_yield(start_date=start_date, end_date=end_date)
+                        if not df.empty and 'date' in df.columns:
+                            df['date'] = pd.to_datetime(df['date'])
+                            df = df.set_index('date').sort_index()
+                            standard_tenors = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '15Y']
+                            avail = [c for c in standard_tenors if c in df.columns]
+                            if avail:
+                                return df[avail].dropna()
+            return pd.DataFrame()
+            
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch)
+            df_res = future.result(timeout=20)
+            if df_res is not None and not df_res.empty:
+                return df_res
     except Exception:
         pass
     return pd.DataFrame()
@@ -804,9 +814,7 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
 
     def _try_vci():
         from vnstock.api.quote import Quote
-        import requests as _req
-        # FIX 2: monkey-patch session timeout của vnstock nếu có thể,
-        # nếu không thì dùng threading.Timer để hard-cap
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
         q = Quote(symbol=symbol, source="VCI")
         # Thử set timeout trực tiếp trên session nếu SDK expose nó
         if hasattr(q, 'session') and hasattr(q.session, 'request'):
@@ -814,14 +822,27 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 kw.update({"timeout": (10, VCI_READ_TIMEOUT)}) or
                 type(q.session).request(q.session, method, url, **kw)
             )
-        df = q.history(start=start, end=end, interval="1D")
-        return df
+        def _fetch():
+            return q.history(start=start, end=end, interval="1D")
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch)
+            try:
+                return future.result(timeout=VCI_READ_TIMEOUT + 5)
+            except FuturesTimeoutError:
+                raise TimeoutError("read timeout: VCI hard-cap reached")
 
     def _try_kbs():
         from vnstock.api.quote import Quote as Q2
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
         q2 = Q2(symbol=symbol, source="KBS")
-        df2 = q2.history(start=start, end=end, interval="1D")
-        return df2
+        def _fetch():
+            return q2.history(start=start, end=end, interval="1D")
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch)
+            try:
+                return future.result(timeout=VCI_READ_TIMEOUT + 5)
+            except FuturesTimeoutError:
+                raise TimeoutError("read timeout: KBS hard-cap reached")
 
     def _normalise(df):
         if df is None or df.empty:
@@ -1179,9 +1200,17 @@ def _fetch_underlying_prices(underlyings: list) -> dict:
         for source in ["VCI", "KBS"]:
             try:
                 from vnstock.api.quote import Quote
-                df = Quote(symbol=sym, source=source).history(
-                    start=week_ago, end=today_str, interval="1D"
-                )
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+                def _fetch():
+                    return Quote(symbol=sym, source=source).history(
+                        start=week_ago, end=today_str, interval="1D"
+                    )
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(_fetch)
+                    try:
+                        df = future.result(timeout=25)
+                    except FuturesTimeoutError:
+                        raise TimeoutError(f"read timeout: {source} hard-cap reached")
                 if df is None or df.empty:
                     continue
                 df.columns = [c.lower() for c in df.columns]
