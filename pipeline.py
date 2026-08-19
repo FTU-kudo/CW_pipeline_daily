@@ -886,6 +886,12 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
             # Thành công → reset fail streak
             _vci_circuit["fails"] = 0
             if df is None or df.empty:
+                try:
+                    df_kbs = _try_kbs()
+                    if df_kbs is not None and not df_kbs.empty:
+                        return _normalise(df_kbs)
+                except Exception:
+                    pass
                 return pd.DataFrame()
             return _normalise(df)
 
@@ -1394,7 +1400,10 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
 
         # Giá hiện tại của CW và cổ phiếu cơ sở
         sub = ohlcv_idx.get(ticker, pd.DataFrame())
-        price_cw = float(sub["close"].iloc[-1]) if not sub.empty else 0.0
+        if not sub.empty:
+            price_cw = float(sub["close"].iloc[-1])
+        else:
+            price_cw = float(row.get("gia_hien_tai", 0.0))
         S_val = underlying_prices.get(und_sym, 0)
 
         # Tính premium, đòn bẩy (giữ lại để hiển thị)
