@@ -26,4 +26,18 @@
 - **Kết quả:** Đã tự động hóa thành công toàn bộ quá trình Commit, Rebase và Push (`git pull --rebase` & `git push`) trực tiếp các bản vá lên repository `https://github.com/FTU-kudo/CW_pipeline_daily` cho cả 2 luồng fix bug lớn nêu trên.
 
 ---
-*Tất cả các bản vá đã được kiểm tra tính toàn vẹn và không làm gián đoạn luồng xử lý (Data Engineering) hiện tại của hệ thống.*
+
+## 4. Tối ưu hoá Rate Limit, khôi phục dữ liệu CW 2023 & Sửa luồng GitHub Actions
+*Thời gian thực hiện: 20/08/2026 (Hoàn tất lúc 00:30 ICT)*
+
+- **Xử lý giới hạn tần suất API (Rate Limit 429):**
+  - **Vấn đề:** Phiên bản cũ chạy quá nhanh khiến API của Vietstock/VCI khóa IP hoặc phản hồi lỗi 429 ("too many requests" đối với tài khoản Community giới hạn 60 request/phút), dẫn tới việc GitHub Actions chờ vô hạn vì bị kẹt trong vòng lặp thử lại.
+  - **Giải pháp:** Chỉnh sửa độ trễ `REQUEST_DELAY = 1.2` (duy trì 50 request/phút) để đảm bảo luôn ở dưới ngưỡng 60 req/min. Cải tiến logic đọc trực tiếp số giây phạt chờ từ message lỗi để sleep chuẩn xác thay vì đoán bừa. Bổ sung script thủ công `patch_ohlcv.py` chuyên tải bù hàng chục ngàn dòng lịch sử cho toàn bộ các mã CW từ trước tới nay.
+
+- **Khôi phục toàn bộ CW từ đầu năm 2023:**
+  - **Vấn đề:** Ban đầu người dùng yêu cầu lấy tất cả chứng quyền (hơn 1.000 mã), đặc biệt là nhóm CW năm 2023 (bắt đầu bằng `CACB2301`, v.v.), nhưng trên bảng điện vẫn không thấy.
+  - **Giải pháp:** Kiểm tra thì phát hiện hàm `step3_filter` bị kẹp điều kiện cứng `FILTER_DATE = date(2024, 1, 2)`, vô tình lọc bỏ toàn bộ mã 2023 khỏi báo cáo cuối cùng dù kho lưu trữ OHLCV đã có đầy đủ. Đã đổi thành `date(2023, 1, 1)` và biến `OHLCV_START_DATE = "2023-01-01"` để tương thích hoàn toàn.
+
+- **Sửa lỗi Workflow "Unstaged Changes" (Exit Code 128):**
+  - **Vấn đề:** Khi Github Action cố gắng kéo code từ trên mạng về qua lệnh `git pull --rebase`, nó vướng phải các file dữ liệu mà pipeline vừa ghi ra (`data.json`, `cw_master.xlsx`) nên báo lỗi unstaged và từ chối đồng bộ.
+  - **Giải pháp:** Thêm cờ `--autostash` thành `git pull --rebase --autostash` ở cả 2 bước commit trong file `.github/workflows/cw_pipeline.yml`. Cờ này có tác dụng cất các file bị sửa dở sang một bên tạm thời, tải toàn bộ thay đổi mới từ repository, sau đó tự động trả lại các file bị dở dang. Workflow đã hết lỗi và đồng bộ mượt mà.
