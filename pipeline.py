@@ -832,6 +832,8 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 raise TimeoutError("read timeout: VCI hard-cap reached")
 
     def _try_kbs():
+        if getattr(fetch_one, '_kbs_circuit', {}).get("open"):
+            raise TimeoutError("KBS circuit is open")
         from vnstock.api.quote import Quote as Q2
         from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
         q2 = Q2(symbol=symbol, source="KBS")
@@ -840,9 +842,25 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_fetch)
             try:
-                return future.result(timeout=VCI_READ_TIMEOUT + 5)
+                df = future.result(timeout=VCI_READ_TIMEOUT + 5)
+                if hasattr(fetch_one, '_kbs_circuit'): fetch_one._kbs_circuit["fails"] = 0
+                return df
             except FuturesTimeoutError:
+                if hasattr(fetch_one, '_kbs_circuit'):
+                    fetch_one._kbs_circuit["fails"] += 1
+                    if fetch_one._kbs_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                        fetch_one._kbs_circuit["open"] = True
+                        print("      [CIRCUIT OPEN] KBS unstable → skip everything")
                 raise TimeoutError("read timeout: KBS hard-cap reached")
+            except Exception as e:
+                msg = str(e).lower()
+                if "retryerror" in msg or "timeout" in msg:
+                    if hasattr(fetch_one, '_kbs_circuit'):
+                        fetch_one._kbs_circuit["fails"] += 1
+                        if fetch_one._kbs_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                            fetch_one._kbs_circuit["open"] = True
+                            print("      [CIRCUIT OPEN] KBS unstable → skip everything")
+                raise e
 
     def _normalise(df):
         if df is None or df.empty:
@@ -859,6 +877,8 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
         except Exception:
             pass
         return pd.DataFrame()
+    if _vci_circuit.get("open") and getattr(fetch_one, '_kbs_circuit', {}).get("open"):
+        return pd.DataFrame()
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -873,7 +893,7 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
             msg = str(e)
             is_timeout = any(k in msg.lower() for k in
                              ["timed out", "timeout", "read timeout", "connect timeout",
-                              "connectionerror", "remotedisconnected"])
+                              "connectionerror", "remotedisconnected", "retryerror"])
             is_rl  = any(k in msg.lower() for k in
                          ["rate limit","429","too many","quota","throttle",
                           "gian han api","gioi han","rate_limit","exceeded"])
@@ -930,6 +950,7 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
 
 # Circuit breaker state — dict mutable dùng chung cho cả run (reset khi module load lại)
 fetch_one._circuit = {"fails": 0, "open": False}
+fetch_one._kbs_circuit = {"fails": 0, "open": False}
 
 def _is_trading_day_closed() -> bool:
     now_ict = datetime.now(timezone.utc) + timedelta(hours=7)
