@@ -375,7 +375,7 @@ OHLCV_START_DATE = "2023-01-01"
 FILTER_DATE      = date(2024, 1, 2)
 MAX_RETRIES      = 3        # FIX: giảm từ 5 → 3; worst-case 1 CW = 3×30s+2×4s = 98s thay vì 170s
 RETRY_DELAY      = 4.0      # FIX: giảm từ 5.0 → 4.0s
-REQUEST_DELAY    = 0.6
+REQUEST_DELAY    = 1.2      # FIX: 1.2s/req = 50 req/min → an toàn dưới ngưỡng 60 req/min (Community tier)
 
 CACHE_DIR       = "output/cache"
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
@@ -906,8 +906,11 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
             is_403 = "403" in msg or "forbidden" in msg.lower()
 
             if is_rl:
-                wait = 60
-                print(f"      RL {symbol} #{attempt} → cho {wait}s roi thu lai...")
+                # Tìm thời gian chờ chính xác từ thông báo rate limit
+                import re as _re
+                _m = _re.search(r'(\d+)\s*gi.y', msg)
+                wait = int(_m.group(1)) + 2 if _m else 62
+                print(f"      [RL] {symbol} #{attempt} → chờ {wait}s (rate limit)...")
                 time.sleep(wait)
                 continue
 
