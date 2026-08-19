@@ -1122,7 +1122,7 @@ def step2_ohlcv(df_vs):
 # ══════════════════════════════════════════════════════════════════
 # BUOC 3 - LOC + SORT
 # ══════════════════════════════════════════════════════════════════
-def step3_filter(df_full):
+def step3_filter(df_full, df_vs=None):
     print("\n"+"="*60)
     print("BUOC 3 - Loc & sort")
     print("="*60)
@@ -1135,6 +1135,15 @@ def step3_filter(df_full):
     ts = pd.Timestamp(FILTER_DATE)
     valid = ltd.loc[ltd["ltd"]>=ts,"Ticker"].tolist()
     removed = ltd.loc[ltd["ltd"]<ts,"Ticker"].tolist()
+    
+    if df_vs is not None:
+        vs_ldt = pd.to_datetime(df_vs["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
+        vs_valid = df_vs.loc[vs_ldt >= ts, "ma_cw"].tolist()
+        missing_but_valid = [c for c in vs_valid if c not in ltd["Ticker"].values]
+        valid.extend(missing_but_valid)
+        if missing_but_valid:
+            print(f"   Bo sung {len(missing_but_valid)} ma moi (chua co OHLCV) vao valid list")
+
     print(f"   Tong ma: {len(ltd)}  |  Hop le: {len(valid)}  |  Loai: {len(removed)}")
     df = df_full[df_full["Ticker"].isin(valid) & (df_full["time_dt"]>=ts)].copy()
     df.sort_values(["time_dt","Ticker"], inplace=True)
@@ -1609,7 +1618,7 @@ if __name__ == "__main__":
     t0 = time.time()
     df_vs              = step1_vietstock()
     df_ohlcv_full      = step2_ohlcv(df_vs)
-    df_filtered, valid = step3_filter(df_ohlcv_full)
+    df_filtered, valid = step3_filter(df_ohlcv_full, df_vs)
     step4_excel(df_filtered, df_vs, valid)
     step5_export_json(df_ohlcv_full, df_vs, valid)
     print(f"\nDone in {(time.time()-t0)/60:.1f} min")
