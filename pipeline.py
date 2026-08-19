@@ -1401,14 +1401,18 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         # Giá hiện tại của CW và cổ phiếu cơ sở
         sub = ohlcv_idx.get(ticker, pd.DataFrame())
         if not sub.empty:
-            price_cw = float(sub["close"].iloc[-1])
+            price_cw_raw = float(sub["close"].iloc[-1])
+            # vnstock price is in thousands (e.g. 2.5), but could be exact if API changes
+            price_cw_vnd = price_cw_raw * 1000 if price_cw_raw < 1000 else price_cw_raw
+            price_cw = price_cw_vnd / 1000.0
         else:
-            price_cw = float(row.get("gia_hien_tai", 0.0))
+            price_cw_vnd = float(row.get("gia_hien_tai", 0.0))
+            price_cw = price_cw_vnd / 1000.0
+            
         S_val = underlying_prices.get(und_sym, 0)
 
         # Tính premium, đòn bẩy (giữ lại để hiển thị)
-        if S_val > 0 and price_cw > 0 and ratio > 0 and exercise > 0:
-            price_cw_vnd = price_cw * 1000
+        if S_val > 0 and price_cw_vnd > 0 and ratio > 0 and exercise > 0:
             intrinsic = max(S_val - exercise, 0)
             cw_value = price_cw_vnd * ratio
             premium = (cw_value - intrinsic) / S_val * 100
