@@ -884,10 +884,14 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
             return pd.DataFrame()
         return _normalise_ohlcv(df, symbol)
 
-    # FIX 3: Nếu circuit đang open → bỏ qua VCI luôn, thử KBS trực tiếp
+    # FIX EXPIRED-CW: Khi VCI circuit đang open:
+    # - Cổ phiếu (underlying): thử KBS (hỗ trợ bình thường)
+    # - CW: KBS không hỗ trợ CW → thử VCI trực tiếp 1 lần
+    #   Lý do: circuit có thể mở do CW hết hạn (timeout fetch 3 năm)
+    #   không phải do VCI thực sự down — active CW vẫn fetch được
     if _vci_circuit.get("open"):
-        # FIX #1: Khi VCI open nhưng KBS vẫn còn hoạt động → thử KBS
-        if not getattr(fetch_one, '_kbs_circuit', {}).get("open"):
+        if not _is_cw_symbol and not getattr(fetch_one, '_kbs_circuit', {}).get("open"):
+            # Cổ phiếu: thử KBS
             try:
                 df = _try_kbs()
                 result = _normalise(df)
@@ -895,9 +899,23 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                     return result
             except Exception:
                 pass
-        # FIX #1: Khi cả VCI + KBS đều open → trả None (FAIL) thay vì pd.DataFrame()
-        # Lý do: return pd.DataFrame() bị tính là NO_NEW → pipeline không biết đây là lỗi,
-        # sẽ lưu cache cũ như thể không có gì xảy ra → domino effect toàn bộ run.
+        elif _is_cw_symbol:
+            # CW: KBS không giúp được → thử VCI 1 lần dự phòng
+            # (circuit có thể đã mở do CW hết hạn, không phải VCI down hoàn toàn)
+            try:
+                df = _try_vci()
+                # VCI thành công → soft-reset circuit
+                _vci_circuit["fails"] = max(0, _vci_circuit["fails"] - 3)
+                if _vci_circuit["fails"] < VCI_CIRCUIT_OPEN_AFTER:
+                    _vci_circuit["open"] = False
+                result = _normalise(df)
+                if not result.empty:
+                    return result
+                return pd.DataFrame()  # VCI trả empty → bình thường (không phải lỗi)
+            except TimeoutError:
+                pass  # VCI thực sự timeout → bỏ qua
+            except Exception:
+                return pd.DataFrame()  # Lỗi khác → coi như empty
         return None
 
     for attempt in range(1, MAX_RETRIES + 1):
@@ -1058,8 +1076,20 @@ def step2_ohlcv(df_vs):
             except Exception:
                 pass
 
+    # BUG FIX EXPIRED-CW: Xây dựng bảng tra cứu CW đã hết hạn (ngay_gd_cuoi_cung < today)
+    # CW hết hạn mà cache đã có đủ data → KHÔNG fetch lại → tránh gử request
+    # fetch 3+ năm cho VCI → gây timeout → mở circuit → toàn bộ CW fail
+    expired_ldt_map = {}  # {symbol: last_trading_date}
+    if "ngay_gd_cuoi_cung" in df_vs.columns:
+        for _, row in df_vs[["ma_cw", "ngay_gd_cuoi_cung"]].dropna().iterrows():
+            ldt = pd.to_datetime(row["ngay_gd_cuoi_cung"], dayfirst=True, errors="coerce")
+            if pd.notna(ldt) and ldt.date() < today:
+                expired_ldt_map[row["ma_cw"]] = ldt.date()
+    print(f"   CW da het han trong metadata: {len(expired_ldt_map)} ma")
+
     to_fetch = []
     skipped_count = 0
+    skipped_expired = 0
     new_count = 0
 
     for sym in tickers:
@@ -1074,12 +1104,19 @@ def step2_ohlcv(df_vs):
 
             elif last.date() >= last_expected_session:
                 # Cache đã đủ phiên mới nhất — skip
-                # NOTE: Không back-fill phiên đầu tiên bị thiếu vì đó là
-                # "shadow trading" (giá +0%, không có giao dịch thực).
-                # VCI/KBS/TCBS/SSI đều không có data cho các phiên này.
                 skipped_count += 1
 
             else:
+                # BUG FIX EXPIRED-CW: Nếu CW đã hết hạn và cache đã có đủ data
+                # thì bỏ qua — không cần fetch 3 năm dữ liệu cho CW đã chết
+                if sym in expired_ldt_map:
+                    exp_ldt = expired_ldt_map[sym]
+                    # Buffer 5 ngày: nếu cache last >= last_trading_date - 5 ngày
+                    # → có thể VCI không có đủ data cuối (nghiep vu giao dich cuoi)
+                    # → coi như cache hoàn chỉnh
+                    if last.date() >= exp_ldt - timedelta(days=5):
+                        skipped_expired += 1
+                        continue  # Data hoàn chỉnh — giữ nguyên trong cache
                 next_day = (last + timedelta(days=1)).strftime("%Y-%m-%d")
                 to_fetch.append((sym, next_day, f"+tu {(last+timedelta(days=1)).strftime('%d/%m/%Y')}"))
         else:
@@ -1088,6 +1125,7 @@ def step2_ohlcv(df_vs):
             new_count += 1
 
     print(f"   Skip (cache du)   : {skipped_count} ma")
+    print(f"   Skip (het han)    : {skipped_expired} ma  ← cache hoan chinh, khong fetch lai")
     print(f"   Can fetch moi     : {new_count} ma")
     print(f"   Can update phien  : {len(to_fetch) - new_count} ma")
     print(f"   Tong can fetch    : {len(to_fetch)} ma | delay {REQUEST_DELAY}s/ma")
