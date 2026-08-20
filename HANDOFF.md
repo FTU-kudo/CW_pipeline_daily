@@ -60,3 +60,20 @@
   2. **Fix #2 â€” TÃ¡ch ngÆ°á»¡ng VCI vÃ  KBS:** `VCI_CIRCUIT_OPEN_AFTER = 6` (giá»¯ nguyÃªn) vs `KBS_CIRCUIT_OPEN_AFTER = 12` (tÄƒng gáº¥p Ä‘Ã´i). NgÆ°á»¡ng KBS cao hÆ¡n vÃ¬ KBS lÃ  nguá»“n fallback â€” cáº§n kiÃªn nháº«n hÆ¡n trÆ°á»›c khi tá»« bá».
   3. **Fix #3 â€” Soft Circuit Reset:** ThÃªm biáº¿n `_consecutive_ok` Ä‘áº¿m sá»‘ CW thÃ nh cÃ´ng liÃªn tiáº¿p. Sau 10 láº§n thÃ nh cÃ´ng liÃªn tiáº¿p, reset cáº£ 2 circuit vá» tráº¡ng thÃ¡i Ä‘Ã³ng Ä‘á»ƒ trÃ¡nh hiá»‡u á»©ng "oan há»“n" (circuit báº­t do 2 CW Ä‘áº§u nhÆ°ng giá»¯ tráº¡ng thÃ¡i mÃ£i mÃ£i dÃ¹ API Ä‘Ã£ phá»¥c há»“i). Äá»“ng thá»i reset `_kbs_circuit` khi báº¯t Ä‘áº§u vÃ²ng láº·p fetch má»›i.
   4. **Fix #4 â€” NO_NEW Storm Guard:** ThÃªm cáº£nh bÃ¡o vÃ  early-exit khÃ´ng lÆ°u cache khi `n_ok == 0` vÃ  `n_empty > 70%` tá»•ng CW cáº§n fetch. HÃ nh vi nÃ y báº£o toÃ n cache cÅ© vÃ  force retry á»Ÿ láº§n cháº¡y tiáº¿p theo thay vÃ¬ ghi Ä‘Ã¨ cache báº±ng káº¿t quáº£ rá»—ng.
+
+ # #   6 .   S ía   l ×i   T i m e o u t   d o   d ï  l i Çu   C W   q u á   k h é  &   K B S   ( 2 1 / 0 8 / 2 0 2 6 ) 
+ * T h Ýi   g i a n   t h ñc   h i Çn :   2 1 / 0 8 / 2 0 2 6   ( H o à n   t ¥t   l ú c   0 1 : 1 0   I C T ) * 
+ 
+ * * T r i Çu   c h én g : * *   P i p e l i n e   t r ê n   G i t H u b   A c t i o n s   l i ê n   t åc   b á o   \ T I M E O U T   C A C B 2 3 0 1 \   ß  n g u Ón   V C I ,   Ón g   t h Ýi   g h i   n h ­n   \ K B S   f a l l b a c k   F A I L \ .   H ­u   q u £  l à   V C I   c i r c u i t   b r e a k e r   b Ë  k í c h   h o ¡t ,   l à m   f a i l   t o à n   b Ù  1 2 0 9   m ã   C W . 
+ 
+ -   * * N g u y ê n   n h â n   c Ñt   l õ i   ( R o o t   C a u s e s ) : * * 
+     1 .   * * L ×i   K B S   k h ô n g   h ×  t r ã  C W : * *   K h i   f e t c h   C W   t ë  K B S ,   A P I   l u ô n   n é m   r a   \ V a l u e E r r o r \ .   T u y   n h i ê n ,   l ×i   n à y   t r °Ûc   ó   b Ë  t í n h   n h §m   v à o   \ _ k b s _ c i r c u i t [ ' f a i l s ' ] \ ,   k h i ¿n   c i r c u i t   c ça   K B S   t ñ  Ùn g   b ­t   s a i   c á c h . 
+     2 .   * * L ×i   V C I   T i m e o u t   c h o   C W   ã   h ¿t   h ¡n : * *   C á c   m ã   n h °  \ C A C B 2 3 0 1 \   ã   á o   h ¡n   t ë  0 8 / 2 0 2 3 .   P i p e l i n e   c i  c Ñ  g ¯n g   l ¥y   d ï  l i Çu   t ë  \ 2 0 2 3 - 0 8 - 0 4 \   ¿n   \ 2 0 2 6 - 0 8 - 2 2 \ .   V i Çc   y ê u   c §u   m Ùt   k h o £n g   d ï  l i Çu   3   n m   k h ô n g   t Ón   t ¡i   k h i ¿n   s e r v e r   V C I   b Ë  k ¹t   v à   g â y   r a   T i m e o u t   3 5 s   t r ê n   G i t H u b   A c t i o n s   r u n n e r . 
+ 
+ -   * * C á c   F i x   ã   t r i Ãn   k h a i   t r o n g   \ p i p e l i n e . p y \ : * * 
+     1 .   * * B y p a s s   K B S   h o à n   t o à n   c h o   C W : * *   B Õ  s u n g   r e g e x   n h ­n   d i Çn   s y m b o l   C W   ( V D :   \ ^ C [ A - Z ] { 2 , 4 } \ d { 4 } $ \ ) .   N ¿u   l à   C W ,   p i p e l i n e   s ½  k h ô n g   b a o   g i Ý  g Íi   K B S   Ã  t r á n h   \ V a l u e E r r o r \   l ·p   l ¡i . 
+     2 .   * * B Ï  q u a   f e t c h   O H L C V   c h o   C W   h ¿t   h ¡n : * *   X â y   d ñn g   \ e x p i r e d _ l d t _ m a p \   t ë  c Ùt   \ 
+ g a y _ g d _ c u o i _ c u n g \   c ça   V i e t s t o c k   m e t a d a t a .   N ¿u   m Ùt   C W   ã   h ¿t   h ¡n   v à   c a c h e   ã   c h éa   ç  d ï  l i Çu   ¿n   t r °Ûc   n g à y   á o   h ¡n ,   h Ç  t h Ñn g   s ½  i n   l o g   \ S k i p   ( h e t   h a n ) \   v à   * * k h ô n g   g íi   A P I   r e q u e s t   t Ûi   V C I * * .   
+     3 .   * * B £o   t o à n   d ï  l i Çu   l Ëc h   s í: * *   C á c   C W   b Ë  s k i p   ( n h °  \ C A C B 2 3 0 1 \ )   v «n   °ãc   g h é p   n Ñi   v Ûi   d ï  l i Çu   m Ûi   Ã  °a   r a   b £n g   \ c w _ m a s t e r \   c u Ñi   c ù n g ,   á p   én g   1 0 0 %   n h u   c §u   p h â n   t í c h   d ï  l i Çu   q u á   k h é  t ë  2 0 2 3 . 
+  
+ 
