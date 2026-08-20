@@ -802,7 +802,8 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
     FIX 3: Circuit breaker — nếu VCI liên tiếp timeout >= CIRCUIT_OPEN_AFTER lần,
            tự động skip VCI và dùng KBS cho các lần gọi tiếp trong cùng 1 run
     """
-    CIRCUIT_OPEN_AFTER = 6   # số lần timeout liên tiếp toàn cục để mở circuit
+    VCI_CIRCUIT_OPEN_AFTER = 6   # FIX #2: VCI: mở circuit sau 6 timeout liên tiếp
+    KBS_CIRCUIT_OPEN_AFTER = 12  # FIX #2: KBS (fallback): ngưỡng cao hơn VCI (12 lần)
     VCI_READ_TIMEOUT   = 20  # giây — giảm từ 30s mặc định của SDK
 
     start = _to_ymd(start_str)
@@ -848,7 +849,7 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
             except FuturesTimeoutError:
                 if hasattr(fetch_one, '_kbs_circuit'):
                     fetch_one._kbs_circuit["fails"] += 1
-                    if fetch_one._kbs_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                    if fetch_one._kbs_circuit["fails"] >= KBS_CIRCUIT_OPEN_AFTER:  # FIX #2
                         fetch_one._kbs_circuit["open"] = True
                         print("      [CIRCUIT OPEN] KBS unstable → skip everything")
                 raise TimeoutError("read timeout: KBS hard-cap reached")
@@ -857,7 +858,7 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 if "retryerror" in msg or "timeout" in msg:
                     if hasattr(fetch_one, '_kbs_circuit'):
                         fetch_one._kbs_circuit["fails"] += 1
-                        if fetch_one._kbs_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                        if fetch_one._kbs_circuit["fails"] >= KBS_CIRCUIT_OPEN_AFTER:  # FIX #2
                             fetch_one._kbs_circuit["open"] = True
                             print("      [CIRCUIT OPEN] KBS unstable → skip everything")
                 raise e
@@ -869,16 +870,19 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
 
     # FIX 3: Nếu circuit đang open → bỏ qua VCI luôn, thử KBS trực tiếp
     if _vci_circuit.get("open"):
-        try:
-            df = _try_kbs()
-            result = _normalise(df)
-            if not result.empty:
-                return result
-        except Exception:
-            pass
-        return pd.DataFrame()
-    if _vci_circuit.get("open") and getattr(fetch_one, '_kbs_circuit', {}).get("open"):
-        return pd.DataFrame()
+        # FIX #1: Khi VCI open nhưng KBS vẫn còn hoạt động → thử KBS
+        if not getattr(fetch_one, '_kbs_circuit', {}).get("open"):
+            try:
+                df = _try_kbs()
+                result = _normalise(df)
+                if not result.empty:
+                    return result
+            except Exception:
+                pass
+        # FIX #1: Khi cả VCI + KBS đều open → trả None (FAIL) thay vì pd.DataFrame()
+        # Lý do: return pd.DataFrame() bị tính là NO_NEW → pipeline không biết đây là lỗi,
+        # sẽ lưu cache cũ như thể không có gì xảy ra → domino effect toàn bộ run.
+        return None
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -919,8 +923,8 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 _vci_circuit["fails"] = _vci_circuit.get("fails", 0) + 1
                 print(f"      TIMEOUT {symbol} #{attempt} | VCI streak={_vci_circuit['fails']}")
 
-                # FIX 3: Mở circuit nếu đủ ngưỡng
-                if _vci_circuit["fails"] >= CIRCUIT_OPEN_AFTER:
+                # FIX #2: Mở VCI circuit nếu đủ ngưỡng (VCI_CIRCUIT_OPEN_AFTER)
+                if _vci_circuit["fails"] >= VCI_CIRCUIT_OPEN_AFTER:
                     _vci_circuit["open"] = True
                     print(f"      [CIRCUIT OPEN] VCI unstable ({_vci_circuit['fails']} timeouts) "
                           f"→ chuyển sang KBS cho toàn bộ run")
@@ -1082,20 +1086,34 @@ def step2_ohlcv(df_vs):
     new_rows = []; failed = []; n_ok = 0; n_empty = 0
     t_fetch_start = time.time()
     fetch_one._circuit = {"fails": 0, "open": False}  # reset circuit cho run mới
+    fetch_one._kbs_circuit = {"fails": 0, "open": False}  # FIX #3: reset KBS circuit cùng lúc
+    _consecutive_ok = 0  # FIX #3: đếm số CW OK liên tiếp để soft-reset circuit
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
         df_r = fetch_one(sym, start_str, end_str, fetch_one._circuit)
         if df_r is None:
             failed.append(sym)
+            _consecutive_ok = 0
             print(f"  [{i:>4}/{len(to_fetch)}] FAIL {sym}")
             time.sleep(DELAY_FAIL)
-        elif df_r.empty:
+        elif df_r is not None and df_r.empty:
             n_empty += 1
+            _consecutive_ok = 0
             if "new" in lbl or "NaT" in lbl:
                 print(f"  [{i:>4}/{len(to_fetch)}] NO_NEW {sym} ({lbl})")
             time.sleep(DELAY_EMPTY)
         else:
             new_rows.append(df_r)
             n_ok += 1
+            _consecutive_ok += 1
+            # FIX #3: Soft-reset circuit breaker sau 10 CW thành công liên tiếp
+            # Tránh domino effect: nếu VCI/KBS phục hồi giữa chừng, cho phép retry
+            if _consecutive_ok >= 10 and fetch_one._circuit.get("open"):
+                fetch_one._circuit["fails"] = 0
+                fetch_one._circuit["open"] = False
+                fetch_one._kbs_circuit["fails"] = 0
+                fetch_one._kbs_circuit["open"] = False
+                _consecutive_ok = 0
+                print(f"  [{i:>4}/{len(to_fetch)}] [CIRCUIT RESET] Phục hồi sau 10 OK liên tiếp")
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
                 elapsed = time.time() - t_fetch_start
                 eta = (len(to_fetch) - i) * (elapsed / i) / 60
@@ -1104,6 +1122,17 @@ def step2_ohlcv(df_vs):
     df_cache.drop(columns=["time_dt"], inplace=True)
     print(f"\n   Ket qua: OK={n_ok} | NO_NEW={n_empty} | FAIL={len(failed)} | SKIP={skipped_count}")
     if failed: print(f"   Failed: {failed[:10]}")
+
+    # FIX #4: NO_NEW storm guard — nếu >70% fetch trả về empty khi có ít nhất 10 CW cần fetch,
+    # đây là dấu hiệu circuit breaker đã kích hoạt sai → KHÔNG lưu cache để force retry lần sau.
+    total_fetched = len(to_fetch)
+    if total_fetched >= 10 and n_ok == 0 and n_empty > total_fetched * 0.7:
+        print(f"\n   [!] NO_NEW STORM DETECTED: {n_empty}/{total_fetched} ({n_empty/total_fetched*100:.0f}%) fetch rong.")
+        print(f"   [!] Nguyen nhan co the: VCI+KBS circuit breaker bat qua som (chi can {len(failed)} FAIL dau)")
+        print(f"   [!] BO QUA luu cache de force retry o lan chay tiep theo.")
+        print(f"   [!] Dung du lieu OHLCV cu trong cache cho buoc sau (van co du lieu ngay hom qua).")
+        return df_cache
+
     if new_rows:
         df_add = pd.concat(new_rows, ignore_index=True)
         bad_mask = df_cache["time"].isna() | (df_cache["time"].astype(str) == "NaT")

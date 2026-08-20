@@ -32,6 +32,7 @@
 
 - **Xử lý giới hạn tần suất API (Rate Limit 429):**
   - **Vấn đề:** Phiên bản cũ chạy quá nhanh khiến API của Vietstock/VCI khóa IP hoặc phản hồi lỗi 429 ("too many requests" đối với tài khoản Community giới hạn 60 request/phút), dẫn tới việc GitHub Actions chờ vô hạn vì bị kẹt trong vòng lặp thử lại.
+  - **Vấn đề:** Phiên bản cũ chạy quá nhanh khiến API của Vietstock/VCI khóa IP hoặc phản hồi lỗi 429 ("too many requests" đối với tài khoản Community giới hạn 60 request/min), dẫn tới việc GitHub Actions chờ vô hạn vì bị kẹt trong vòng lặp thử lại.
   - **Giải pháp:** Chỉnh sửa độ trễ `REQUEST_DELAY = 1.2` (duy trì 50 request/phút) để đảm bảo luôn ở dưới ngưỡng 60 req/min. Cải tiến logic đọc trực tiếp số giây phạt chờ từ message lỗi để sleep chuẩn xác thay vì đoán bừa. Bổ sung script thủ công `patch_ohlcv.py` chuyên tải bù hàng chục ngàn dòng lịch sử cho toàn bộ các mã CW từ trước tới nay.
 
 - **Khôi phục toàn bộ CW từ đầu năm 2023:**
@@ -41,3 +42,21 @@
 - **Sửa lỗi Workflow "Unstaged Changes" (Exit Code 128):**
   - **Vấn đề:** Khi Github Action cố gắng kéo code từ trên mạng về qua lệnh `git pull --rebase`, nó vướng phải các file dữ liệu mà pipeline vừa ghi ra (`data.json`, `cw_master.xlsx`) nên báo lỗi unstaged và từ chối đồng bộ.
   - **Giải pháp:** Thêm cờ `--autostash` thành `git pull --rebase --autostash` ở cả 2 bước commit trong file `.github/workflows/cw_pipeline.yml`. Cờ này có tác dụng cất các file bị sửa dở sang một bên tạm thời, tải toàn bộ thay đổi mới từ repository, sau đó tự động trả lại các file bị dở dang. Workflow đã hết lỗi và đồng bộ mượt mà.
+
+---
+
+## 5. Sửa lỗi Circuit Breaker gây hiệu ứng Domino (20/08/2026)
+*Thời gian thực hiện: 20/08/2026 (Hoàn tất lúc 23:55 ICT)*
+
+**Triệu chứng:** Pipeline chạy THÀNH CÔNG (exit 0, 19 phút) nhưng **không có phiên GD nào được cập nhật** vào ngày 20/08/2026. Log báo `Ket qua: OK=0 | NO_NEW=1207 | FAIL=2`. Dashboard vẫn hiển thị dữ liệu cũ đến 19/08/2026.
+
+- **Nguyên nhân cốt lõi — Hiệu ứng Domino (Domino Circuit Breaker):**
+  - 2 CW đầu tiên (`CACB2301`, `CACB2302`) bị timeout liên tiếp trên cả VCI lẫn KBS, khiến cả 2 circuit breaker đồng thời bật trạng thái OPEN.
+  - Khi cả 2 circuit OPEN, hàm `fetch_one` trả về `pd.DataFrame()` (rỗng) thay vì `None`. Điều này bị vòng lặp đếm vào `n_empty` (NO_NEW) chứ không phải `failed`.
+  - Hậu quả: 1207 CW còn lại **đều bị skip hoàn toàn trong im lặng**. Pipeline không phát hiện đây là lỗi nghiêm trọng, tiếp tục lưu cache cũ, và in ra kết quả thành công giả.
+
+- **4 Fix đã triển khai trong `pipeline.py`:**
+  1. **Fix #1 — Sửa return type khi cả 2 circuit OPEN:** Thay `return pd.DataFrame()` bằng `return None` → vòng lặp nhận diện đây là lỗi thực sự (FAIL), không phải NO_NEW. Đồng thời tách logic: nếu VCI open nhưng KBS vẫn ổn → thử KBS bình thường trước khi báo FAIL.
+  2. **Fix #2 — Tách ngưỡng VCI và KBS:** `VCI_CIRCUIT_OPEN_AFTER = 6` (giữ nguyên) vs `KBS_CIRCUIT_OPEN_AFTER = 12` (tăng gấp đôi). Ngưỡng KBS cao hơn vì KBS là nguồn fallback — cần kiên nhẫn hơn trước khi từ bỏ.
+  3. **Fix #3 — Soft Circuit Reset:** Thêm biến `_consecutive_ok` đếm số CW thành công liên tiếp. Sau 10 lần thành công liên tiếp, reset cả 2 circuit về trạng thái đóng để tránh hiệu ứng "oan hồn" (circuit bật do 2 CW đầu nhưng giữ trạng thái mãi mãi dù API đã phục hồi). Đồng thời reset `_kbs_circuit` khi bắt đầu vòng lặp fetch mới.
+  4. **Fix #4 — NO_NEW Storm Guard:** Thêm cảnh báo và early-exit không lưu cache khi `n_ok == 0` và `n_empty > 70%` tổng CW cần fetch. Hành vi này bảo toàn cache cũ và force retry ở lần chạy tiếp theo thay vì ghi đè cache bằng kết quả rỗng.
