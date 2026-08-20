@@ -804,10 +804,17 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
     """
     VCI_CIRCUIT_OPEN_AFTER = 6   # FIX #2: VCI: mở circuit sau 6 timeout liên tiếp
     KBS_CIRCUIT_OPEN_AFTER = 12  # FIX #2: KBS (fallback): ngưỡng cao hơn VCI (12 lần)
-    VCI_READ_TIMEOUT   = 20  # giây — giảm từ 30s mặc định của SDK
+    VCI_READ_TIMEOUT   = 35  # Tang tu 20s -> 35s: GitHub Actions cold-start cham hon local
 
     start = _to_ymd(start_str)
     end   = _to_ymd(end_str)
+
+    # Phát hiện symbol là chứng quyền (CW) hay cổ phiếu thường
+    # CW có dạng: C[3-4 chữ] + 2 chữ số (năm) + 2 chữ số (STT) vd: CACB2301, CHPG2605
+    # KBS không hỗ trợ CW — luôn raise ValueError → bỏ qua toàn bộ
+    import re as _re_sym
+    _is_cw_symbol = bool(_re_sym.match(r'^C[A-Z]{2,4}\d{4}$', symbol))
+
 
     # _vci_circuit là dict mutable dùng chung toàn bộ run: {"fails": N, "open": bool}
     if _vci_circuit is None:
@@ -833,6 +840,11 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 raise TimeoutError("read timeout: VCI hard-cap reached")
 
     def _try_kbs():
+        # ROOT CAUSE FIX: KBS không hỗ trợ symbol chứng quyền (CW) — luôn raise ValueError
+        # Test xác nhận: [CW/KBS] RetryError: raised ValueError, [STK/KBS] OK
+        # → Skip KBS hoàn toàn cho CW, chỉ dùng KBS cho cổ phiếu thường
+        if _is_cw_symbol:
+            raise ValueError(f"KBS không hỗ trợ CW symbol ({symbol}) — bỏ qua KBS")
         if getattr(fetch_one, '_kbs_circuit', {}).get("open"):
             raise TimeoutError("KBS circuit is open")
         from vnstock.api.quote import Quote as Q2
@@ -855,13 +867,17 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 raise TimeoutError("read timeout: KBS hard-cap reached")
             except Exception as e:
                 msg = str(e).lower()
-                if "retryerror" in msg or "timeout" in msg:
+                # ROOT CAUSE FIX: Chỉ đếm lỗi mạng vào circuit, KHÔNG đếm ValueError (lỗi dữ liệu)
+                # Lý do: ValueError từ KBS có nghĩa là symbol không hợp lệ, không phải mạng bị ngắt
+                is_network_err = any(k in msg for k in ["retryerror", "timeout", "connection", "urlerror"])
+                if is_network_err and "valueerror" not in msg:
                     if hasattr(fetch_one, '_kbs_circuit'):
                         fetch_one._kbs_circuit["fails"] += 1
                         if fetch_one._kbs_circuit["fails"] >= KBS_CIRCUIT_OPEN_AFTER:  # FIX #2
                             fetch_one._kbs_circuit["open"] = True
                             print("      [CIRCUIT OPEN] KBS unstable → skip everything")
                 raise e
+
 
     def _normalise(df):
         if df is None or df.empty:
