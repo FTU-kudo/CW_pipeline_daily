@@ -973,6 +973,12 @@ def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
                 except Exception as e2:
                     print(f"      KBS fallback FAIL {symbol}: {str(e2)[:50]}")
 
+                # DEBUG FIX: CW không được hỗ trợ bởi KBS, nếu VCI timeout thì khả năng cao là mã CW chưa có dữ liệu.
+                # Bỏ qua retry để tiết kiệm 70s+ cho mỗi mã CW không tồn tại.
+                if _is_cw_symbol:
+                    print(f"      [SKIP RETRY] {symbol} là CW, VCI timeout (có thể chưa có dữ liệu) → bỏ qua nhanh.")
+                    return pd.DataFrame()
+
                 # KBS cũng fail → nếu còn attempt thì retry VCI, ngược lại bỏ
                 if attempt < MAX_RETRIES:
                     time.sleep(RETRY_DELAY)
