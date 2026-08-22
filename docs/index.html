@@ -47,7 +47,17 @@
       font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;
     }
     .topbar h1 svg { width: 18px; height: 18px; opacity: 0.7; }
-    .meta { font-size: 12px; color: var(--text3); }
+    .meta-container {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface2); padding: 5px 14px;
+      border-radius: 20px; border: 0.5px solid var(--border2);
+    }
+    .meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+    .meta-label { color: var(--text3); }
+    .meta-value { color: var(--text); font-weight: 500; }
+    .meta-value.highlight { color: var(--blue); font-weight: 600; }
+    .meta-divider { width: 3px; height: 3px; background: var(--text3); border-radius: 50%; opacity: 0.5; }
+    .real-time-clock { color: var(--text2); margin-right: 2px; }
 
     /* ----- TABS ----- */
     .tabs {
@@ -345,7 +355,31 @@
       </svg>
       CW Dashboard – Black‑Scholes
     </h1>
-    <div class="meta" id="meta-text">—</div>
+    <div class="meta-container" id="meta-container" style="display: none;">
+      <div class="meta-item">
+        <span class="meta-label">Cập nhật:</span>
+        <span class="meta-value" id="meta-updated">—</span>
+      </div>
+      <div class="meta-divider"></div>
+      <div class="meta-item">
+        <span class="meta-value highlight" id="meta-cw-count">—</span>
+        <span class="meta-label">mã CW</span>
+      </div>
+      <div class="meta-divider"></div>
+      <div class="meta-item">
+        <svg class="real-time-clock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <g id="clock-hour" style="transform-origin: 12px 12px; transition: transform 0.2s linear;">
+            <line x1="12" y1="12" x2="12" y2="7"></line>
+          </g>
+          <g id="clock-minute" style="transform-origin: 12px 12px; transition: transform 0.2s linear;">
+            <line x1="12" y1="12" x2="12" y2="4"></line>
+          </g>
+        </svg>
+        <span class="meta-label">Xem lúc:</span>
+        <span class="meta-value" id="meta-view-time">—</span>
+      </div>
+    </div>
   </div>
 
   <!-- TABS -->
@@ -1003,14 +1037,6 @@ async function loadData() {
     allData = json.cw_list || [];
     ohlcvData = json.ohlcv || {};
 
-    // Giờ xem (VN)
-    const now = new Date();
-    const vnTime = now.toLocaleString('vi-VN', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-
     let updatedDisplay = '—';
     if (json.updated_at) {
       const raw = json.updated_at.trim();
@@ -1019,8 +1045,34 @@ async function loadData() {
         updatedDisplay = `${parts[0]} ${parts[1]} UTC+7`;
       }
     }
-    document.getElementById('meta-text').textContent =
-      `Cập nhật: ${updatedDisplay}  •  ${allData.length} mã CW  •  Xem lúc: ${vnTime}`;
+    
+    document.getElementById('meta-updated').textContent = updatedDisplay;
+    document.getElementById('meta-cw-count').textContent = allData.length;
+    document.getElementById('meta-container').style.display = 'flex';
+
+    // Real-time clock update
+    function updateClock() {
+      const now = new Date();
+      const vnTime = now.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      document.getElementById('meta-view-time').textContent = vnTime;
+      
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+      const hourAngle = (h % 12) * 30 + m * 0.5;
+      const minuteAngle = m * 6 + s * 0.1;
+      
+      const hHand = document.getElementById('clock-hour');
+      const mHand = document.getElementById('clock-minute');
+      if (hHand) hHand.style.transform = `rotate(${hourAngle}deg)`;
+      if (mHand) mHand.style.transform = `rotate(${minuteAngle}deg)`;
+    }
+    updateClock(); // Initial call
+    setInterval(updateClock, 1000);
 
     populateFilters();
     applyFilters();
