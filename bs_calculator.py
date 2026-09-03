@@ -6,7 +6,7 @@ Tự tính Black-Scholes cho Chứng quyền (CW) Việt Nam.
 Inputs (đều đã có trong pipeline):
   - OHLCV underlying  → sigma (historical volatility, annualized, 252 phiên)
   - OHLCV underlying  → S (giá đóng cửa mới nhất, VND)
-  - data_fetcher.py   → r (lợi suất TPCP 10Y HNX, %/năm)  ← lãi suất phi rủi ro chuẩn BS
+  - HNX yield curve   → r (Spot rate % continuous, kỳ hạn 10 năm)  ← lãi suất phi rủi ro chuẩn BS
   - df_vietstock      → K (giá thực hiện), T (ngày đến hạn), n (tỷ lệ chuyển đổi)
 
 Công thức:
@@ -17,61 +17,247 @@ Công thức:
   Δ   = N(d1)                                # Delta
   EG  = (S / (CW_price × n)) × Δ            # Effective Gearing (leverage thực tế)
 
-Lưu ý về r:
-  Dùng lợi suất TPCP **kỳ hạn 10 năm** (10Y HNX) theo đúng chuẩn định giá
-  quyền chọn quốc tế (cùng cách Vietstock áp dụng). KHÔNG dùng 1Y.
+Lưu ý về r (CẬP NHẬT):
+  Trước đây gọi `data_fetcher.fetch_hnx_official_yields` (chưa từng hoạt động vì
+  trang HNX render bằng JS + bảng nằm trong 1 iframe lồng, không lộ qua HTML tĩnh
+  hay API JSON nào bắt được). Đã thay bằng scraper Playwright thực sự lấy được
+  dữ liệu (`_scrape_hnx_yield_curve`), dùng đúng cột "Spot rate % (continuous)"
+  — khớp convention lãi kép liên tục trong công thức BS phía trên.
+
+  Thứ tự ưu tiên nguồn r (multi-layer fallback, giống pattern iv_history.parquet
+  đã dùng cho IV Rank):
+    Lớp 1 — Scrape trực tiếp HNX (thật, real-time, kỳ hạn 10 năm, continuous)
+    Lớp 2 — Cache cục bộ (hnx_10y_cache.json) từ lần scrape thành công gần nhất,
+             dùng nếu Lớp 1 lỗi và cache chưa quá cũ (< 5 ngày)
+    Lớp 3 — VBMA (lãi suất trúng thầu sơ cấp TPCP 10Y) — CHỈ là proxy gần đúng,
+             khác bản chất với spot rate thứ cấp của HNX, dùng khi Lớp 1+2 đều fail
+    Lớp 4 — Hằng số cứng (an toàn cuối cùng, không để pipeline crash)
+
+  MỌI kết quả BS đều lưu kèm `r_source` để biết r hôm đó lấy từ lớp nào —
+  quan trọng để audit lại nếu giá BS bất thường.
 """
 
 import math
+import json
+import re
+from pathlib import Path
+from datetime import date, datetime, timedelta
+from typing import Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from datetime import date, datetime
-from typing import Optional
-
-# ── Fallback khi không fetch được HNX ────────────────────────────
-_FALLBACK_RATE_10Y = 4.53   # % — lợi suất 10Y HNX thực tế gần nhất
 
 
 # ══════════════════════════════════════════════════════════════════
-# 1. LÃI SUẤT PHI RỦI RO — HNX 10Y
+# CẤU HÌNH NGUỒN LÃI SUẤT PHI RỦI RO
 # ══════════════════════════════════════════════════════════════════
+
+HNX_URL = "https://www.hnx.vn/en-gb/trai-phieu/duong-cong-loi-suat.html"
+HNX_TENOR_LABEL = "10 years"          # dòng cần lấy trong bảng yield curve
+HNX_RATE_COLUMN = "Spot rate % (continuous)"  # đúng convention e^(-rT) trong BS
+
+CACHE_FILE = Path("hnx_10y_cache.json")
+CACHE_MAX_AGE_DAYS = 5                 # cache quá 5 ngày coi như "cũ", không tin nữa
+
+VBMA_LIST_URL = "https://vbma.org.vn/vi/activities"
+VBMA_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+_FALLBACK_RATE_10Y = 4.53   # % — an toàn cuối cùng nếu MỌI nguồn đều fail
+
+
+# ══════════════════════════════════════════════════════════════════
+# 1. LÃI SUẤT PHI RỦI RO — HNX 10Y (Spot rate % continuous)
+# ══════════════════════════════════════════════════════════════════
+
+def _scrape_hnx_yield_curve(timeout_ms: int = 60_000, wait_after_load_ms: int = 5_000):
+    """
+    Scrape bảng đường cong lợi suất HNX bằng Playwright (Sync API).
+    Bảng nằm trong 1 iframe lồng (class 'html-preview-frame'), không lộ qua
+    HTML tĩnh hay request JSON nào — phải duyệt qua page.frames để tìm.
+
+    Trả về (DataFrame[Tenor, Spot rate % (continuous), Par yield (%), Spot rate % (annual)], ref_date)
+    hoặc (None, None) nếu lỗi — KHÔNG raise exception ra ngoài, để lớp gọi tự quyết định fallback.
+    """
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],  # cần thiết trên runner GitHub Actions
+            )
+            page = browser.new_page()
+            try:
+                page.goto(HNX_URL, wait_until="networkidle", timeout=timeout_ms)
+                page.wait_for_timeout(wait_after_load_ms)
+
+                target_frame = next(
+                    (f for f in page.frames if f.query_selector("#_tableDatas")), None
+                )
+                if target_frame is None:
+                    print("   [HNX scrape] Không tìm thấy iframe chứa bảng — cấu trúc trang có thể đã đổi.")
+                    return None, None
+
+                rows = target_frame.query_selector_all("#_tableDatas tbody tr")
+                data = []
+                for r in rows:
+                    cols = r.query_selector_all("td")
+                    data.append([c.inner_text().strip() for c in cols])
+
+                date_input = page.query_selector("#txtDateYC")
+                ref_date = date_input.get_attribute("value") if date_input else None
+
+                if not data:
+                    print("   [HNX scrape] Bảng rỗng.")
+                    return None, None
+
+                df = pd.DataFrame(
+                    data,
+                    columns=["Tenor", "Spot rate % (continuous)", "Par yield (%)", "Spot rate % (annual)"],
+                )
+                return df, ref_date
+            finally:
+                browser.close()
+
+    except Exception as e:
+        print(f"   [HNX scrape] Lỗi Playwright: {e}")
+        return None, None
+
+
+def _extract_tenor_rate(df: pd.DataFrame, tenor_label: str, column: str) -> Optional[float]:
+    """Lấy giá trị (%) tại đúng kỳ hạn từ bảng đã scrape. Trả về None nếu không khớp/không parse được."""
+    if df is None or df.empty:
+        return None
+    match = df[df["Tenor"].str.strip().str.lower() == tenor_label.lower()]
+    if match.empty:
+        print(f"   [HNX scrape] Không thấy kỳ hạn '{tenor_label}' trong bảng.")
+        return None
+    raw = str(match.iloc[0][column]).replace(",", ".").strip()
+    try:
+        return float(raw)
+    except ValueError:
+        print(f"   [HNX scrape] Không parse được giá trị '{raw}' ở cột '{column}'.")
+        return None
+
+
+def _load_cache() -> Optional[dict]:
+    if not CACHE_FILE.exists():
+        return None
+    try:
+        return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _save_cache(rate_pct: float, ref_date: Optional[str], tenor_label: str, column: str) -> None:
+    CACHE_FILE.write_text(
+        json.dumps(
+            {
+                "rate_pct": rate_pct,
+                "ref_date": ref_date,
+                "tenor": tenor_label,
+                "column": column,
+                "fetched_at": datetime.now().isoformat(timespec="seconds"),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _cache_is_fresh(cache: dict) -> bool:
+    try:
+        fetched_at = datetime.fromisoformat(cache["fetched_at"])
+    except Exception:
+        return False
+    return (datetime.now() - fetched_at) <= timedelta(days=CACHE_MAX_AGE_DAYS)
+
+
+def _scrape_vbma_10y_auction(limit_articles: int = 6) -> Optional[float]:
+    """
+    Lớp 3 fallback: lãi suất trúng thầu SƠ CẤP TPCP kỳ hạn 10 năm, công bố bởi VBMA.
+    LƯU Ý: đây khác bản chất với spot rate THỨ CẤP của HNX — chỉ dùng khi Lớp 1+2 đều fail.
+    """
+    import requests
+    from bs4 import BeautifulSoup
+
+    try:
+        r = requests.get(VBMA_LIST_URL, headers=VBMA_HEADERS, timeout=15)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        urls = []
+        for a in soup.find_all("a", href=True):
+            if "ket-qua-dau-thau-trai-phieu-chinh-phu" in a["href"]:
+                full = a["href"] if a["href"].startswith("http") else "https://vbma.org.vn" + a["href"]
+                if full not in urls:
+                    urls.append(full)
+            if len(urls) >= limit_articles:
+                break
+
+        for url in urls:
+            rr = requests.get(url, headers=VBMA_HEADERS, timeout=15)
+            rr.raise_for_status()
+            s2 = BeautifulSoup(rr.text, "html.parser")
+            for table in s2.find_all("table"):
+                rows = table.find_all("tr")
+                if not rows:
+                    continue
+                headers_ = [c.get_text(strip=True).lower() for c in rows[0].find_all(["th", "td"])]
+                idx_tenor = next((i for i, h in enumerate(headers_) if "kỳ hạn" in h or "kì hạn" in h), None)
+                idx_rate = next((i for i, h in enumerate(headers_) if "lãi suất trúng thầu" in h), None)
+                if idx_tenor is None or idx_rate is None:
+                    continue
+                for row in rows[1:]:
+                    cols = [c.get_text(strip=True) for c in row.find_all("td")]
+                    if len(cols) <= max(idx_tenor, idx_rate):
+                        continue
+                    if cols[idx_tenor].strip() == "10":
+                        rate_str = cols[idx_rate].replace(",", ".").strip()
+                        if rate_str and rate_str != "-":
+                            print(f"   [VBMA fallback] Lãi suất trúng thầu 10Y ({url}): {rate_str}%")
+                            return float(rate_str)
+        return None
+    except Exception as e:
+        print(f"   [VBMA fallback] Lỗi: {e}")
+        return None
+
 
 def get_risk_free_rate(as_of_date: Optional[str] = None) -> float:
     """
-    Lấy lợi suất TPCP kỳ hạn 10 năm (10Y HNX) làm lãi suất phi rủi ro cho BS.
-    Ưu tiên: HNX yield curve cache (data_fetcher) → Trading Economics scrape → fallback cứng.
+    Lấy lãi suất phi rủi ro cho BS = HNX Spot rate % (continuous), kỳ hạn 10 năm.
+    Multi-layer fallback — KHÔNG bao giờ raise, luôn trả về 1 float dùng được.
 
     Returns:
-        float: lãi suất dạng thập phân (vd: 0.0453 cho 4.53%)
+        float: lãi suất dạng thập phân (vd: 0.043671 cho 4.3671%)
     """
-    target = as_of_date or date.today().strftime("%Y-%m-%d")
+    # ── Lớp 1: scrape trực tiếp HNX ─────────────────────────────
+    df, ref_date = _scrape_hnx_yield_curve()
+    rate_pct = _extract_tenor_rate(df, HNX_TENOR_LABEL, HNX_RATE_COLUMN)
+    if rate_pct is not None:
+        _save_cache(rate_pct, ref_date, HNX_TENOR_LABEL, HNX_RATE_COLUMN)
+        print(f"   r (HNX 10Y continuous, ngày {ref_date}): {rate_pct:.4f}%  [nguồn: HNX trực tiếp]")
+        return rate_pct / 100
 
-    # Lớp 1: Dùng cache HNX đã có (data_fetcher.fetch_hnx_official_yields)
-    try:
-        from data_fetcher import fetch_hnx_official_yields
-        # Chỉ lấy 5 ngày gần nhất để nhanh, dùng ffill nếu HNX đóng cửa
-        start = (pd.to_datetime(target) - pd.Timedelta(days=10)).strftime("%Y-%m-%d")
-        df_hnx = fetch_hnx_official_yields(start, target)
-        if not df_hnx.empty and "10Y" in df_hnx.columns:
-            val = float(df_hnx["10Y"].iloc[-1])
-            if 1.0 <= val <= 15.0:
-                print(f"   r (10Y HNX, {df_hnx.index[-1].date()}): {val:.3f}%")
-                return val / 100
-    except Exception as e:
-        print(f"   WARN HNX rate: {e}")
+    # ── Lớp 2: cache gần nhất còn "tươi" ─────────────────────────
+    cache = _load_cache()
+    if cache and _cache_is_fresh(cache):
+        print(f"   r (cache HNX, lấy lúc {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache]")
+        return cache["rate_pct"] / 100
 
-    # Lớp 2: Trading Economics scrape (curl_cffi)
-    try:
-        from data_fetcher import scrape_trading_economics_10y
-        val = scrape_trading_economics_10y()
-        if 1.0 <= val <= 15.0:
-            print(f"   r (10Y Trading Economics): {val:.3f}%")
-            return val / 100
-    except Exception as e:
-        print(f"   WARN TE scrape: {e}")
+    # ── Lớp 3: VBMA auction 10Y (proxy sơ cấp, không hoàn toàn tương đương) ──
+    vbma_rate = _scrape_vbma_10y_auction()
+    if vbma_rate is not None:
+        print(f"   r (VBMA auction 10Y): {vbma_rate:.4f}%  [nguồn: VBMA — CHÚ Ý: sơ cấp, không phải spot HNX]")
+        return vbma_rate / 100
 
-    # Lớp 3: Fallback cứng
-    print(f"   r (fallback hardcoded): {_FALLBACK_RATE_10Y:.3f}%")
+    # ── Lớp 4: cache cũ còn hơn không, hoặc hằng số cứng ─────────
+    if cache:
+        print(f"   r (cache HNX ĐÃ CŨ, {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache cũ]")
+        return cache["rate_pct"] / 100
+
+    print(f"   r (fallback hardcoded): {_FALLBACK_RATE_10Y:.3f}%  [nguồn: hằng số cứng]")
     return _FALLBACK_RATE_10Y / 100
 
 
@@ -85,18 +271,9 @@ def calc_sigma(ohlcv_underlying: pd.DataFrame,
     """
     Tính Annualized Sigma (σ) từ log-return giá đóng cửa của CK cơ sở.
     Dùng đúng 252 phiên giao dịch gần nhất (chuẩn Vietstock/Bloomberg).
-
-    Args:
-        ohlcv_underlying: DataFrame có cột 'close' và index là datetime (hoặc cột 'time')
-        window: số phiên để tính volatility (mặc định 252 = 1 năm GD)
-        as_of_date: tính sigma tại ngày này (None = ngày cuối cùng trong data)
-
-    Returns:
-        float: sigma annualized (vd: 0.3954)
     """
     df = ohlcv_underlying.copy()
 
-    # Chuẩn hóa index về datetime
     if not isinstance(df.index, pd.DatetimeIndex):
         time_col = next((c for c in ["time", "date", "Date"] if c in df.columns), None)
         if time_col:
@@ -107,7 +284,6 @@ def calc_sigma(ohlcv_underlying: pd.DataFrame,
 
     df = df.sort_index()
 
-    # Chuẩn hóa cột close về VND (vnstock trả về nghìn đồng nếu < 1000)
     close = df["close"].dropna().copy()
     if close.median() < 1000:
         close = close * 1000
@@ -118,7 +294,6 @@ def calc_sigma(ohlcv_underlying: pd.DataFrame,
     if len(close) < 20:
         raise ValueError(f"Không đủ dữ liệu để tính sigma (chỉ có {len(close)} phiên)")
 
-    # Dùng tối đa `window` phiên gần nhất
     close = close.iloc[-window:]
     log_returns = np.log(close / close.shift(1)).dropna()
     sigma = float(log_returns.std() * math.sqrt(252))
@@ -129,10 +304,7 @@ def calc_sigma(ohlcv_underlying: pd.DataFrame,
 
 def calc_sigma_series(ohlcv_underlying: pd.DataFrame,
                       window: int = 252) -> pd.Series:
-    """
-    Tính chuỗi sigma rolling theo ngày — dùng cho backtesting / chart lịch sử.
-    Returns: pd.Series với index=date, value=sigma annualized mỗi ngày.
-    """
+    """Chuỗi sigma rolling theo ngày — dùng cho backtesting / chart lịch sử."""
     df = ohlcv_underlying.copy()
     if not isinstance(df.index, pd.DatetimeIndex):
         time_col = next((c for c in ["time", "date"] if c in df.columns), None)
@@ -159,21 +331,8 @@ def _norm_cdf(x: float) -> float:
 
 
 def bs_call(S: float, K: float, T: float, r: float, sigma: float) -> dict:
-    """
-    Tính giá Call theo Black-Scholes và các Greeks cơ bản.
-
-    Args:
-        S     : Giá hiện tại CK cơ sở (VND)
-        K     : Giá thực hiện (VND)
-        T     : Thời gian đến hạn (năm, vd: 103/365)
-        r     : Lãi suất phi rủi ro thập phân (10Y HNX, vd: 0.045)
-        sigma : Volatility annualized (vd: 0.3954)
-
-    Returns:
-        dict với keys: price, delta, gamma, theta, vega, d1, d2
-    """
+    """Tính giá Call theo Black-Scholes và các Greeks cơ bản."""
     if T <= 0:
-        # Đã hết hạn: giá trị nội tại thuần túy
         intrinsic = max(S - K, 0.0)
         return {
             "price": round(intrinsic, 2),
@@ -192,23 +351,22 @@ def bs_call(S: float, K: float, T: float, r: float, sigma: float) -> dict:
 
     Nd1  = _norm_cdf(d1)
     Nd2  = _norm_cdf(d2)
-    nd1  = math.exp(-0.5 * d1 ** 2) / math.sqrt(2 * math.pi)   # PDF tại d1
+    nd1  = math.exp(-0.5 * d1 ** 2) / math.sqrt(2 * math.pi)
     disc = math.exp(-r * T)
 
     price = S * Nd1 - K * disc * Nd2
 
-    # Greeks
     delta = Nd1
     gamma = nd1 / (S * sigma * sqrt_T)
-    theta = (-(S * nd1 * sigma) / (2 * sqrt_T) - r * K * disc * Nd2) / 365  # per day
-    vega  = S * nd1 * sqrt_T / 100   # per 1% change in sigma
+    theta = (-(S * nd1 * sigma) / (2 * sqrt_T) - r * K * disc * Nd2) / 365
+    vega  = S * nd1 * sqrt_T / 100
 
     return {
         "price": round(price, 2),
         "delta": round(delta, 4),
         "gamma": round(gamma, 6),
-        "theta": round(theta, 2),   # VND/ngày
-        "vega" : round(vega, 2),    # VND per 1% vol
+        "theta": round(theta, 2),
+        "vega" : round(vega, 2),
         "d1"   : round(d1, 4),
         "d2"   : round(d2, 4),
     }
@@ -224,33 +382,15 @@ def calc_bs_for_cw(
     risk_free_rate:     Optional[float] = None,
     as_of_date:         Optional[str]   = None,
 ) -> dict:
-    """
-    Tính đầy đủ Black-Scholes cho 1 CW.
-
-    Args:
-        cw_info: dict từ df_vietstock với keys:
-                   'gia_thuc_hien' (K, VND)
-                   'ngay_dao_han'  (DD/MM/YYYY)
-                   'ty_le_chuyen_doi' (vd: '5:1' hoặc 5.0)
-                   'ck_co_so'      (mã CK cơ sở)
-        ohlcv_underlying: OHLCV của CK cơ sở (có cột 'close')
-        risk_free_rate: float thập phân (None → tự fetch HNX 10Y)
-        as_of_date: tính tại ngày này (None → hôm nay)
-
-    Returns:
-        dict hoàn chỉnh để đưa vào data.json và dashboard
-    """
+    """Tính đầy đủ Black-Scholes cho 1 CW."""
     today_str = as_of_date or date.today().strftime("%Y-%m-%d")
     today_dt  = pd.to_datetime(today_str)
 
-    # ── Parse K (giá thực hiện) ───────────────────────────────
-    import re
     K_raw = str(cw_info.get("gia_thuc_hien", "0"))
     K = float(re.sub(r"[^\d.]", "", K_raw) or 0)
     if K <= 0:
         return {"error": "Giá thực hiện không hợp lệ"}
 
-    # ── Parse tỷ lệ chuyển đổi n ─────────────────────────────
     ratio_raw = str(cw_info.get("ty_le_chuyen_doi", "1"))
     try:
         n = float(ratio_raw.split(":")[0].replace(",", "."))
@@ -259,7 +399,6 @@ def calc_bs_for_cw(
     if n <= 0:
         n = 1.0
 
-    # ── Parse ngày đáo hạn → T ───────────────────────────────
     maturity_raw = str(cw_info.get("ngay_dao_han", ""))
     try:
         maturity_dt = pd.to_datetime(maturity_raw, dayfirst=True, errors="raise")
@@ -269,7 +408,6 @@ def calc_bs_for_cw(
     T_days = (maturity_dt - today_dt).days
     T = max(T_days, 0) / 365.0
 
-    # ── S: giá đóng cửa mới nhất của CK cơ sở ───────────────
     df_u = ohlcv_underlying.copy()
     if not isinstance(df_u.index, pd.DatetimeIndex):
         tcol = next((c for c in ["time", "date"] if c in df_u.columns), None)
@@ -281,54 +419,43 @@ def calc_bs_for_cw(
         return {"error": "Không có dữ liệu giá CK cơ sở"}
     S = float(df_u_filtered["close"].iloc[-1])
     if S < 1000:
-        S *= 1000   # vnstock trả về nghìn đồng
+        S *= 1000
 
-    # ── r: lãi suất phi rủi ro 10Y HNX ──────────────────────
     if risk_free_rate is None:
         r = get_risk_free_rate(today_str)
     else:
         r = risk_free_rate
 
-    # ── σ: historical volatility 252 phiên ──────────────────
     try:
         sigma = calc_sigma(ohlcv_underlying, window=252, as_of_date=today_str)
     except ValueError as e:
-        sigma = 0.35   # fallback hợp lý nếu thiếu data
+        sigma = 0.35
         print(f"   WARN sigma fallback 0.35: {e}")
 
-    # ── Black-Scholes ─────────────────────────────────────────
     bs = bs_call(S=S, K=K, T=T, r=r, sigma=sigma)
-
-    # Giá CW lý thuyết (quy về 1 CW từ giá Call trên 1 CP)
     cw_bs_price = bs["price"] / n
 
-    # Moneyness
     if   S > K * 1.02: moneyness = "ITM"
     elif S < K * 0.98: moneyness = "OTM"
     else:              moneyness = "ATM"
 
-    # Effective Gearing
-    cw_market = float(df_u_filtered.get("close", pd.Series([0])).iloc[-1])  # placeholder
-    # EG dùng giá thị trường CW nếu có, còn không dùng giá BS
     eff_gearing = round((S / (cw_bs_price * n)) * bs["delta"], 2) if cw_bs_price > 0 else 0
 
     return {
-        # Inputs
         "S":           round(S, 0),
         "K":           round(K, 0),
         "T_days":      T_days,
         "T_years":     round(T, 4),
-        "r_pct":       round(r * 100, 3),       # % (10Y HNX)
+        "r_pct":       round(r * 100, 3),
         "sigma":       sigma,
-        "sigma_pct":   round(sigma * 100, 2),   # % annualized
+        "sigma_pct":   round(sigma * 100, 2),
         "n":           n,
         "moneyness":   moneyness,
-        # Outputs BS
-        "bs_price_call":  round(cw_bs_price, 2),   # Giá CW lý thuyết (VND)
+        "bs_price_call":  round(cw_bs_price, 2),
         "delta":          bs["delta"],
         "gamma":          bs["gamma"],
-        "theta":          bs["theta"],              # VND/ngày
-        "vega":           bs["vega"],               # VND per 1% vol
+        "theta":          bs["theta"],
+        "vega":           bs["vega"],
         "eff_gearing":    eff_gearing,
     }
 
@@ -340,33 +467,19 @@ def calc_bs_for_cw(
 def step_bs_selfcalc(
     df_vietstock:       pd.DataFrame,
     valid_tickers:      list,
-    underlying_ohlcv:   dict,            # {sym: DataFrame} — đã có trong step5
+    underlying_ohlcv:   dict,
     as_of_date:         Optional[str] = None,
 ) -> dict:
-    """
-    Tính Black-Scholes cho tất cả CW active.
-    Tích hợp vào pipeline sau step2/step3, trước step5_export_json.
-
-    Args:
-        df_vietstock:     DataFrame từ step1 (thông tin CW)
-        valid_tickers:    list mã CW cần tính (từ step3)
-        underlying_ohlcv: {sym: DataFrame OHLCV} — reuse từ step5
-        as_of_date:       None → hôm nay
-
-    Returns:
-        dict {ticker: bs_result} để merge vào data.json
-    """
+    """Tính Black-Scholes cho tất cả CW active. r được fetch 1 lần duy nhất cho cả batch."""
     print("\n" + "=" * 60)
-    print("BUOC BS (tự tính) — Black-Scholes từ OHLCV + HNX 10Y")
+    print("BUOC BS (tự tính) — Black-Scholes từ OHLCV + HNX 10Y (Spot rate continuous)")
     print("=" * 60)
 
     today_str = as_of_date or date.today().strftime("%Y-%m-%d")
 
-    # Fetch r 1 lần duy nhất cho cả batch (10Y HNX)
     r = get_risk_free_rate(today_str)
-    print(f"   r (10Y HNX) = {r*100:.3f}% (dùng cho toàn bộ batch)")
+    print(f"   r (dùng cho toàn bộ batch) = {r*100:.4f}%")
 
-    # Lọc CW active
     df_active = df_vietstock[df_vietstock["ma_cw"].isin(valid_tickers)].copy()
     today_ts  = pd.Timestamp(today_str)
     if "ngay_gd_cuoi_cung" in df_active.columns:
@@ -390,7 +503,7 @@ def step_bs_selfcalc(
             res = calc_bs_for_cw(
                 cw_info           = row.to_dict(),
                 ohlcv_underlying  = ohlcv_und,
-                risk_free_rate    = r,      # dùng chung, không fetch lại
+                risk_free_rate    = r,
                 as_of_date        = today_str,
             )
             if "error" in res:
@@ -425,17 +538,7 @@ def calc_bs_history(
     ohlcv_cw:           pd.DataFrame,
     risk_free_rate_series: Optional[pd.Series] = None,
 ) -> list:
-    """
-    Tính chuỗi giá BS theo từng ngày giao dịch — dùng cho biểu đồ Backtesting
-    (tương tự bảng Vietstock bên phải).
-
-    Returns:
-        list of dict: [{date, S, sigma, T_days, r_pct, bs_call, delta}, ...]
-        Sắp xếp tăng dần theo ngày.
-    """
-    import re
-
-    # Parse metadata CW
+    """Tính chuỗi giá BS theo từng ngày giao dịch — dùng cho biểu đồ Backtesting."""
     K_raw = str(cw_info.get("gia_thuc_hien", "0"))
     K     = float(re.sub(r"[^\d.]", "", K_raw) or 0)
     n_raw = str(cw_info.get("ty_le_chuyen_doi", "1"))
@@ -446,7 +549,6 @@ def calc_bs_history(
     except Exception:
         return []
 
-    # Chuẩn hóa OHLCV underlying
     df_u = ohlcv_underlying.copy()
     if not isinstance(df_u.index, pd.DatetimeIndex):
         tcol = next((c for c in ["time", "date"] if c in df_u.columns), None)
@@ -457,12 +559,10 @@ def calc_bs_history(
     if close_u.median() < 1000:
         close_u = close_u * 1000
 
-    # Sigma rolling 252 phiên
     log_ret      = np.log(close_u / close_u.shift(1))
     sigma_series = log_ret.rolling(252, min_periods=20).std() * math.sqrt(252)
 
-    # Fallback r nếu không có series
-    r_default = 0.0453
+    r_default = 0.0453  # fallback nếu không truyền risk_free_rate_series
 
     history = []
     for dt, S in close_u.items():
@@ -478,7 +578,6 @@ def calc_bs_history(
         if np.isnan(sigma) or sigma <= 0:
             continue
 
-        # r: dùng series theo ngày nếu có, không thì dùng default
         if risk_free_rate_series is not None and dt in risk_free_rate_series.index:
             r = float(risk_free_rate_series[dt]) / 100
         else:
@@ -489,11 +588,11 @@ def calc_bs_history(
 
         history.append({
             "date":     dt.strftime("%d/%m/%Y"),
-            "S":        round(S, 0),           # Giá CK cơ sở
+            "S":        round(S, 0),
             "sigma":    round(sigma, 4),
             "T_days":   T_days,
             "r_pct":    round(r * 100, 3),
-            "bs_call":  round(cw_bs, 2),       # Giá CW lý thuyết
+            "bs_call":  round(cw_bs, 2),
             "delta":    bs["delta"],
         })
 
@@ -505,22 +604,23 @@ def calc_bs_history(
 # ══════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    print("=== Test BS với CSTB2604 (15/07/2026) ===\n")
+    print("=== Test lấy r từ HNX (Spot rate % continuous, 10Y) ===\n")
+    r_today = get_risk_free_rate()
+    print(f"\nr sử dụng hôm nay: {r_today*100:.4f}%\n")
 
-    # Tái tạo số liệu từ ảnh Vietstock
-    bs = bs_call(S=69800, K=60000, T=103/365, r=0.045, sigma=0.3954)
-    cw_price = bs["price"] / 5   # n=5
+    print("=== Test BS với CSTB2604 (15/07/2026) ===\n")
+    bs = bs_call(S=69800, K=60000, T=103/365, r=r_today, sigma=0.3954)
+    cw_price = bs["price"] / 5
 
     print(f"Giá CK cơ sở (S)  : 69,800 VND")
     print(f"Giá thực hiện (K)  : 60,000 VND")
     print(f"Thời gian (T)      : 103 ngày = {103/365:.4f} năm")
-    print(f"Lãi suất (r)       : 4.50% (10Y HNX)")
+    print(f"Lãi suất (r)       : {r_today*100:.4f}% (HNX 10Y, Spot rate continuous)")
     print(f"Volatility (σ)     : 39.54%")
     print(f"Tỷ lệ chuyển đổi  : 5:1")
     print()
     print(f"─── Kết quả BS ───")
-    print(f"Giá CW lý thuyết   : {cw_price:,.2f} VND  (Vietstock: 2,434.52 VND)")
-    print(f"Sai số             : {abs(cw_price - 2434.52)/2434.52*100:.2f}%")
+    print(f"Giá CW lý thuyết   : {cw_price:,.2f} VND")
     print(f"Delta (Δ)          : {bs['delta']:.4f}")
     print(f"Gamma (Γ)          : {bs['gamma']:.6f}")
     print(f"Theta (Θ)          : {bs['theta']:.2f} VND/ngày")
