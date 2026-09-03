@@ -38,7 +38,13 @@ jobs:
             openpyxl \
             pyarrow \
             pytz \
-            vnstock
+            vnstock \
+            playwright
+            
+      - name: Install Playwright browser
+        run: |
+            pip install playwright
+            playwright install --with-deps chromium
 
       # ── BƯỚC QUAN TRỌNG: Commit cache NGAY KHI pipeline xong ──────
       # Tách riêng 2 bước commit để cache được lưu kể cả khi pipeline lỗi giữa chừng
