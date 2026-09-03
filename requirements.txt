@@ -5,3 +5,6 @@ openpyxl
 pyarrow
 pytz
 vnstock
+playwright
+beautifulsoup4
+requests
