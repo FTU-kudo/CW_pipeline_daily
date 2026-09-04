@@ -8,3 +8,5 @@ vnstock
 playwright
 beautifulsoup4
 requests
+curl_cffi
+git+https://github.com/KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589
