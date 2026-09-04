@@ -17,29 +17,42 @@ Công thức:
   Δ   = N(d1)                                # Delta
   EG  = (S / (CW_price × n)) × Δ            # Effective Gearing (leverage thực tế)
 
-Lưu ý về r (CẬP NHẬT):
-  Trước đây gọi `data_fetcher.fetch_hnx_official_yields` (chưa từng hoạt động vì
-  trang HNX render bằng JS + bảng nằm trong 1 iframe lồng, không lộ qua HTML tĩnh
-  hay API JSON nào bắt được). Đã thay bằng scraper Playwright thực sự lấy được
-  dữ liệu (`_scrape_hnx_yield_curve`), dùng đúng cột "Spot rate % (continuous)"
-  — khớp convention lãi kép liên tục trong công thức BS phía trên.
+Lưu ý về r (CẬP NHẬT lần 2):
+  Lớp "HNX chính thức (curl_cffi)" trước đây bị bỏ hẳn — sai công cụ cho đúng
+  bài toán: curl_cffi chỉ giả lập TLS fingerprint, không chạy được JavaScript,
+  trong khi trang duong-cong-loi-suat.html cần Vue.js render xong rồi mới lộ
+  bảng (nằm trong 1 iframe lồng). Thay bằng `vnbond` (repo:
+  github.com/KhoaSampleTown/vnbond, ghim commit a89cc00) — thư viện đã tự tìm
+  ra đúng AJAX endpoint gốc của HNX (POST thuần, không cần trình duyệt) cho dữ
+  liệu đấu thầu TPCP sơ cấp.
 
   Thứ tự ưu tiên nguồn r (multi-layer fallback, giống pattern iv_history.parquet
   đã dùng cho IV Rank):
-    Lớp 1 — Scrape trực tiếp HNX (thật, real-time, kỳ hạn 10 năm, continuous)
-    Lớp 2 — Cache cục bộ (hnx_10y_cache.json) từ lần scrape thành công gần nhất,
-             dùng nếu Lớp 1 lỗi và cache chưa quá cũ (< 5 ngày)
-    Lớp 3 — VBMA (lãi suất trúng thầu sơ cấp TPCP 10Y) — CHỈ là proxy gần đúng,
-             khác bản chất với spot rate thứ cấp của HNX, dùng khi Lớp 1+2 đều fail
-    Lớp 4 — Hằng số cứng (an toàn cuối cùng, không để pipeline crash)
+    Lớp 1 — vnbond: hnx.auctions() — trực tiếp từ HNX, POST thuần, không cần
+             trình duyệt, có sẵn retry/rate-limit/cache trong bản thân thư viện
+    Lớp 2 — Playwright: Spot rate % (continuous) kỳ hạn 10 năm từ
+             duong-cong-loi-suat.html — đường cong THỨ CẤP đã fit sẵn, khớp
+             đúng convention lãi kép liên tục e^(-rT) trong công thức BS
+    Lớp 3 — Cache cục bộ (hnx_10y_cache.json), dùng nếu Lớp 1+2 lỗi và cache
+             chưa quá cũ (< 5 ngày)
+    Lớp 4 — VBMA (lãi suất trúng thầu sơ cấp TPCP 10Y, cào độc lập với vnbond
+             để phòng khi vnbond đổi cấu trúc) — proxy sơ cấp, không hoàn toàn
+             tương đương spot rate thứ cấp của HNX
+    Lớp 5 — Hằng số cứng (an toàn cuối cùng, không để pipeline crash)
 
-  MỌI kết quả BS đều lưu kèm `r_source` để biết r hôm đó lấy từ lớp nào —
-  quan trọng để audit lại nếu giá BS bất thường.
+  Cần cài (requirements.txt):
+    git+https://github.com/KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589
+    playwright, beautifulsoup4, requests, pyarrow
+
+  MỌI kết quả BS đều lưu kèm `r_pct` để biết r hôm đó là bao nhiêu — log in ra
+  luôn ghi rõ [nguồn: ...] theo từng lớp — quan trọng để audit lại nếu giá BS
+  bất thường.
 """
 
 import math
 import json
 import re
+import unicodedata
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from typing import Optional, Tuple
@@ -62,12 +75,105 @@ CACHE_MAX_AGE_DAYS = 5                 # cache quá 5 ngày coi như "cũ", khô
 VBMA_LIST_URL = "https://vbma.org.vn/vi/activities"
 VBMA_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+VNBOND_AUCTION_LOOKBACK_DAYS = 45      # đủ rộng để bắt được phiên gọi kỳ hạn 10 năm gần nhất
+
 _FALLBACK_RATE_10Y = 4.53   # % — an toàn cuối cùng nếu MỌI nguồn đều fail
 
 
 # ══════════════════════════════════════════════════════════════════
-# 1. LÃI SUẤT PHI RỦI RO — HNX 10Y (Spot rate % continuous)
+# 1. LÃI SUẤT PHI RỦI RO — HNX 10Y
 # ══════════════════════════════════════════════════════════════════
+
+# ── Lớp 1: vnbond (HNX auctions — trực tiếp, không cần trình duyệt) ─────────
+
+def _ascii(s) -> str:
+    """Bỏ dấu tiếng Việt + hạ chữ thường trước khi so khớp tên cột.
+    Dùng lại đúng kỹ thuật mà chính vnbond áp dụng nội bộ (vbma._ascii) — bẫy
+    đã biết: 'ngay' in 'ngày'.lower() là False nếu không bỏ dấu trước."""
+    s = unicodedata.normalize("NFKD", str(s))
+    return "".join(ch for ch in s if not unicodedata.combining(ch)).lower()
+
+
+def _find_col(columns, *keywords) -> Optional[str]:
+    """Tìm tên cột thật khớp với TẤT CẢ từ khoá (đã chuẩn hoá bỏ dấu).
+    Không hard-code tên cột chính xác vì schema thật của vnbond.hnx.auctions()
+    chưa được tự kiểm chứng bằng gọi mạng sống — dò theo tên là cách an toàn."""
+    for c in columns:
+        norm = _ascii(c)
+        if all(_ascii(k) in norm for k in keywords):
+            return c
+    return None
+
+
+def _parse_tenor_to_years(raw) -> Optional[float]:
+    """'10' hoặc '10 Năm' hoặc '10 năm' → 10.0."""
+    try:
+        return float(str(raw).strip().replace(",", "."))
+    except ValueError:
+        pass
+    try:
+        from vnbond.sources.hnx import _tenor_years
+        return _tenor_years(raw)
+    except Exception:
+        return None
+
+
+def _scrape_hnx_10y_via_vnbond(lookback_days: int = VNBOND_AUCTION_LOOKBACK_DAYS) -> Tuple[Optional[float], Optional[str]]:
+    """
+    Lớp 1: lấy kết quả đấu thầu TPCP trực tiếp từ HNX qua vnbond.hnx.auctions()
+    (POST thẳng vào endpoint AJAX thật mà HNX expose — không cần trình duyệt).
+
+    Trả về (lãi suất %, ngày đấu thầu) của kỳ hạn gần 10 năm nhất, hoặc
+    (None, None) nếu không có — KHÔNG raise, để get_risk_free_rate() tự
+    quyết định lớp fallback tiếp theo.
+    """
+    try:
+        import vnbond as vm
+    except ImportError:
+        print("   [vnbond] Chưa cài — chạy: pip install \"git+https://github.com/"
+              "KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589\"")
+        return None, None
+
+    try:
+        start = (date.today() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+        end = date.today().strftime("%Y-%m-%d")
+        df = vm.hnx.auctions(start=start, end=end, verbose=False)
+    except Exception as e:
+        print(f"   [vnbond] Lỗi khi gọi hnx.auctions(): {e}")
+        return None, None
+
+    if df is None or df.empty:
+        print("   [vnbond] Không có phiên đấu thầu nào trong khoảng lookback.")
+        return None, None
+
+    col_date = _find_col(df.columns, "ngay", "dau thau") or _find_col(df.columns, "ngay")
+    col_tenor = _find_col(df.columns, "ky han") or _find_col(df.columns, "ki han")
+    col_rate = _find_col(df.columns, "lai suat", "trung thau") or _find_col(df.columns, "lai suat")
+
+    if not all([col_date, col_tenor, col_rate]):
+        print(f"   [vnbond] Không dò được đủ 3 cột cần thiết. "
+              f"Cột thật trả về: {list(df.columns)} — cần bạn xác nhận tay.")
+        return None, None
+
+    df = df.copy()
+    df["_tenor_yrs"] = df[col_tenor].map(_parse_tenor_to_years)
+    df["_rate"] = df[col_rate].apply(
+        lambda x: float(str(x).replace(",", ".")) if str(x).strip() not in ("", "-", "nan") else None
+    )
+    df["_date_parsed"] = pd.to_datetime(df[col_date], dayfirst=True, errors="coerce")
+
+    df = df.dropna(subset=["_tenor_yrs", "_rate", "_date_parsed"])
+    df = df[(df["_tenor_yrs"] - 10).abs() <= 0.5]   # chấp nhận đúng kỳ hạn "10"
+    if df.empty:
+        print("   [vnbond] Không có phiên nào gọi thầu kỳ hạn 10 năm trong lookback.")
+        return None, None
+
+    df = df.sort_values("_date_parsed", ascending=False)
+    best = df.iloc[0]
+    return float(best["_rate"]), best["_date_parsed"].strftime("%Y-%m-%d")
+
+
+# ── Lớp 2: Playwright (đường cong thứ cấp đã fit sẵn của HNX) ───────────────
 
 def _scrape_hnx_yield_curve(timeout_ms: int = 60_000, wait_after_load_ms: int = 5_000):
     """
@@ -140,6 +246,8 @@ def _extract_tenor_rate(df: pd.DataFrame, tenor_label: str, column: str) -> Opti
         return None
 
 
+# ── Lớp 3: cache cục bộ ──────────────────────────────────────────────────────
+
 def _load_cache() -> Optional[dict]:
     if not CACHE_FILE.exists():
         return None
@@ -174,10 +282,14 @@ def _cache_is_fresh(cache: dict) -> bool:
     return (datetime.now() - fetched_at) <= timedelta(days=CACHE_MAX_AGE_DAYS)
 
 
+# ── Lớp 4: VBMA (fallback độc lập, phòng khi vnbond đổi cấu trúc) ───────────
+
 def _scrape_vbma_10y_auction(limit_articles: int = 6) -> Optional[float]:
     """
-    Lớp 3 fallback: lãi suất trúng thầu SƠ CẤP TPCP kỳ hạn 10 năm, công bố bởi VBMA.
-    LƯU Ý: đây khác bản chất với spot rate THỨ CẤP của HNX — chỉ dùng khi Lớp 1+2 đều fail.
+    Lãi suất trúng thầu SƠ CẤP TPCP kỳ hạn 10 năm, công bố bởi VBMA.
+    LƯU Ý: đây khác bản chất với spot rate THỨ CẤP của HNX — chỉ dùng khi
+    Lớp 1+2+3 đều fail. Cào độc lập (requests+BeautifulSoup) với vnbond để
+    không cùng lúc sập nếu vnbond đổi cấu trúc.
     """
     import requests
     from bs4 import BeautifulSoup
@@ -224,37 +336,52 @@ def _scrape_vbma_10y_auction(limit_articles: int = 6) -> Optional[float]:
         return None
 
 
+# ── Điều phối 5 lớp ───────────────────────────────────────────────────────
+
 def get_risk_free_rate(as_of_date: Optional[str] = None) -> float:
     """
-    Lấy lãi suất phi rủi ro cho BS = HNX Spot rate % (continuous), kỳ hạn 10 năm.
-    Multi-layer fallback — KHÔNG bao giờ raise, luôn trả về 1 float dùng được.
+    Lấy lãi suất phi rủi ro cho BS. Multi-layer fallback — KHÔNG bao giờ raise,
+    luôn trả về 1 float dùng được.
+
+      Lớp 1 — vnbond: hnx.auctions() (trực tiếp HNX, không cần trình duyệt)
+      Lớp 2 — Playwright: Spot rate % (continuous) 10Y (đường cong đã fit sẵn)
+      Lớp 3 — Cache cục bộ (< 5 ngày)
+      Lớp 4 — VBMA auction scraper (độc lập code path)
+      Lớp 5 — Hằng số cứng
 
     Returns:
         float: lãi suất dạng thập phân (vd: 0.043671 cho 4.3671%)
     """
-    # ── Lớp 1: scrape trực tiếp HNX ─────────────────────────────
+    # ── Lớp 1: vnbond ─────────────────────────────────────────────
+    rate_pct, auction_date = _scrape_hnx_10y_via_vnbond()
+    if rate_pct is not None:
+        _save_cache(rate_pct, auction_date, "10Y (auction)", "vnbond.hnx.auctions")
+        print(f"   r (HNX 10Y trúng thầu, phiên {auction_date}): {rate_pct:.4f}%  [nguồn: vnbond]")
+        return rate_pct / 100
+
+    # ── Lớp 2: Playwright — đường cong thứ cấp đã fit sẵn ───────────
     df, ref_date = _scrape_hnx_yield_curve()
     rate_pct = _extract_tenor_rate(df, HNX_TENOR_LABEL, HNX_RATE_COLUMN)
     if rate_pct is not None:
         _save_cache(rate_pct, ref_date, HNX_TENOR_LABEL, HNX_RATE_COLUMN)
-        print(f"   r (HNX 10Y continuous, ngày {ref_date}): {rate_pct:.4f}%  [nguồn: HNX trực tiếp]")
+        print(f"   r (HNX 10Y continuous, ngày {ref_date}): {rate_pct:.4f}%  [nguồn: HNX Playwright]")
         return rate_pct / 100
 
-    # ── Lớp 2: cache gần nhất còn "tươi" ─────────────────────────
+    # ── Lớp 3: cache gần nhất còn "tươi" ─────────────────────────
     cache = _load_cache()
     if cache and _cache_is_fresh(cache):
-        print(f"   r (cache HNX, lấy lúc {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache]")
+        print(f"   r (cache, lấy lúc {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache]")
         return cache["rate_pct"] / 100
 
-    # ── Lớp 3: VBMA auction 10Y (proxy sơ cấp, không hoàn toàn tương đương) ──
+    # ── Lớp 4: VBMA auction 10Y (proxy sơ cấp, độc lập vnbond) ──────
     vbma_rate = _scrape_vbma_10y_auction()
     if vbma_rate is not None:
         print(f"   r (VBMA auction 10Y): {vbma_rate:.4f}%  [nguồn: VBMA — CHÚ Ý: sơ cấp, không phải spot HNX]")
         return vbma_rate / 100
 
-    # ── Lớp 4: cache cũ còn hơn không, hoặc hằng số cứng ─────────
+    # ── Lớp 5: cache cũ còn hơn không, hoặc hằng số cứng ─────────
     if cache:
-        print(f"   r (cache HNX ĐÃ CŨ, {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache cũ]")
+        print(f"   r (cache ĐÃ CŨ, {cache['fetched_at']}): {cache['rate_pct']:.4f}%  [nguồn: cache cũ]")
         return cache["rate_pct"] / 100
 
     print(f"   r (fallback hardcoded): {_FALLBACK_RATE_10Y:.3f}%  [nguồn: hằng số cứng]")
@@ -472,7 +599,7 @@ def step_bs_selfcalc(
 ) -> dict:
     """Tính Black-Scholes cho tất cả CW active. r được fetch 1 lần duy nhất cho cả batch."""
     print("\n" + "=" * 60)
-    print("BUOC BS (tự tính) — Black-Scholes từ OHLCV + HNX 10Y (Spot rate continuous)")
+    print("BUOC BS (tự tính) — Black-Scholes từ OHLCV + HNX 10Y (vnbond → Playwright → cache → VBMA → fallback)")
     print("=" * 60)
 
     today_str = as_of_date or date.today().strftime("%Y-%m-%d")
@@ -604,7 +731,7 @@ def calc_bs_history(
 # ══════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    print("=== Test lấy r từ HNX (Spot rate % continuous, 10Y) ===\n")
+    print("=== Test lấy r (vnbond → Playwright → cache → VBMA → fallback) ===\n")
     r_today = get_risk_free_rate()
     print(f"\nr sử dụng hôm nay: {r_today*100:.4f}%\n")
 
@@ -615,7 +742,7 @@ if __name__ == "__main__":
     print(f"Giá CK cơ sở (S)  : 69,800 VND")
     print(f"Giá thực hiện (K)  : 60,000 VND")
     print(f"Thời gian (T)      : 103 ngày = {103/365:.4f} năm")
-    print(f"Lãi suất (r)       : {r_today*100:.4f}% (HNX 10Y, Spot rate continuous)")
+    print(f"Lãi suất (r)       : {r_today*100:.4f}% (10Y — xem log phía trên để biết nguồn)")
     print(f"Volatility (σ)     : 39.54%")
     print(f"Tỷ lệ chuyển đổi  : 5:1")
     print()
