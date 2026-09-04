@@ -13,6 +13,7 @@ from datetime import datetime, date, timedelta, timezone
 from math import log, sqrt, exp, pi, erf
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from typing import Optional
 
 # ────────────────────────── HÀM TIỆN ÍCH TOÁN HỌC CHO BLACK‑SCHOLES ──────────────────────────
 def norm_cdf(x: float) -> float:
