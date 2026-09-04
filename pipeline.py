@@ -175,8 +175,20 @@ def historical_volatility(prices: np.ndarray, window: int = 252) -> float:
     return np.std(log_returns, ddof=1) * np.sqrt(252)
 
 # ────────────────────────── THU THẬP LỢI SUẤT TPCP TỪ HNX ──────────────────────────
+# CẬP NHẬT: Bỏ hẳn curl_cffi khỏi đường chính. www.hnx.vn KHÔNG cần TLS
+# impersonation — dùng requests thuần + UA thật + verify=False là đủ (đã kiểm
+# chứng qua vnbond, thư viện đang chạy được với đúng cách này). Việc chuyển
+# sang plain requests loại bỏ 1 dependency native-compile dễ vỡ trên CI.
+#
+# QUAN TRỌNG HƠN: fetch_bond_yields() chỉ cần GIÁ TRỊ MỚI NHẤT của 10Y (xem
+# call site trong step5), KHÔNG cần verify lại 2.600 ngày lịch sử mỗi lần
+# chạy. Cửa sổ lookback được giới hạn cứng ở BOND_YIELD_LOOKBACK_DAYS để
+# không bao giờ lặp lại vụ "bắn 2.600 request song song không giãn cách vào
+# HNX" — đây là lỗi nguy hiểm hơn hẳn việc thiếu package.
+import requests as _plain_requests
+
 try:
-    from curl_cffi import requests as cffi_requests
+    from curl_cffi import requests as cffi_requests   # optional — chỉ dùng cho Trading Economics
 except ImportError:
     cffi_requests = None
 
@@ -187,6 +199,23 @@ except ImportError:
 
 import contextlib, io
 
+BOND_YIELD_LOOKBACK_DAYS = 20   # đủ dư để luôn có ít nhất 1 phiên HNX công bố trong 20 ngày gần nhất
+HNX_YC_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+             "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+HNX_MIN_INTERVAL_SEC = 0.5   # giãn cách tối thiểu giữa 2 request tới hnx.vn — không hạ số này
+
+_hnx_last_call = {"t": 0.0}
+_hnx_lock = threading.Lock()
+
+def _hnx_throttle():
+    """Ép giãn cách tối thiểu giữa các request tới hnx.vn — bắt buộc, không tuỳ chọn.
+    Không có bước này, ThreadPoolExecutor sẽ bắn request đồng thời không giới hạn."""
+    with _hnx_lock:
+        wait = HNX_MIN_INTERVAL_SEC - (time.time() - _hnx_last_call["t"])
+        if wait > 0:
+            time.sleep(wait)
+        _hnx_last_call["t"] = time.time()
+
 def fetch_vnstock_yields(start_date: str, end_date: str) -> pd.DataFrame:
     """Lớp 1: thử dùng thư viện vnstock."""
     if Vnstock is None:
@@ -194,7 +223,7 @@ def fetch_vnstock_yields(start_date: str, end_date: str) -> pd.DataFrame:
     try:
         api_key = os.getenv('VNSTOCK_API_KEY')
         from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-        
+
         def _fetch():
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 vs = Vnstock(token=api_key) if api_key else Vnstock()
@@ -210,7 +239,7 @@ def fetch_vnstock_yields(start_date: str, end_date: str) -> pd.DataFrame:
                             if avail:
                                 return df[avail].dropna()
             return pd.DataFrame()
-            
+
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_fetch)
             df_res = future.result(timeout=20)
@@ -224,10 +253,17 @@ def fetch_public_api_yields(start_date: str, end_date: str) -> pd.DataFrame:
     """Lớp 2: placeholder cho API công khai."""
     return pd.DataFrame()
 
-def scrape_trading_economics_10y() -> float:
-    """Fallback lợi suất 10Y từ Trading Economics."""
+def scrape_trading_economics_10y() -> Optional[float]:
+    """
+    Lớp fallback phụ: lợi suất 10Y từ Trading Economics.
+    SỬA: trả về None khi thất bại (KHÔNG còn trả bừa 4.53 disguise thành kết
+    quả thật) — để fetch_bond_yields() biết chính xác lớp này có thành công
+    hay không, thay vì âm thầm khoá cứng 4.53% mà tưởng là số thật.
+    Optional: cần cài `curl_cffi` (Trading Economics đứng sau Cloudflare,
+    nhiều khả năng chặn plain requests) — nếu chưa cài, lớp này tự bỏ qua.
+    """
     if cffi_requests is None:
-        return 4.53
+        return None
     try:
         url = "https://tradingeconomics.com/vietnam/government-bond-yield"
         r = cffi_requests.get(url, impersonate="chrome120", timeout=15)
@@ -241,35 +277,44 @@ def scrape_trading_economics_10y() -> float:
                         try:
                             val = float(p.replace('%', '').strip())
                             if 1.0 <= val <= 10.0:
-                                print(f"[+] Trading Economics 10Y: {val}%")
+                                print(f"   [Trading Economics] 10Y: {val}%")
                                 return val
                         except ValueError:
                             continue
     except Exception as e:
-        print(f"[-] Trading Economics scrape error: {e}")
-    return 4.53
+        print(f"   [Trading Economics] Lỗi: {e}")
+    return None
 
 def fetch_single_hnx_date(dt_str: str) -> dict | None:
-    """Lấy đường cong lợi suất 1 ngày từ HNX."""
-    if cffi_requests is None:
-        return None
+    """
+    Lấy đường cong lợi suất 1 ngày từ HNX — dùng requests thuần (không cần
+    curl_cffi), có throttle bắt buộc trước mỗi request.
+
+    Nếu đúng ngày dt_str HNX không công bố (cuối tuần/lễ), lùi dần tối đa
+    6 ngày để tìm phiên công bố gần nhất — GIỮ NGUYÊN logic gốc.
+    """
     try:
         dt = pd.to_datetime(dt_str)
         url = "https://www.hnx.vn/ModuleReportBonds/Bond_YieldCurve/SearchAndNextPageYieldCurveData"
+        headers = {"User-Agent": HNX_YC_UA, "Referer": "https://www.hnx.vn/en-gb/trai-phieu/duong-cong-loi-suat.html"}
         for offset in range(6):
             check_dt = dt - timedelta(days=offset)
             p_date = check_dt.strftime("%d/%m/%Y")
             try:
-                r = cffi_requests.post(url, data={"pDate": p_date}, impersonate="chrome120",
-                                       verify=False, timeout=12)
+                _hnx_throttle()
+                r = _plain_requests.post(
+                    url, data={"pDate": p_date}, headers=headers,
+                    verify=False, timeout=15,   # www.hnx.vn thiếu chain cert trung gian → tắt verify riêng host này
+                )
                 soup = BeautifulSoup(r.text, "html.parser")
                 yields = {}
                 for tr in soup.find_all("tr"):
-                    row = [td.get_text(strip=True) for td in tr.find_all(["th", "td"])]
+                    row = [td.get_text(strip=True).replace("\xa0", " ") for td in tr.find_all(["th", "td"])]
                     if len(row) >= 4:
                         tenor = row[0].strip().lower()
-                        val_str = row[3] if row[3] else row[1]
-                        val_str = val_str.replace(",", ".").strip()
+                        # FIX: ưu tiên "Spot rate % (continuous)" (index 1) — đúng convention
+                        # exp(-r*T) mà black_scholes_option() dùng. Annual (index 3) chỉ là fallback.
+                        val_str = (row[1] if row[1] else row[3]).replace(",", ".").strip()
                         try:
                             val = float(val_str)
                             if tenor == "3 tháng": yields["3M"] = round(val, 3)
@@ -288,22 +333,30 @@ def fetch_single_hnx_date(dt_str: str) -> dict | None:
                 if "10Y" in yields and "1Y" in yields:
                     yields["date"] = dt_str
                     return yields
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"   [HNX YC] {p_date} lỗi: {str(e)[:60]}")
     except Exception:
         pass
     return None
 
 def fetch_hnx_official_yields(start_date: str, end_date: str) -> pd.DataFrame:
-    """Lớp 3: dữ liệu thực tế từ HNX, có cache CSV."""
-    if cffi_requests is None:
-        print("[!] curl_cffi chưa được cài đặt, không thể scrape HNX.")
-        return pd.DataFrame()
+    """
+    Lớp 3: dữ liệu thực tế từ HNX, có cache CSV.
+
+    FIX QUAN TRỌNG: KHÔNG còn nhận start_date="2016-01-01" gây bung ra 2.600
+    ngày cần fetch mỗi lần chạy. Caller (step5) giờ chỉ truyền cửa sổ ngắn
+    (BOND_YIELD_LOOKBACK_DAYS ngày gần nhất) — vì chỉ giá trị MỚI NHẤT được
+    dùng. Cache CSV vẫn tích luỹ dần qua các lần chạy như thiết kế gốc, chỉ
+    khác là mỗi lần chỉ cần bù 1-vài ngày mới thay vì toàn bộ lịch sử.
+
+    Giảm max_workers 16 → 4 và ép throttle 0.5s/request qua _hnx_throttle() —
+    16 luồng không giãn cách là cách nhanh nhất khiến IP của runner bị HNX chặn.
+    """
     start_dt = pd.to_datetime(start_date)
     end_dt = pd.to_datetime(end_date)
     target_dates = pd.date_range(start=start_dt, end=end_dt, freq='B')
     if len(target_dates) == 0:
-        target_dates = pd.date_range(start='2016-01-01', end=datetime.now(), freq='B')
+        target_dates = pd.date_range(end=datetime.now(), periods=BOND_YIELD_LOOKBACK_DAYS, freq='B')
 
     cache_path = os.path.join(CACHE_DIR, 'hnx_bond_yields.csv')
     df_cache = pd.DataFrame()
@@ -313,14 +366,14 @@ def fetch_hnx_official_yields(start_date: str, end_date: str) -> pd.DataFrame:
             df_cache['date'] = pd.to_datetime(df_cache['date'])
             df_cache = df_cache.set_index('date').sort_index()
         except Exception as e:
-            print(f"[-] Lỗi đọc cache HNX: {e}")
+            print(f"   [-] Lỗi đọc cache HNX: {e}")
 
     existing_dates = set(df_cache.index.strftime('%Y-%m-%d')) if not df_cache.empty else set()
     missing_dates = [d.strftime('%Y-%m-%d') for d in target_dates if d.strftime('%Y-%m-%d') not in existing_dates]
 
     if missing_dates:
-        print(f"[*] Đang tải {len(missing_dates)} ngày lợi suất mới từ HNX...")
-        with ThreadPoolExecutor(max_workers=16) as executor:
+        print(f"   [*] Đang tải {len(missing_dates)} ngày lợi suất mới từ HNX (throttled)...")
+        with ThreadPoolExecutor(max_workers=4) as executor:   # FIX: 16 → 4, cộng throttle bắt buộc trong hàm gọi
             new_records = list(executor.map(fetch_single_hnx_date, missing_dates))
         new_records = [r for r in new_records if r is not None]
         if new_records:
@@ -342,20 +395,33 @@ def fetch_hnx_official_yields(start_date: str, end_date: str) -> pd.DataFrame:
     return df
 
 def fetch_bond_yields(start_date: str, end_date: str) -> pd.DataFrame:
-    """Tổng hợp lợi suất TPCP Việt Nam, ưu tiên HNX."""
-    print(f"[*] Thu thập dữ liệu lợi suất TPCP ({start_date} -> {end_date})...")
+    """
+    Tổng hợp lợi suất TPCP Việt Nam.
+    FIX: nối lại lớp Trading Economics (đã viết sẵn nhưng chưa từng được gọi)
+    làm lớp fallback SAU HNX (vì HNX là nguồn gốc, Trading Economics chỉ nên
+    dùng khi HNX cũng fail) — trả về DataFrame 1 dòng thay vì float trần để
+    khớp interface với các lớp khác.
+    """
+    print(f"   [*] Thu thập lợi suất TPCP ({start_date} -> {end_date})...")
     df = fetch_vnstock_yields(start_date, end_date)
-    if not df.empty and len(df) > 50:
-        print(f"[+] Lớp 1 (vnstock): {len(df)} dòng")
+    if not df.empty and len(df) > 5:
+        print(f"   [+] Lớp 1 (vnstock): {len(df)} dòng")
         return df
     df = fetch_public_api_yields(start_date, end_date)
-    if not df.empty and len(df) > 50:
-        print(f"[+] Lớp 2 (public API): {len(df)} dòng")
+    if not df.empty and len(df) > 5:
+        print(f"   [+] Lớp 2 (public API): {len(df)} dòng")
         return df
-    print("[+] Kích hoạt Lớp 3: HNX chính thức...")
+    print("   [+] Kích hoạt Lớp 3: HNX chính thức...")
     df = fetch_hnx_official_yields(start_date, end_date)
-    print(f"[+] Hoàn tất lợi suất HNX: {len(df)} ngày")
-    return df
+    if not df.empty:
+        print(f"   [+] Hoàn tất lợi suất HNX: {len(df)} ngày")
+        return df
+    te_rate = scrape_trading_economics_10y()
+    if te_rate is not None:
+        print(f"   [+] Lớp 4 (Trading Economics, chỉ có 10Y): {te_rate}%")
+        return pd.DataFrame({"10Y": [te_rate]}, index=[pd.Timestamp(end_date)])
+    print("   [!] Tất cả các lớp đều fail — trả DataFrame rỗng.")
+    return pd.DataFrame()
 
 # ══════════════════════════════════════════════════════════════════
 # CẤU HÌNH (GIỮ NGUYÊN TỪ PIPELINE GỐC)
@@ -1454,7 +1520,8 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         print(f"   underlying cache updated: {len(df_und_merged)} dong")
 
     # --- Lấy lãi suất phi rủi ro (10Y) ---
-    bond_df = fetch_bond_yields(start_date="2016-01-01", end_date=today_str)
+    lookback_start = (pd.Timestamp(today_str) - timedelta(days=BOND_YIELD_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    bond_df = fetch_bond_yields(start_date=lookback_start, end_date=today_str)
     if bond_df.empty or "10Y" not in bond_df.columns:
         print("[!] Không có dữ liệu lợi suất, dùng fallback 4.53%")
         risk_free = 0.0453
