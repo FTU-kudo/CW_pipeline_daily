@@ -8,8 +8,8 @@ playwright
 beautifulsoup4
 requests
 curl_cffi
-vnstock
 git+https://github.com/KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589
 --extra-index-url https://vnstocks.com/api/simple
 vnstock
 vnai
+vnstock
