@@ -38,8 +38,12 @@ jobs:
             openpyxl \
             pyarrow \
             pytz \
-            vnstock \
             playwright
+          
+          # Cài vnstock từ source (PyPI đã ngừng hỗ trợ)
+          pip install -U \
+            --extra-index-url https://vnstocks.com/api/simple \
+            vnstock vnai
             
       - name: Install Playwright browser
         run: |
