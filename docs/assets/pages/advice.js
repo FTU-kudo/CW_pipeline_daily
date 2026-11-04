@@ -18,7 +18,7 @@ const SORTS = {
 
 function recCard(card) {
   const m = card.metrics || {};
-  const node = el('div', { class: 'rec-card' });
+  const node = el('div', { class: `rec-card rec-${card.recommendation || 'NO_DATA'}` });
   node.appendChild(el('div', { class: 'rec-card-head' }, [
     el('div', {}, [
       el('div', { class: 'flex' }, [
@@ -147,44 +147,84 @@ export async function recommendationsPage(view) {
   ));
 
   view.appendChild(el('div', { class: 'grid kpi section' }, [
-    kpiCard({ label: 'MUA MẠNH', value: fmt.n(byRec.STRONG_BUY || 0, 0), sub: 'điểm ≥ 80 và đạt mọi cổng', valueClass: 'up' }),
-    kpiCard({ label: 'MUA', value: fmt.n(byRec.BUY || 0, 0), sub: 'điểm 65–79', valueClass: 'up' }),
-    kpiCard({ label: 'THEO DÕI', value: fmt.n(byRec.HOLD || 0, 0), sub: 'điểm 45–64' }),
-    kpiCard({ label: 'TRÁNH', value: fmt.n(byRec.AVOID || 0, 0), sub: 'điểm 30–44', valueClass: 'down' }),
-    kpiCard({ label: 'RỦI RO CAO', value: fmt.n(byRec.HIGH_RISK || 0, 0), sub: 'điểm < 30', valueClass: 'down' }),
-    kpiCard({ label: 'Chưa đủ dữ liệu', value: fmt.n(byRec.NO_DATA || 0, 0), sub: 'DQ < 45%' }),
+    kpiCard({ label: 'MUA MẠNH', value: fmt.n(byRec.STRONG_BUY || 0, 0), sub: 'điểm ≥ 80 và đạt mọi cổng', valueClass: 'up', tone: 'up' }),
+    kpiCard({ label: 'MUA', value: fmt.n(byRec.BUY || 0, 0), sub: 'điểm 65–79', valueClass: 'up', tone: 'accent' }),
+    kpiCard({ label: 'THEO DÕI', value: fmt.n(byRec.HOLD || 0, 0), sub: 'điểm 45–64', tone: 'warn' }),
+    kpiCard({ label: 'TRÁNH', value: fmt.n(byRec.AVOID || 0, 0), sub: 'điểm 30–44', valueClass: 'down', tone: 'warn' }),
+    kpiCard({ label: 'RỦI RO CAO', value: fmt.n(byRec.HIGH_RISK || 0, 0), sub: 'điểm < 30', valueClass: 'down', tone: 'down' }),
+    kpiCard({ label: 'Chưa đủ dữ liệu', value: fmt.n(byRec.NO_DATA || 0, 0), sub: 'DQ < 45%', tone: 'muted' }),
   ]));
 
-  // cổng chất lượng
+  // cổng chất lượng — mỗi dòng là một "cổng" thật, kèm số CW đang bị nó chặn
   const gates = payload.gates || {};
-  const gateCard = el('div', { class: 'card section' }, [
-    el('div', { class: 'card-title' }, [el('h3', { text: 'Cổng chất lượng — không bao giờ MUA MẠNH khi vi phạm' })]),
-    el('div', { class: 'tiny muted', style: 'margin-bottom:8px', text: 'Điểm cao vẫn bị hạ hạng nếu không đạt các điều kiện dưới đây. Đây là lý do nhiều CW có điểm khá nhưng chỉ ở mức THEO DÕI.' }),
-  ]);
-  const gtable = el('table', { class: 'tbl compact' });
-  gtable.innerHTML = '<thead><tr><th>Cổng</th><th>MUA MẠNH</th><th>MUA</th></tr></thead>';
-  const gbody = el('tbody');
-  const labels = {
-    min_liquidity: 'Điểm thanh khoản tối thiểu', min_data_quality: 'Chất lượng dữ liệu tối thiểu',
-    min_days_to_maturity: 'Số ngày tới đáo hạn tối thiểu', min_median_value_vnd: 'Giá trị giao dịch TB 20P tối thiểu',
-    max_iv_vs_hv_pct: 'IV vượt HV tối đa (%)', min_sessions: 'Số phiên lịch sử tối thiểu',
+  const GATE_DEFS = [
+    { key: 'min_score', ico: '◈', label: T('Điểm CW tối thiểu', 'Minimum CW score'), fmt: (v) => fmt.n(v, 0), get: (c) => c.score },
+    { key: 'min_liquidity', ico: '≋', label: T('Điểm thanh khoản tối thiểu', 'Minimum liquidity score'), fmt: (v) => fmt.n(v, 0), get: (c) => c.metrics?.liquidity_score },
+    { key: 'min_data_quality', ico: '◍', label: T('Chất lượng dữ liệu tối thiểu', 'Minimum data quality'), fmt: (v) => fmt.pct(v * 100, 0, false), get: (c) => c.data_quality },
+    { key: 'min_days_to_maturity', ico: '◷', label: T('Số ngày tới đáo hạn tối thiểu', 'Minimum days to maturity'), fmt: (v) => fmt.n(v, 0), get: (c) => c.metrics?.days_to_maturity },
+    { key: 'min_median_value_vnd', ico: '₫', label: T('Giá trị giao dịch TB 20 phiên', 'Avg traded value, 20 sessions'), fmt: (v) => fmt.vnd(v), get: (c) => c.metrics?.value_med20 },
+    { key: 'min_adv_vnd', ico: 'Σ', label: T('ADV20 tối thiểu', 'Minimum ADV20'), fmt: (v) => fmt.vnd(v), get: (c) => c.metrics?.adv20 },
+    { key: 'min_coverage20', ico: '◔', label: T('Độ phủ phiên tối thiểu', 'Minimum session coverage'), fmt: (v) => fmt.pct(v, 0, false), get: (c) => c.metrics?.coverage20 },
+    { key: 'max_range20_pct', ico: '↕', label: T('Biên độ high-low 20 phiên tối đa', 'Max 20-session high-low range'), fmt: (v) => fmt.pct(v, 0, false), get: (c) => c.metrics?.range20 },
+    { key: 'max_iv_vs_hv_pct', ico: 'σ', label: T('IV vượt HV tối đa', 'Max IV over HV'), fmt: (v) => fmt.pct(v, 0, false), get: (c) => c.metrics?.iv_vs_hv_pct },
+    { key: 'min_sessions', ico: '▤', label: T('Số phiên lịch sử tối thiểu', 'Minimum history sessions'), fmt: (v) => fmt.n(v, 0), get: (c) => c.sessions ?? c.metrics?.sessions },
+  ];
+  const gateFails = (def, tier) => {
+    const limit = gates[tier]?.[def.key];
+    if (limit === undefined || limit === null) return null;
+    const isMax = def.key.startsWith('max_');
+    let n = 0;
+    for (const c of cards) {
+      const v = def.get(c);
+      if (v === undefined || v === null || Number.isNaN(v)) { n += 1; continue; }
+      if (isMax ? v > limit : v < limit) n += 1;
+    }
+    return n;
   };
-  for (const key of Object.keys(labels)) {
-    const f = (v) => {
-      if (v === undefined || v === null) return '—';
-      if (key === 'min_median_value_vnd') return fmt.vnd(v);
-      if (key === 'max_iv_vs_hv_pct') return fmt.pct(v, 0, false);
-      if (key === 'min_data_quality') return fmt.pct(v * 100, 0, false);
-      return fmt.n(v, 0);
-    };
+  const gateCard = el('div', { class: 'card section' }, [
+    el('div', { class: 'card-title' }, [
+      el('h3', { text: 'Cổng chất lượng — không bao giờ MUA MẠNH khi vi phạm' }),
+      el('span', { class: 'tiny muted', text: T(`${fmt.n(cards.length, 0)} CW trong vũ trụ`,
+        `${fmt.n(cards.length, 0)} warrants in the universe`) }),
+    ]),
+    el('div', { class: 'tiny muted', style: 'margin-bottom:8px', text: T(
+      'Điểm cao vẫn bị hạ hạng nếu không đạt các điều kiện dưới đây. Cột cuối cho biết bao nhiêu CW '
+        + 'trong vũ trụ hiện tại chưa đạt ngưỡng MUA MẠNH của cổng đó — cổng nào chặn nhiều nhất chính là '
+        + 'điểm nghẽn của danh sách hôm nay.',
+      'A high score is still downgraded when these conditions fail. The last column shows how many live '
+        + 'warrants miss the STRONG BUY threshold for that gate — the gate blocking the most warrants is '
+        + "today's bottleneck.") }),
+  ]);
+  const gtable = el('table', { class: 'tbl compact gates' });
+  gtable.innerHTML = `<thead><tr><th>${T('Cổng', 'Gate')}</th>`
+    + `<th class="num">${T('MUA MẠNH', 'STRONG BUY')}</th>`
+    + `<th class="num">${T('MUA', 'BUY')}</th>`
+    + `<th class="num">${T('Đang chặn', 'Blocked')}</th></tr></thead>`;
+  const gbody = el('tbody');
+  for (const def of GATE_DEFS) {
+    const strong = gates.STRONG_BUY?.[def.key];
+    const buy = gates.BUY?.[def.key];
+    const blocked = gateFails(def, 'STRONG_BUY');
+    const share = blocked === null ? 0 : Math.round((blocked / Math.max(1, cards.length)) * 100);
     gbody.appendChild(el('tr', {}, [
-      el('td', { text: labels[key] }),
-      el('td', { class: 'num', text: f(gates.STRONG_BUY?.[key]) }),
-      el('td', { class: 'num', text: f(gates.BUY?.[key]) }),
+      el('td', { class: 'gate-name' }, [
+        el('span', { class: 'gate-ico', text: def.ico }),
+        el('span', { text: def.label }),
+      ]),
+      el('td', { class: 'num mono', text: strong === undefined || strong === null ? '—' : def.fmt(strong) }),
+      el('td', { class: 'num mono', text: buy === undefined || buy === null ? '—' : def.fmt(buy) }),
+      el('td', { class: 'num' }, [
+        el('span', { class: 'gate-block' }, [
+          el('span', { class: 'gate-bar' + (blocked ? '' : ' zero') }, [
+            el('i', { style: `width:${Math.max(blocked ? 3 : 0, share)}%` }),
+          ]),
+          el('span', { class: 'mono ' + (blocked ? 'muted' : 'up'), text: blocked === null ? '—' : fmt.n(blocked, 0) }),
+        ]),
+      ]),
     ]));
   }
   gtable.appendChild(gbody);
-  gateCard.appendChild(gtable);
+  gateCard.appendChild(el('div', { class: 'table-wrap' }, [gtable]));
   view.appendChild(gateCard);
 
   // bộ lọc
@@ -194,12 +234,21 @@ export async function recommendationsPage(view) {
   q.oninput = () => { recState.q = q.value.trim(); renderList(); };
   const chips = el('div', { class: 'flex flex-wrap' });
   const chipDefs = [['', 'Tất cả'], ['STRONG_BUY', 'MUA MẠNH'], ['BUY', 'MUA'], ['HOLD', 'THEO DÕI'], ['AVOID', 'TRÁNH'], ['HIGH_RISK', 'RỦI RO CAO']];
+  const chipCount = (key) => (key ? (byRec[key] || 0) : cards.length);
   for (const [key, label] of chipDefs) {
     chips.appendChild(el('span', {
       class: 'chip' + (recState.rec === key ? ' on' : ''),
-      text: label + (byRec[key || 'ALL'] ? '' : ''),
-      onclick: () => { recState.rec = key; Array.from(chips.children).forEach((c) => c.classList.remove('on')); chips.children[chipDefs.findIndex(([k]) => k === key)].classList.add('on'); renderList(); },
-    }));
+      title: `${label} · ${fmt.n(chipCount(key), 0)} CW`,
+      onclick: () => {
+        recState.rec = key;
+        Array.from(chips.children).forEach((c) => c.classList.remove('on'));
+        chips.children[chipDefs.findIndex(([k]) => k === key)].classList.add('on');
+        renderList();
+      },
+    }, [
+      el('span', { text: label }),
+      el('span', { class: 'chip-n', text: fmt.n(chipCount(key), 0) }),
+    ]));
   }
   const sort = el('select', {}, Object.entries(SORTS).map(([k, v]) => el('option', { value: k, text: v.label, selected: recState.sort === k })));
   sort.onchange = () => { recState.sort = sort.value; renderList(); };

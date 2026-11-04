@@ -655,3 +655,158 @@ html[data-theme="dark"] .mh-cell { color: var(--text); }
 }
 
 .mh-cell.mh-partial { outline: 1px dashed color-mix(in srgb, var(--text-3) 70%, transparent); outline-offset: -2px; }
+
+/* ============================================================
+   ĐỒNG HỒ THỜI GIAN THỰC (giờ Việt Nam) — topbar
+   ============================================================ */
+.clock {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 9px 0 6px; border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--surface-2) 92%, var(--accent)),
+    color-mix(in srgb, var(--surface) 96%, var(--accent-2)));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+  color: var(--text);
+}
+.clock-face { width: 26px; height: 26px; flex: 0 0 auto; }
+.cf-track { fill: none; stroke: color-mix(in srgb, var(--text-3) 30%, transparent); stroke-width: 3; }
+.cf-ring {
+  fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 18px 18px;
+  transition: stroke-dashoffset .55s linear, stroke .3s ease;
+}
+.cf-tick { fill: color-mix(in srgb, var(--text-3) 70%, transparent); }
+.clock-main { display: flex; flex-direction: column; justify-content: center; line-height: 1.06; min-width: 0; }
+.clock-time {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 650;
+  letter-spacing: .3px; font-variant-numeric: tabular-nums; color: var(--text);
+}
+.clock-sub {
+  font-family: var(--font-mono); font-size: 9.5px; color: var(--text-2);
+  white-space: nowrap; margin-top: 1px;
+}
+.clock-session {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .55px;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  border: 1px solid currentColor; white-space: nowrap;
+  color: var(--text-3);
+}
+.clock-session::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex: 0 0 auto;
+}
+.clock[data-tone="live"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.clock[data-tone="live"] .clock-session {
+  color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.clock[data-tone="live"] .clock-session::before { animation: clockPulse 1.8s ease-out infinite; }
+.clock[data-tone="amber"] { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+.clock[data-tone="amber"] .clock-session {
+  color: color-mix(in srgb, var(--warn) 84%, var(--text));
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+.clock[data-tone="amber"] .cf-ring { stroke: var(--warn); }
+.clock[data-tone="muted"] .cf-ring { stroke: color-mix(in srgb, var(--text-3) 75%, transparent); }
+.clock[data-tone="muted"] .clock-session { color: var(--text-3); }
+@keyframes clockPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clock-session::before { animation: none !important; }
+  .cf-ring { transition: none; }
+}
+@media (max-width: 1320px) { .clock-sub { display: none; } }
+@media (max-width: 1120px) { .clock-session { display: none; } .clock { padding-right: 8px; } }
+
+/* ============================================================
+   PHÂN CẤP THỊ GIÁC: card, tiêu đề mục, KPI, chip
+   ============================================================ */
+.card {
+  position: relative;
+  transition: border-color var(--tr), box-shadow var(--tr), transform var(--tr);
+}
+.card:hover { border-color: var(--border-2); }
+.card-title {
+  padding-bottom: 8px; margin-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+}
+.card-title h3 {
+  position: relative; padding-left: 10px; color: var(--text); font-weight: 650;
+}
+.card-title h3::before {
+  content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 11px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+}
+
+.section-head {
+  align-items: center; padding-bottom: 7px; margin-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+}
+.section-head h2 { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.section-head h2::before {
+  content: ""; width: 4px; height: 14px; border-radius: 2px; background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent); flex: 0 0 auto;
+}
+
+/* KPI: thanh nhấn bên trái theo nghĩa + hover nâng nhẹ */
+.kpi-card { position: relative; overflow: hidden; color: var(--text-2); }
+.kpi-card::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+  background: var(--border-2); transition: background var(--tr);
+}
+.kpi-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.kpi-card.tone-up::before { background: var(--up); }
+.kpi-card.tone-down::before { background: var(--down); }
+.kpi-card.tone-warn::before { background: var(--warn); }
+.kpi-card.tone-accent::before { background: var(--accent); }
+.kpi-card.tone-muted::before { background: color-mix(in srgb, var(--text-3) 60%, transparent); }
+.kpi-card .kpi-label { display: flex; align-items: center; gap: 5px; }
+.kpi-card.tone-up .kpi-value { color: color-mix(in srgb, var(--up) 82%, var(--text)); }
+.kpi-card.tone-down .kpi-value { color: color-mix(in srgb, var(--down) 82%, var(--text)); }
+.kpi-card.tone-warn .kpi-value { color: color-mix(in srgb, var(--warn) 85%, var(--text)); }
+
+/* Chip lọc: đếm số + trạng thái active rõ hơn */
+.chip { position: relative; transition: border-color var(--tr), color var(--tr), background var(--tr); }
+.chip .chip-n {
+  font-family: var(--font-mono); font-size: 10px; opacity: .8;
+  padding-left: 6px; margin-left: 1px;
+  border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+.chip.on { font-weight: 600; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent); }
+.chip.sm { padding: 3px 8px; font-size: 10.5px; }
+
+/* Bảng cổng chất lượng: mỗi dòng là một "cổng" có trạng thái */
+table.tbl.gates td.gate-name { white-space: normal; }
+table.tbl.gates tbody tr:hover td { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.gate-ico { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 7px;
+  border-radius: 5px; font-size: 10px; background: var(--surface-3); color: var(--text-2); }
+.gate-block { display: inline-flex; align-items: center; gap: 7px; justify-content: flex-end; width: 100%; }
+.gate-bar { width: 44px; height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.gate-bar i { display: block; height: 100%; background: var(--warn); }
+.gate-bar.zero i { background: var(--up); }
+
+/* ---------- nhấn thêm: thẻ khuyến nghị & đầu trang ---------- */
+.rec-card { transition: border-color var(--tr), box-shadow var(--tr), transform var(--tr); }
+.rec-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.rec-card { border-left: 3px solid var(--border-2); }
+.rec-card:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--bg) 55%, transparent); }
+.page-head { padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent); }
+.page-head h1 { display: flex; align-items: center; gap: 9px; }
+.page-head h1::before {
+  content: ""; width: 5px; height: 18px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 25%, transparent));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent); flex: 0 0 auto;
+}
+.notice { border-left-width: 3px; }
+.rec-card.rec-STRONG_BUY { border-left-color: var(--up); }
+.rec-card.rec-BUY { border-left-color: color-mix(in srgb, var(--up) 60%, var(--border)); }
+.rec-card.rec-HOLD { border-left-color: var(--warn); }
+.rec-card.rec-AVOID { border-left-color: var(--warn-2); }
+.rec-card.rec-HIGH_RISK { border-left-color: var(--down); }
+.rec-card.rec-NO_DATA { border-left-color: var(--border); }
