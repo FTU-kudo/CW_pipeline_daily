@@ -17,6 +17,6 @@ Quy ước đơn vị (dùng xuyên suốt package):
 """
 
 __version__ = "1.0.0"
-METHODOLOGY_VERSION = "1.0.0"
+METHODOLOGY_VERSION = "1.1.0"
 
 from . import config  # noqa: F401,E402

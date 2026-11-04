@@ -11,7 +11,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from . import config
+from . import config, liquidity as liqmod
 from .bs import price_and_greeks
 
 
@@ -26,13 +26,21 @@ def _f(v, nd=2):
     return round(x, nd) if math.isfinite(x) else None
 
 
+def _adv(row: pd.Series) -> float:
+    """ADV20 nếu có, nếu không lùi về trung vị giá trị giao dịch 20 phiên."""
+    v = row.get("adv20", np.nan)
+    if v is None or not pd.notna(v):
+        v = row.get("value_med20", np.nan)
+    return float(v) if pd.notna(v) else float("nan")
+
+
 def _tick_round(price: float, tick: float = 10.0) -> float:
     return max(tick, round(price / tick) * tick)
 
 
 def risk_level(row: pd.Series) -> str:
     dte = row.get("days_to_maturity", np.nan)
-    liq = row.get("value_med20", np.nan)
+    liq = _adv(row)
     theta = abs(row.get("theta_pct", np.nan)) if pd.notna(row.get("theta_pct", np.nan)) else np.nan
     premium = row.get("premium_be", np.nan)
     iv_hv = row.get("iv_vs_hv", np.nan)
@@ -88,14 +96,20 @@ def positive_factors(row: pd.Series) -> list[str]:
         if prem is not None and peer is not None:
             out.append(f"Premium hoà vốn {prem:.1f}% thấp hơn trung vị nhóm {u} ({peer:.1f}%).")
 
-    liq = row.get("value_med20", np.nan)
+    liq = _adv(row)
+    cov = _f(row.get("coverage20"), 0)
     if pd.notna(liq) and liq >= config.HIGH_LIQUIDITY_VALUE_VND:
-        out.append(f"Thanh khoản cao: giá trị giao dịch bình quân 20 phiên "
-                   f"{liq/1e6:.0f} triệu VND/phiên.")
+        out.append(f"Thanh khoản cao: ADV20 {liq/1e6:.0f} triệu VND/phiên"
+                   + (f", giao dịch {cov:.0f}% số phiên." if cov is not None else "."))
     elif pd.notna(liq) and liq >= config.MEDIUM_LIQUIDITY_VALUE_VND:
-        accel = _f(row.get("volume_accel"), 2)
+        accel = _f(row.get("liq_trend"), 2)
         if accel is not None and accel > 1.2:
-            out.append(f"Thanh khoản cải thiện: khối lượng 5 phiên gấp {accel:.1f}× bình quân 20 phiên.")
+            out.append(f"Thanh khoản cải thiện: ADV5 gấp {accel:.1f}× ADV20 "
+                       f"({liq/1e6:.0f} triệu VND/phiên).")
+    dtl = _f(row.get("dtl_50m"), 1)
+    if dtl is not None and dtl <= 1.0:
+        out.append(f"Đủ thanh khoản để thoát vị thế 50 triệu VND trong ~{dtl:.1f} phiên "
+                   f"(giả định tham gia 20% ADV).")
 
     theta = _f(row.get("theta_pct"), 2)
     if theta is not None and abs(theta) <= 0.4:
@@ -150,9 +164,12 @@ def negative_factors(row: pd.Series) -> list[str]:
     if resid is not None and resid >= 15:
         out.append(f"IV cao hơn đường cong cùng {u} {resid:.0f}% → đang trả giá cao cho biến động.")
 
-    liq = row.get("value_med20", np.nan)
+    liq = _adv(row)
     if pd.notna(liq) and liq < config.MEDIUM_LIQUIDITY_VALUE_VND:
-        out.append(f"Thanh khoản thấp: giá trị giao dịch bình quân chỉ {liq/1e6:.1f} triệu VND/phiên.")
+        out.append(f"Thanh khoản thấp: ADV20 chỉ {liq/1e6:.1f} triệu VND/phiên.")
+    for msg in liqmod.liquidity_flags(row)[:3]:
+        if msg not in out:
+            out.append(msg)
 
     sessions = _f(row.get("sessions"), 0) or 0
     rsi = _f(row.get("rsi14"), 0)
@@ -173,8 +190,9 @@ def risk_warnings(row: pd.Series) -> list[str]:
     if pd.notna(iv_hv) and iv_hv > 50:
         out.append(f"IV cao hơn biến động lịch sử {iv_hv:.0f}% — giá CW đã phản ánh kỳ vọng biến động lớn, "
                    f"dễ giảm nếu IV hạ nhiệt.")
-    if pd.notna(row.get("value_med20")) and row.get("value_med20") < 5_000_000:
-        out.append("Thanh khoản rất thấp (< 5 triệu VND/phiên): khó thoát vị thế, chênh lệch mua-bán lớn.")
+    for msg in liqmod.liquidity_flags(row):
+        if msg not in out:
+            out.append(msg)
     if pd.notna(row.get("delta_option")) and row.get("delta_option") > 0.9:
         out.append("Delta gần 1 (ITM sâu): CW gần như cổ phiếu, đòn bẩy thấp và thường kém thanh khoản.")
     if pd.notna(row.get("delta_option")) and row.get("delta_option") < 0.10:
@@ -207,8 +225,9 @@ def invalidation_conditions(row: pd.Series) -> list[str]:
     iv = _f(row.get("iv"), 2)
     if iv:
         out.append(f"IV tăng vượt {iv*1.4:.2f} ({iv*1.4*100:.0f}%) — CW trở nên quá đắt so với chính nó.")
-    if pd.notna(row.get("value_med20")):
-        out.append("Giá trị giao dịch bình quân 20 phiên giảm dưới 5 triệu VND/phiên (mất khả năng thoát hàng).")
+    if pd.notna(_adv(row)):
+        out.append("ADV20 giảm dưới 5 triệu VND/phiên hoặc độ phủ giao dịch xuống dưới 50% "
+                   "số phiên (mất khả năng thoát hàng).")
     return out[:5]
 
 
@@ -329,6 +348,16 @@ def build_card(row: pd.Series, r: float) -> dict:
             "iv_vs_hv_pct": _f(row.get("iv_vs_hv"), 1),
             "iv_resid_pct": _f(row.get("iv_resid"), 1),
             "value_med20": _f(row.get("value_med20"), 0),
+            "adv20": _f(row.get("adv20"), 0),
+            "adv5": _f(row.get("adv5"), 0),
+            "coverage20": _f(row.get("coverage20"), 1),
+            "zero20": _f(row.get("zero20"), 0),
+            "amihud20": _f(row.get("amihud20"), 2),
+            "range20": _f(row.get("range20"), 2),
+            "turnover20": _f(row.get("turnover20"), 2),
+            "dtl_50m": _f(row.get("dtl_50m"), 1),
+            "impact_50m_pct": _f(row.get("impact_50m_pct"), 2),
+            "liquidity_bucket": liqmod.liquidity_bucket(row),
             "moneyness": row.get("moneyness"),
             "liquidity_score": _f(row.get("s_liquidity"), 1),
         },

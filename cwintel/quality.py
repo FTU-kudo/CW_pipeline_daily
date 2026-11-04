@@ -174,6 +174,22 @@ def run_quality_checks(market: MarketData, panel: pd.DataFrame,
         "Dùng spot rate 10Y (lãi kép liên tục) từ đường cong HNX — khớp quy ước e^(−rT).",
         severity="medium"))
 
+    # 16. Thanh khoản vũ trụ (thông tin cho người dùng, không phải lỗi dữ liệu)
+    if "adv20" in snap.columns:
+        adv = pd.to_numeric(snap["adv20"], errors="coerce")
+        thin = float((adv < 5e6).mean()) * 100 if len(adv) else float("nan")
+        cov = pd.to_numeric(snap.get("coverage_listing", snap.get("coverage20")),
+                            errors="coerce")
+        low_cov = float((cov < 50).mean()) * 100 if len(cov) else float("nan")
+        checks.append(_check(
+            "liquidity_depth", "Độ sâu thanh khoản vũ trụ",
+            "ok" if thin < 25 else "warn",
+            {"medianAdv20": round(float(adv.median()), 0) if adv.notna().any() else None,
+             "advBelow5mPct": round(thin, 1), "coverageBelow50Pct": round(low_cov, 1)},
+            "Tỷ lệ CW có ADV20 < 5 triệu VND/phiên. Thanh khoản thấp là đặc điểm thị trường, "
+            "không phải lỗi dữ liệu — nhưng làm giảm khả năng thoát vị thế (xem RESEARCH_LIQUIDITY.md).",
+            severity="low"))
+
     counts = {"ok": 0, "warn": 0, "error": 0}
     for c in checks:
         counts[c["status"]] = counts.get(c["status"], 0) + 1

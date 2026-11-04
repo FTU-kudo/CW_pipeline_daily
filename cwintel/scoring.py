@@ -11,6 +11,8 @@ xếp hạng percentile **trong cùng cổ phiếu cơ sở**, không so CW củ
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -160,16 +162,44 @@ def score_valuation(d: pd.DataFrame) -> tuple[pd.Series, pd.Series, dict]:
 
 
 def score_liquidity(d: pd.DataFrame) -> tuple[pd.Series, pd.Series, dict]:
-    log_value = np.log10(pd.to_numeric(_col(d, "value_med20"), errors="coerce").clip(lower=1.0))
-    p_value = ta.percentile_rank(log_value)
-    p_accel = _rank(d, "volume_accel")
-    traded = (pd.to_numeric(_col(d, "traded_ratio20"), errors="coerce") * 100).clip(0, 100)
+    """Thanh khoản 0–100: độ sâu (ADV), tác động giá (Amihud), độ phủ phiên, xu hướng.
 
-    parts = [(p_value, 0.50), (traded, 0.25), (p_accel, 0.25)]
+    Cơ sở thực nghiệm (docs/RESEARCH_LIQUIDITY.md): trong 7.134 quan sát 20 phiên,
+    nhóm ADV20 thấp nhất có lợi nhuận trung bình −18,3% và tỷ lệ phiên thoát bị kẹt
+    14,1%; nhóm ADV20 cao nhất −3,9% và 8,0%. Amihud cũng đơn điệu (−2,8% → −17,8%).
+    Vì vậy trọng số dồn cho ADV và Amihud, còn "khối lượng tăng" chỉ là tín hiệu phụ.
+
+    Nếu panel thiếu cột thanh khoản mới (dữ liệu cũ/khung test), quay lại công thức
+    theo `value_med20`/`traded_ratio20` để không phá vỡ tương thích.
+    """
+    adv = _num_col(d, "adv20")
+    if adv.notna().sum() == 0:
+        log_value = np.log10(pd.to_numeric(_col(d, "value_med20"), errors="coerce").clip(lower=1.0))
+        p_value = ta.percentile_rank(log_value)
+        p_accel = _rank(d, "volume_accel")
+        traded = (pd.to_numeric(_col(d, "traded_ratio20"), errors="coerce") * 100).clip(0, 100)
+        parts = [(p_value, 0.50), (traded, 0.25), (p_accel, 0.25)]
+        score = _combine(parts)
+        conf = _confidence(parts, d.index)
+        return score, conf, {"value_pct": p_value, "volume_accel_pct": p_accel,
+                             "traded_ratio": traded}
+
+    p_adv = np.log10(adv.clip(lower=1.0)).rank(method="average", pct=True) * 100.0
+    p_amihud = _rank(d, "amihud20", higher_is_better=False)
+    coverage = _num_col(d, "coverage_listing").fillna(_num_col(d, "coverage20")).clip(0, 100)
+    trend = _num_col(d, "liq_trend").clip(0, 5)
+    trend_band = _bucket(trend, [(0, 0.5, 20), (0.5, 0.8, 45), (0.8, 1.2, 70),
+                                 (1.2, np.inf, 100)])
+    impact = _num_col(d, "impact_50m_pct")
+    impact_band = _bucket(impact, [(0, 0.5, 100), (0.5, 1.0, 85), (1.0, 2.0, 65),
+                                   (2.0, 4.0, 40), (4.0, np.inf, 15)])
+    # Không có Amihud/impact vẫn chấm được, chỉ giảm độ tin cậy.
+    parts = [(p_adv, 0.35), (p_amihud, 0.20), (coverage, 0.20),
+             (trend_band, 0.10), (impact_band, 0.15)]
     score = _combine(parts)
     conf = _confidence(parts, d.index)
-    return score, conf, {"value_pct": p_value, "volume_accel_pct": p_accel,
-                         "traded_ratio": traded}
+    return score, conf, {"adv_pct": p_adv, "amihud_pct": p_amihud, "coverage": coverage,
+                         "trend": trend_band, "impact": impact_band}
 
 
 def score_risk_reward(d: pd.DataFrame) -> tuple[pd.Series, pd.Series, dict]:
@@ -274,7 +304,24 @@ COMPONENT_FUNCS = {
 }
 
 
-def classify(score: float, liq: float, dq: float, dte: float, med_value: float) -> tuple[str, str]:
+def _fail_depth(gate: dict, med_value: float, adv_value: float | None) -> bool:
+    """Cổng độ sâu: ưu tiên ADV20 (đúng bản chất), lùi về trung vị giá trị/phiên."""
+    try:
+        adv = float(adv_value)
+    except (TypeError, ValueError):
+        adv = float("nan")
+    if math.isfinite(adv):
+        return adv < gate.get("min_adv_vnd", gate["min_median_value_vnd"])
+    try:
+        med = float(med_value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(med) and med < gate["min_median_value_vnd"]
+
+
+def classify(score: float, liq: float, dq: float, dte: float, med_value: float,
+             adv_value: float | None = None, coverage: float | None = None,
+             range20: float | None = None) -> tuple[str, str]:
     """Phân loại khuyến nghị + lý do nếu bị hạ hạng bởi cổng chất lượng."""
     if score is None or not np.isfinite(score):
         return "NO_DATA", "Không đủ dữ liệu để chấm điểm"
@@ -293,8 +340,13 @@ def classify(score: float, liq: float, dq: float, dte: float, med_value: float) 
             ok, _ = False, notes.append("chất lượng dữ liệu chưa đạt chuẩn MUA MẠNH")
         if dte < g["min_days_to_maturity"]:
             ok, _ = False, notes.append("thời gian đáo hạn quá ngắn")
-        if med_value < g["min_median_value_vnd"]:
+        if _fail_depth(g, med_value, adv_value):
             ok, _ = False, notes.append("giá trị giao dịch bình quân thấp")
+        if coverage is not None and np.isfinite(coverage) and coverage < g.get("min_coverage20", 0):
+            ok, _ = False, notes.append("quá nhiều phiên không giao dịch")
+        if (range20 is not None and g.get("max_range20_pct") is not None
+                and np.isfinite(range20) and range20 > g["max_range20_pct"]):
+            ok, _ = False, notes.append("biên độ giá quá rộng, khó khớp lệnh")
         if not ok:
             base = "BUY"
 
@@ -307,8 +359,13 @@ def classify(score: float, liq: float, dq: float, dte: float, med_value: float) 
             ok, _ = False, notes.append("dữ liệu chưa đủ tin cậy")
         if dte < g["min_days_to_maturity"]:
             ok, _ = False, notes.append("còn quá ít ngày tới đáo hạn")
-        if med_value < g["min_median_value_vnd"]:
+        if _fail_depth(g, med_value, adv_value):
             ok, _ = False, notes.append("giá trị giao dịch bình quân thấp")
+        if coverage is not None and np.isfinite(coverage) and coverage < g.get("min_coverage20", 0):
+            ok, _ = False, notes.append("quá nhiều phiên không giao dịch")
+        if (range20 is not None and g.get("max_range20_pct") is not None
+                and np.isfinite(range20) and range20 > g["max_range20_pct"]):
+            ok, _ = False, notes.append("biên độ giá quá rộng, khó khớp lệnh")
         if not ok:
             base = "HOLD"
 
@@ -322,6 +379,9 @@ def classify_frame(d: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     dq = _num_col(d, "data_quality")
     dte = _num_col(d, "days_to_maturity")
     med = _num_col(d, "value_med20")
+    adv = _num_col(d, "adv20")
+    cov = _num_col(d, "coverage_listing").fillna(_num_col(d, "coverage20"))
+    rng = _num_col(d, "range20")
     ivhv = _num_col(d, "iv_vs_hv")
     sessions = _num_col(d, "sessions")
 
@@ -338,11 +398,19 @@ def classify_frame(d: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
 
     def _fail(g: dict) -> tuple[pd.Series, pd.Series]:
         """Trả (mask_thất_bại, mô_tả_lý_do) cho bộ cổng g."""
+        has_adv = adv.notna() & (adv > 0)
+        depth_fail = ((has_adv & (adv < g.get("min_adv_vnd", g["min_median_value_vnd"])))
+                      | (~has_adv & (med < g["min_median_value_vnd"])))
         fails = {
             "thanh khoản chưa đạt chuẩn": liq < g["min_liquidity"],
             "chất lượng dữ liệu thấp": dq < g["min_data_quality"],
             "thời gian đáo hạn quá ngắn": dte < g["min_days_to_maturity"],
-            "giá trị giao dịch bình quân thấp": med < g["min_median_value_vnd"],
+            "giá trị giao dịch bình quân thấp": depth_fail,
+            "quá nhiều phiên không giao dịch": (cov.notna() & (cov < g.get("min_coverage20", 0))),
+            "biên độ giá quá rộng": (
+                rng.notna() & (rng > g["max_range20_pct"])
+                if g.get("max_range20_pct") is not None
+                else pd.Series(False, index=d.index)),
             "IV quá cao so với biến động lịch sử": (
                 ivhv > g["max_iv_vs_hv_pct"] if g.get("max_iv_vs_hv_pct") is not None
                 else pd.Series(False, index=d.index)),

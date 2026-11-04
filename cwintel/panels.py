@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import config, indicators as ta
+from . import config, indicators as ta, liquidity as liq
 from .bs import greeks_vector, implied_vol_vector, price_vector
 from .data import MarketData
 
@@ -253,6 +253,9 @@ def build_cw_panel(market: MarketData, und_feat: pd.DataFrame | None = None,
         return ((s - lo) / rng.replace(0, np.nan) * 100.0)
 
     panel["iv_rank"] = panel.groupby("ticker", sort=False)["iv"].transform(_iv_rank)
+
+    # ── Thanh khoản trên lịch giao dịch đầy đủ (phiên vắng mặt = 0 VND)
+    panel = liq.attach_liquidity(panel, market.master)
 
     # Lịch sử IV 252 quan sát gần nhất cho từng ticker/ngày (theo quan sát, không theo lịch)
     return panel, iv_hist

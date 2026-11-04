@@ -294,6 +294,8 @@ def simulate(history: History, signals: dict, cfg: dict, select_fn,
             fwd.append({"ticker": row["ticker"], "underlying": row.get("underlying"),
                         "issuer": row.get("issuer"), "score": row.get("score"),
                         "recommendation": row.get("recommendation"),
+                        "adv20": row.get("adv20"), "coverage20": row.get("coverage20"),
+                        "amihud20": row.get("amihud20"), "range20": row.get("range20"),
                         "ret_pct": (res["entry"] and res["exit"] / res["entry"] - 1) * 100})
         if fwd:
             f = pd.DataFrame(fwd)
@@ -442,6 +444,35 @@ def run_backtest(panel: pd.DataFrame, market, cfg: dict | None = None,
                         "win_rate_pct": round(float((rr > 0).mean()) * 100, 1)})
         return sorted(out, key=lambda x: -x["n"])
 
+    # ── Thanh khoản: lợi nhuận kỳ vọng theo nhóm ADV20 (toàn vũ trụ, không chỉ top-5)
+    liquidity_stats = {"quintiles": [], "gates": [], "note": ""}
+    if not buckets.empty and "adv20" in buckets.columns:
+        b = buckets.copy()
+        b["ret"] = pd.to_numeric(b["ret_pct"], errors="coerce")
+        b = b[b["adv20"].notna() & (b["adv20"] > 0)]
+        if not b.empty:
+            b["q"] = pd.qcut(b["adv20"].rank(method="first"), 5, labels=False)
+            for q, g in b.groupby("q"):
+                liquidity_stats["quintiles"].append({
+                    "quintile": int(q) + 1,
+                    "advLow": round(float(g["adv20"].min()), 0),
+                    "advHigh": round(float(g["adv20"].max()), 0),
+                    "n": int(len(g)),
+                    "avg_ret_pct": round(float(g["ret"].mean()), 2),
+                    "median_ret_pct": round(float(g["ret"].median()), 2),
+                    "win_rate_pct": round(float((g["ret"] > 0).mean()) * 100, 1),
+                })
+            for thr in (10e6, 50e6, 200e6, 500e6):
+                sub = b[b["adv20"] >= thr]
+                liquidity_stats["gates"].append({
+                    "adv": thr, "share_pct": round(len(sub) / len(b) * 100, 1),
+                    "n": int(len(sub)),
+                    "avg_ret_pct": round(float(sub["ret"].mean()), 2) if len(sub) else None,
+                    "win_rate_pct": round(float((sub["ret"] > 0).mean()) * 100, 1) if len(sub) else None,
+                })
+            liquidity_stats["note"] = ("Toàn bộ CW đủ điều kiện ở mỗi ngày tín hiệu (không chỉ top-5), "
+                                       "lợi nhuận 20 phiên đã trừ chi phí.")
+
     monthly = []
     if not curve.empty:
         m = (1 + curve["score_top"].fillna(0)).groupby(curve.index.to_period("M")).prod() - 1
@@ -467,6 +498,17 @@ def run_backtest(panel: pd.DataFrame, market, cfg: dict | None = None,
         "Chỉ mua khi cổ phiếu cơ sở trên MA50": lambda d: d[d["u_above_ma50"] == 1],
         "IV ≤ HV và trên MA50": lambda d: d[(d["iv_vs_hv"] <= 0) & (d["u_above_ma50"] == 1)],
         "Chỉ CW Score ≥ 80": lambda d: d[d["score"] >= 80],
+        # ── Thanh khoản (docs/RESEARCH_LIQUIDITY.md)
+        "ADV20 ≥ 50 triệu": lambda d: d[d["adv20"] >= 50e6],
+        "ADV20 ≥ 200 triệu": lambda d: d[d["adv20"] >= 200e6],
+        "ADV20 ≥ 500 triệu": lambda d: d[d["adv20"] >= 500e6],
+        "Độ phủ giao dịch ≥ 80% (từ niêm yết)": lambda d: d[d["coverage_listing"].fillna(d["coverage20"]) >= 80],
+        "Amihud20 ≤ trung vị vũ trụ": lambda d: d[d["amihud20"] <= d["amihud20"].median()],
+        "Biên độ high-low ≤ 10%": lambda d: d[d["range20"] <= 10],
+        "IV ≤ HV và ADV ≥ 200 triệu": lambda d: d[(d["iv_vs_hv"] <= 0) & (d["adv20"] >= 200e6)],
+        "IV ≤ HV và Amihud ≤ trung vị": lambda d: d[(d["iv_vs_hv"] <= 0)
+                                                    & (d["amihud20"] <= d["amihud20"].median())],
+        "IV ≤ HV và biên độ ≤ 10%": lambda d: d[(d["iv_vs_hv"] <= 0) & (d["range20"] <= 10)],
     }
     for label, fn in filters.items():
         res = simulate(history, signals, cfg,
@@ -537,6 +579,7 @@ def run_backtest(panel: pd.DataFrame, market, cfg: dict | None = None,
             "n_signal_dates": len(signals),
         },
         "summary": summary,
+        "liquidity": liquidity_stats,
         "curve": [
             {"date": d.strftime("%Y-%m-%d"),
              "score_top": round(float(row["score_top"]), 4) if pd.notna(row["score_top"]) else None,

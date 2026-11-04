@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import config
+from . import config, liquidity as liqmod
 from .bs import price_vector
 from .data import MarketData
 from .panels import slice_asof
@@ -26,6 +26,11 @@ SNAPSHOT_COLS = [
     "u_close", "u_ret1", "u_ret5", "u_ret21", "u_ret63", "u_rsi14", "u_macd_hist",
     "u_ma20", "u_ma50", "u_ma200", "u_above_ma20", "u_above_ma50", "u_above_ma200",
     "u_hv20", "u_hv60", "u_hv252", "u_dist_high60", "u_sessions", "u_vol_ratio",
+    # Thanh khoản (xem cwintel/liquidity.py)
+    "listed_volume", "outstanding_volume", "adv5", "adv20", "adv60",
+    "coverage20", "coverage60", "coverage_listing", "sessions_listed", "zero20",
+    "amihud20", "range20", "turnover20",
+    "liq_trend", "dtl_50m", "impact_50m_pct",
 ]
 
 
@@ -165,6 +170,8 @@ def build_snapshot(market: MarketData, panel: pd.DataFrame, asof: pd.Timestamp,
         return sub
     d = _pick(sub, SNAPSHOT_COLS)
     d["staleness_days"] = (pd.Timestamp(asof) - d["date"]).dt.days
+    # Thanh khoản phải phản ánh phiên as-of, kể cả các phiên trắng sau lần khớp cuối
+    d = liqmod.rebase_to_asof(d, panel, asof)
 
     # Metadata bổ sung từ master
     m = market.master.set_index("ticker")
@@ -220,5 +227,6 @@ def build_pit_snapshot(panel: pd.DataFrame, master: pd.DataFrame, asof: pd.Times
         return sub
     sub["tier_id"] = np.arange(len(sub))
     sub = add_peer_metrics(_pick(sub, SNAPSHOT_COLS + ["tier_id"]), r)
-    sub["staleness_days"] = 0
+    sub["staleness_days"] = (pd.Timestamp(asof) - sub["date"]).dt.days
+    sub = liqmod.rebase_to_asof(sub, panel, asof)
     return score_universe(sub).reset_index(drop=True)

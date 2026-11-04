@@ -78,8 +78,9 @@ def methodology_payload() -> dict:
                 "valuation": "30% percentile premium hoà vốn (thấp tốt) + 30% percentile IV "
                              "residual so với smile + 15% percentile IV/HV + 10% percentile "
                              "upside so với fair value smile + 5% IV rank + 10% vùng delta",
-                "liquidity": "50% percentile log(giá trị giao dịch bình quân 20 phiên) + 25% tỷ lệ "
-                             "phiên có giao dịch + 25% percentile gia tốc khối lượng",
+                "liquidity": "35% percentile log(ADV20) + 20% percentile Amihud (thấp tốt) + "
+                             "20% độ phủ giao dịch từ khi niêm yết + 15% dải tác động giá ước "
+                             "tính cho vị thế 50 triệu + 10% xu hướng ADV5/ADV20",
                 "risk_reward": "30% theta %/ngày + 25% khoảng cách tới break-even + 25% thời gian "
                                "đáo hạn + 10% vùng biến động + 10% mức gearing hiệu dụng",
                 "technical": "30% vùng RSI + 20% MACD dương + 10% MACD tăng + 20% trên MA20 + "
@@ -96,9 +97,10 @@ def methodology_payload() -> dict:
             "thresholds": [{"min": th, "label": lb, "label_vi": config.REC_LABELS_VI[lb]}
                            for th, lb in config.REC_THRESHOLDS],
             "gates": config.GATES,
-            "note": "Ngưỡng khởi tạo, đã kiểm chứng bằng backtest (xem tab Backtest). Điểm cao "
-                    "không đủ để nâng hạng nếu vi phạm cổng thanh khoản / chất lượng dữ liệu / "
-                    "thời gian đáo hạn / IV quá cao so với HV.",
+            "note": "Điểm cao không đủ để nâng hạng nếu vi phạm cổng thanh khoản (ADV20, độ phủ, "
+                    "biên độ high-low) / chất lượng dữ liệu / thời gian đáo hạn / IV quá cao so với HV. "
+                    "Cổng thanh khoản phản ánh khả năng thoát vị thế, không phải kỳ vọng lợi nhuận — "
+                    "xem docs/RESEARCH_LIQUIDITY.md.",
             "no_data": "Khi data_quality < 0,45 hệ thống trả 'CHƯA ĐỦ DỮ LIỆU' thay vì một "
                        "khuyến nghị hành động.",
         },

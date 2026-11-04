@@ -8,6 +8,7 @@ Artifact được tách nhỏ để trang tĩnh tải nhanh trên GitHub Pages:
     docs/data/recommendations.json recommendation card đầy đủ (active)
     docs/data/underlyings.json     phân tích cổ phiếu cơ sở
     docs/data/backtest.json        kết quả walk-forward + độ nhạy
+    docs/data/liquidity.json       mặt cắt thanh khoản, cảnh báo, phân bố theo nhà phát hành
     docs/data/quality.json         báo cáo chất lượng dữ liệu
     docs/data/methodology.json     công thức, trọng số, định nghĩa
     docs/data/series/cw/<T>.json   chuỗi giá + chỉ báo của từng CW
@@ -25,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import METHODOLOGY_VERSION, __version__, config
+from . import METHODOLOGY_VERSION, __version__, config, liquidity as liq
 from .backtest import History, build_signals, rebalance_dates, run_backtest
 from .data import MarketData, load_market_data
 from .panels import build_cw_panel, build_underlying_features, slice_asof
@@ -143,6 +144,19 @@ def snapshot_payload(snap: pd.DataFrame) -> list[dict]:
             "traded20": _f(pd.to_numeric(r.get("traded_ratio20"), errors="coerce") * 100, 1)
             if pd.notna(r.get("traded_ratio20")) else None,
             "volAccel": _f(r.get("volume_accel"), 2),
+            "adv20": _f(r.get("adv20"), 0),
+            "adv5": _f(r.get("adv5"), 0),
+            "cov20": _f(r.get("coverage20"), 1),
+            "covList": _f(r.get("coverage_listing"), 1),
+            "listedSessions": _f(r.get("sessions_listed"), 0),
+            "zero20": _f(r.get("zero20"), 0),
+            "amihud": _f(r.get("amihud20"), 2),
+            "range20": _f(r.get("range20"), 2),
+            "turnover": _f(r.get("turnover20"), 2),
+            "liqTrend": _f(r.get("liq_trend"), 2),
+            "dtl": _f(r.get("dtl_50m"), 1),
+            "impact": _f(r.get("impact_50m_pct"), 2),
+            "liqBucket": liq.liquidity_bucket(r),
             "rsi": _f(r.get("rsi14"), 1),
             "macdH": _f(r.get("macd_hist"), 4),
             "ma20": _f(r.get("ma20"), 1),
@@ -334,6 +348,8 @@ def cw_series_payload(panel: pd.DataFrame, master: pd.DataFrame, limit: int = 42
             "l": [_f(v, 3) for v in g["low"]],
             "c": [_f(v, 3) for v in g["close"]],
             "v": [_f(v, 0) for v in g["volume"]],
+            "adv": [_f(v, 0) for v in g["adv20"]] if "adv20" in g else [],
+            "cov": [_f(v, 1) for v in g["coverage20"]] if "coverage20" in g else [],
             "und": [_f(v, 0) for v in g["u_close"]],
             "ma20": [_f(v, 3) for v in g["ma20"]],
             "ma50": [_f(v, 3) for v in g["ma50"]],
@@ -502,6 +518,49 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
     })
     log(f"screener: {len(screener_rows)} active + {len(expired_rows)} expired")
 
+    # ── thanh khoản (mặt cắt hiện tại; bằng chứng theo thời gian nằm trong backtest.json)
+    liq_payload = liq.liquidity_summary(snap)
+    liq_payload["universeFlags"] = {
+        t: {"t": t, "u": r.get("underlying"), "iss": r.get("issuer"),
+            "adv20": _f(r.get("adv20"), 0), "cov20": _f(r.get("coverage20"), 1),
+            "zero20": _f(r.get("zero20"), 0), "amihud": _f(r.get("amihud20"), 2),
+            "range20": _f(r.get("range20"), 2), "dtl": _f(r.get("dtl_50m"), 1),
+            "bucket": liq.liquidity_bucket(r), "rec": r.get("recommendation"),
+            "score": _f(r.get("score"), 1)}
+        for t, r in snap.set_index("ticker").iterrows()
+    }
+    # CW đang niêm yết nhưng KHÔNG có giao dịch trong 14 phiên → không vào snapshot
+    listed = market.master[market.master["is_active"]].copy()
+    snap_set = set(snap["ticker"])
+    last_seen = slice_asof(panel, asof, tolerance_days=10_000).set_index("ticker")
+    idle = []
+    for _, m in listed.iterrows():
+        if m["ticker"] in snap_set:
+            continue
+        last_date = last_seen.loc[m["ticker"], "date"] if m["ticker"] in last_seen.index else None
+        idle.append({
+            "t": m["ticker"], "u": m["underlying"], "iss": m["issuer"],
+            "lastDate": last_date.strftime("%Y-%m-%d") if last_date is not None else None,
+            "daysSince": int((asof - last_date).days) if last_date is not None else None,
+        })
+    liq_payload["idle"] = sorted(idle, key=lambda d: -(d["daysSince"] or 0))
+    liq_payload["kpi"]["listedActive"] = int(len(listed))
+    liq_payload["kpi"]["idleCount"] = len(idle)
+    liq_payload["kpi"]["idleSharePct"] = round(len(idle) / max(1, len(listed)) * 100, 1)
+    liq_payload["gates"] = config.GATES
+    liq_payload["thresholds"] = {
+        "participation": liq.PARTICIPATION_RATE,
+        "positionVnd": liq.DEFAULT_POSITION_VND,
+        "impactEta": liq.IMPACT_ETA,
+        "minAdvWarn": liq.MIN_ADV_WARN,
+        "minCoverageWarn": liq.MIN_COVERAGE_WARN,
+        "maxDtlWarn": liq.MAX_DTL_WARN,
+        "maxRangeWarn": liq.MAX_RANGE_WARN,
+    }
+    sizes["liquidity.json"] = _write(out_dir / "liquidity.json", liq_payload)
+    log(f"liquidity: ADV20 median {liq_payload['kpi']['advMedian']}, "
+        f"coverage median {liq_payload['kpi']['coverageMedian']}%")
+
     # ── recommendations
     cards = build_cards(snap, market.risk_free)
     cards_sorted = sorted(cards, key=lambda c: -(c.get("score") or -1))
@@ -620,6 +679,8 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
             "scored": int(snap["score"].notna().sum()),
             "cards": len(cards_sorted),
             "series": len(meta_series),
+            "advBelow5m": liq_payload["kpi"]["flagged"]["advBelow5m"],
+            "coverageBelow50": liq_payload["kpi"]["flagged"]["coverageBelow50"],
         },
         "warnings": quality.get("headline", []),
         "buildSeconds": round(time.time() - t0, 1),

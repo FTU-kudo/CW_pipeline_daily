@@ -107,6 +107,9 @@ GATES = {
         "min_data_quality": 0.80,
         "min_days_to_maturity": 21,
         "min_median_value_vnd": 50_000_000,
+        "min_adv_vnd": 100_000_000,     # ADV20 (lịch đầy đủ) — xem docs/RESEARCH_LIQUIDITY.md
+        "min_coverage20": 80,           # % phiên có giao dịch / 20 phiên
+        "max_range20_pct": 12,          # biên độ high-low trung vị — chi phí khớp lệnh
         "max_iv_vs_hv_pct": 40,
         "min_sessions": 15,
     },
@@ -116,6 +119,9 @@ GATES = {
         "min_data_quality": 0.65,
         "min_days_to_maturity": 14,
         "min_median_value_vnd": 10_000_000,
+        "min_adv_vnd": 20_000_000,
+        "min_coverage20": 50,
+        "max_range20_pct": 20,
         "max_iv_vs_hv_pct": 60,
         "min_sessions": 10,
     },
@@ -132,8 +138,17 @@ MIN_DATA_QUALITY_FOR_REC = 0.45
 # ──────────────────────────────────────────────────────────────────
 LIQUIDITY_WINDOW = 20            # phiên
 VALUE_UNIT = 1_000               # giá (nghìn VND) × KL × 1.000 = VND
-HIGH_LIQUIDITY_VALUE_VND = 300_000_000   # ≥ 300 triệu/phiên (median 20 phiên) → "cao"
+HIGH_LIQUIDITY_VALUE_VND = 300_000_000   # ≥ 300 triệu/phiên (ADV20) → "cao"
 MEDIUM_LIQUIDITY_VALUE_VND = 50_000_000  # ≥ 50 triệu/phiên → "trung bình"
+# Tham chiếu thực nghiệm (docs/RESEARCH_LIQUIDITY.md, 7.134 quan sát 20 phiên):
+# ADV20 quintile thấp nhất: −18,3%/20 phiên, 14,1% kẹt thoát; quintile cao nhất: −3,9%.
+LIQUIDITY_BUCKETS_VND = [        # (ngưỡng dưới, nhãn) — dùng cho bảng xếp hạng
+    (500_000_000, "rất cao"),
+    (200_000_000, "cao"),
+    (50_000_000, "trung bình"),
+    (10_000_000, "thấp"),
+    (0, "rất thấp"),
+]
 
 # ──────────────────────────────────────────────────────────────────
 # BACKTEST (giả định chi phí — công bố rõ trong báo cáo)
