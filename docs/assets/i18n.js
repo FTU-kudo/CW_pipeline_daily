@@ -494,6 +494,12 @@ export const STRINGS = {
   "Điểm cao không đủ để nâng hạng nếu vi phạm cổng thanh khoản (ADV20, độ phủ, biên độ high-low) / chất lượng dữ liệu / thời gian đáo hạn / IV quá cao so với HV. Cổng thanh khoản phản ánh khả năng thoát vị thế, không phải kỳ vọng lợi nhuận — xem docs/RESEARCH_LIQUIDITY.md.": 'A high score is not enough to upgrade if the liquidity gate (ADV20, coverage, high-low range), data quality, time to maturity or IV-above-HV gate is breached. The liquidity gate reflects the ability to exit, not profit expectation — see docs/RESEARCH_LIQUIDITY.md.',
   "Tỷ lệ CW có ADV20 < 5 triệu VND/phiên. Thanh khoản thấp là đặc điểm thị trường, không phải lỗi dữ liệu — nhưng làm giảm khả năng thoát vị thế (xem RESEARCH_LIQUIDITY.md).": 'Share of warrants with ADV20 < VND 5m/session. Thin liquidity is a market feature, not a data error — but it lowers the ability to exit (see RESEARCH_LIQUIDITY.md).',
 
+
+  /* ---------- heatmap ---------- */
+  'Không có CW nào khớp bộ lọc hiện tại. Thử bỏ bớt điều kiện lọc.': 'No warrants match the current filters. Try removing a filter condition.',
+  "cao": "high",
+  "Ô xám = không có dữ liệu cho chỉ số này": "Grey tile = no data for this metric",
+
   /* ---------- khuyến nghị & tab ---------- */
   "THEO DÕI": "WATCH",
   "MUA MẠNH": "STRONG BUY",
