@@ -9,6 +9,7 @@ import detail from './pages/detail.js';
 import { recommendationsPage, backtestPage } from './pages/advice.js';
 import { watchlistPage, portfolioPage, alertsPage } from './pages/tools.js';
 import { dataPage, methodPage } from './pages/system.js';
+import liquidityPage from './pages/liquidity.js';
 
 function setBoot(pct, msg) {
   const bar = $('#boot-bar');
@@ -25,6 +26,7 @@ const BOOT_MSG = {
   underlyings: 'Đang tải dữ liệu cổ phiếu cơ sở…',
   quality: 'Đang chạy kiểm tra chất lượng dữ liệu…',
   methodology: 'Đang tải phương pháp luận…',
+  liquidity: 'Đang tải dữ liệu thanh khoản…',
   done: 'Sẵn sàng.',
 };
 
@@ -84,6 +86,7 @@ async function boot() {
   registerRoute('cw', detail);
   registerRoute('recommendations', (view) => recommendationsPage(view));
   registerRoute('backtest', (view) => backtestPage(view));
+  registerRoute('liquidity', liquidityPage);
   registerRoute('watchlist', watchlistPage);
   registerRoute('portfolio', portfolioPage);
   registerRoute('alerts', alertsPage);

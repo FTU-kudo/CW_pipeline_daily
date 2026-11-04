@@ -14,12 +14,13 @@ Nền tảng phân tích **covered warrant (chứng quyền)** cho thị trườ
 |---|---|
 | Tổng quan | Số CW active/đáo hạn, độ rộng tăng–giảm, giá trị & khối lượng, ITM/ATM/OTM, top tăng/giảm/thanh khoản, phân bố theo TCPH và cổ phiếu cơ sở |
 | Heatmap | Treemap theo mã / cổ phiếu cơ sở / TCPH / moneyness; tô màu theo %thay đổi, CW Score, premium, IV, IV−HV, DTE, giá trị; nhấp để mở chi tiết |
-| Screener | 30+ trường số & định tính, logic AND/OR, 6 bộ lọc mẫu, lưu bộ lọc, chọn cột, sắp xếp, xuất CSV |
-| Chi tiết CW | Nến + KL + MA20/50, RSI, MACD, giá cổ phiếu cơ sở; bảng định giá; Greeks; lịch sử premium/IV; **phân tích kịch bản** (cơ sở ±, σ, thời gian nắm giữ); so sánh cùng cơ sở |
+| Screener | 35+ trường số & định tính, logic AND/OR, 8 bộ lọc mẫu, lưu bộ lọc, chọn cột, sắp xếp, xuất CSV/Excel |
+| Chi tiết CW | Nến + KL + MA20/50, RSI, MACD, giá cổ phiếu cơ sở; bảng định giá; Greeks; lịch sử premium/IV; **phân tích kịch bản**; **thanh khoản & máy tính thoát vị thế**; so sánh cùng cơ sở |
 | Khuyến nghị | CW Score 0–100 với 6 thành phần có trọng số, cổng chất lượng, yếu tố +/−, cảnh báo rủi ro, điều kiện vô hiệu hoá, kế hoạch giao dịch (entry/stop/TP/holding) |
 | Backtest | Walk-forward, không nhìn trước, có chi phí bid-ask/phí/trượt giá, xử lý đáo hạn, benchmark, độ nhạy (holding, ngưỡng điểm, chi phí, bộ lọc), báo cáo cả kết quả xấu |
+| Thanh khoản | ADV20/độ phủ/Amihud/biên độ theo TCPH và cổ phiếu cơ sở, danh sách cảnh báo, máy tính days-to-liquidate, bằng chứng thực nghiệm từ backtest |
 | Công cụ | Watchlist, danh mục mô phỏng (P/L, tỷ trọng, DTE), cảnh báo theo quy tắc (client-side) |
-| Dữ liệu | Kiểm tra chất lượng 15 hạng mục, metadata nguồn, phát hiện dữ liệu cũ, không che giấu cảnh báo |
+| Dữ liệu | Kiểm tra chất lượng 16 hạng mục, metadata nguồn, phát hiện dữ liệu cũ, không che giấu cảnh báo |
 
 ---
 
@@ -42,9 +43,9 @@ Chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 |---|---|
 | `pipeline.py` | Pipeline gốc: scrape Vietstock + tải OHLCV, xuất Excel & `docs/data.json` (giữ nguyên để tương thích) |
 | `cwintel/` | Thư viện phân tích mới: chuẩn hoá, Black–Scholes, chỉ báo, panel, scoring, recommendation, backtest, build JSON |
-| `docs/data/` | Artifact tĩnh cho dashboard (meta/market/screener/recommendations/underlyings/backtest/quality/methodology + series) |
+| `docs/data/` | Artifact tĩnh cho dashboard (meta/market/screener/recommendations/underlyings/liquidity/backtest/quality/methodology + series) |
 | `docs/assets/` | SPA không phụ thuộc thư viện ngoài (vanilla JS + canvas) |
-| `tests/` | 60+ kiểm thử pytest (BS, Greeks, IV, chỉ báo, scoring, backtest, artifact) |
+| `tests/` | 71 kiểm thử pytest (BS, Greeks, IV, chỉ báo, thanh khoản, scoring, backtest, artifact) |
 
 ---
 
@@ -91,12 +92,12 @@ Premium hoà vốn = (K + P_CW·n)/S − 1
 |---|---|---|
 | Động lượng cổ phiếu cơ sở | 25% | percentile return 21/63 phiên (trên các underlying duy nhất), trend MA20/50, RSI |
 | Định giá | 20% | percentile premium & IV residual **trong cùng cơ sở**, IV/HV, IV rank, dải delta |
-| Thanh khoản | 15% | log giá trị giao dịch TB 20 phiên, tỷ lệ phiên có giao dịch, tăng tốc KL |
+| Thanh khoản | 15% | ADV20 trên lịch đầy đủ, Amihud (tác động giá), độ phủ từ khi niêm yết, tác động giá ước tính, xu hướng ADV5/ADV20 |
 | Rủi ro/lợi nhuận | 20% | theta/ngày, khoảng cách hoà vốn, DTE, biến động, gearing hiệu dụng |
 | Kỹ thuật | 10% | RSI, MACD, MA20/50, breakout (giảm độ tin cậy nếu <30 phiên) |
 | Thời gian | 10% | DTE, ưu tiên 45–180 ngày |
 
-**Cổng chất lượng** (không bao giờ MUA MẠNH khi vi phạm): điểm thanh khoản, DQ, DTE, giá trị giao dịch TB, **IV−HV ≤ 40%**, **≥15 phiên lịch sử**.
+**Cổng chất lượng** (không bao giờ MUA MẠNH khi vi phạm): điểm thanh khoản, DQ, DTE, **ADV20 ≥ 100 triệu/phiên**, **độ phủ giao dịch ≥ 80%**, **biên độ high-low ≤ 12%**, **IV−HV ≤ 40%**, **≥15 phiên lịch sử**.
 
 Chi tiết công thức, giả định và giới hạn: [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) · từ điển dữ liệu: [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md)
 
@@ -108,12 +109,14 @@ Giai đoạn 06/2023 → 11/2026, tái cấu trúc 20 phiên, top-5 theo Score, 
 
 | Chiến lược | Tổng LN | CAGR | Sharpe | MDD |
 |---|---|---|---|---|
-| Top-5 theo CW Score | −91,1% | −50,8% | −0,75 | −92,4% |
+| Top-5 theo CW Score | −84,5% | −42,1% | −0,53 | −86,7% |
 | Toàn vũ trụ CW (EW) | −95,0% | −58,5% | −1,85 | −94,9% |
 | Ngẫu nhiên | −96,4% | −62,3% | −1,61 | −96,3% |
 | Cổ phiếu cơ sở (EW) | +44,9% | — | 0,44 | −20,3% |
 
-Kết luận không tô hồng: **mua CW nắm giữ ngắn hạn có kỳ vọng âm** trên dữ liệu Việt Nam (theta + IV cao + chênh lệch mua-bán). Bộ lọc duy nhất có kỳ vọng dương mỗi lệnh là **IV ≤ HV** (+0,27%/lệnh, win 58,9%, PF 1,02); kết hợp IV ≤ HV **và** cơ sở trên MA50 đạt +1,17%/lệnh (PF 1,09) nhưng tổng vẫn âm. Đây là lý do cổng IV được đưa vào điều kiện MUA/MUA MẠNH, và vì sao dashboard luôn hiển thị giới hạn mô hình thay vì "tín hiệu thắng".
+Kết luận không tô hồng: **mua CW nắm giữ ngắn hạn có kỳ vọng âm** trên dữ liệu Việt Nam (theta + IV cao + chênh lệch mua-bán). Bộ lọc **IV ≤ HV** giúp giảm lỗ mạnh (−2,44% → −0,13%/lệnh, win 57,1%) nhưng chưa dương; kết hợp IV ≤ HV **và** cơ sở trên MA50 đạt +0,66%/lệnh (44 lệnh, PF 1,05) nhưng tổng vẫn âm. Đây là lý do cổng IV được đưa vào điều kiện MUA/MUA MẠNH, và vì sao dashboard luôn hiển thị giới hạn mô hình thay vì "tín hiệu thắng".
+
+**Thanh khoản** được nghiên cứu riêng trong [`docs/RESEARCH_LIQUIDITY.md`](docs/RESEARCH_LIQUIDITY.md): trên 7.134 quan sát 20 phiên, nhóm ADV20 thấp nhất lỗ −18,3% và 14,1% lệnh không thoát được đúng hạn, nhóm cao nhất −3,9% và 8,0%; nhưng thêm bộ lọc ADV vào top-5 **không** tạo alpha. Vì vậy thanh khoản là **cổng rủi ro thực thi**, không phải tín hiệu mua — và điều này được ghi rõ trên dashboard.
 
 ---
 
@@ -133,7 +136,7 @@ Xem [`docs/DEPLOY.md`](docs/DEPLOY.md). Tóm tắt:
 - Không có dữ liệu bid/ask thật; chi phí giao dịch là giả định (0,50% nửa chênh lệch + 0,15% phí + 0,30% trượt giá mỗi chiều).
 - IV suy ra từ giá cuối phiên, chịu ảnh hưởng bước giá 10 VND (đặc biệt CW giá < 100 VND).
 - Không mô phỏng cổ tức/thưởng phát sinh **sau** ngày dữ liệu; điều khoản đã điều chỉnh chỉ phản ánh lịch sử.
-- Thanh khoản CW Việt Nam mỏng: giá trị giao dịch TB 20 phiên có thể bị méo bởi một phiên đột biến.
+- Thanh khoản CW Việt Nam mỏng và phân tán: 31% số CW chỉ chiếm 1,3% giá trị giao dịch; ADV20 tính trên lịch đầy đủ (phiên trắng = 0) và **tính lại tại ngày as-of**, nhưng vẫn bao gồm giao dịch của tổ chức tạo lập thị trường. Không có dữ liệu bid/ask.
 - Dashboard không đặt lệnh, không kết nối tài khoản, không gửi dữ liệu ra ngoài.
 - Cảnh báo chạy phía trình duyệt; Telegram/email cần backend riêng.
 
@@ -153,6 +156,7 @@ Xem [`docs/DEPLOY.md`](docs/DEPLOY.md). Tóm tắt:
 │   ├── data/                   # artifact JSON (sinh tự động, KHÔNG sửa tay)
 │   ├── AUDIT.md                # kiểm toán dữ liệu & lỗi hệ thống cũ
 │   ├── ARCHITECTURE.md  DATA_DICTIONARY.md  METHODOLOGY.md  DEPLOY.md
+│   ├── RESEARCH_LIQUIDITY.md  # nghiên cứu thanh khoản (số liệu thực nghiệm)
 ├── output/cache/               # parquet cache (nguồn cho cwintel)
 ├── tests/                      # pytest
 └── .github/workflows/          # pipeline gốc + CW Intelligence

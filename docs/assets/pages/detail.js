@@ -7,6 +7,7 @@ import {
 const TABS = [
   ['overview', 'Tổng quan'],
   ['valuation', 'Định giá & Greeks'],
+  ['liquidity', 'Thanh khoản'],
   ['scenario', 'Phân tích kịch bản'],
   ['peers', 'So sánh cùng cơ sở'],
   ['plan', 'Kế hoạch & rủi ro'],
@@ -229,6 +230,113 @@ function tabValuation(host, row, card) {
 }
 
 /* ---------------- TAB: KỊCH BẢN ---------------- */
+/* ---------------- TAB: THANH KHOẢN ---------------- */
+async function tabLiquidity(host, row, card) {
+  host.appendChild(statline([
+    ['ADV20', fmt.vnd(row.adv20)],
+    ['ADV5', fmt.vnd(row.adv5)],
+    ['Độ phủ (từ niêm yết)', (row.covList ?? row.cov20) == null ? '—' : fmt.n(row.covList ?? row.cov20, 0) + '%', (row.covList ?? row.cov20 ?? 100) >= 80 ? 'up' : 'down'],
+    ['Phiên trắng 20P', fmt.n(row.zero20, 0)],
+    ['Amihud20', row.amihud == null ? '—' : fmt.n(row.amihud, 2) + '%/tỷ'],
+    ['Biên độ HL 20P', row.range20 == null ? '—' : fmt.n(row.range20, 1) + '%'],
+    ['Turnover20', row.turnover == null ? '—' : fmt.n(row.turnover, 2) + '%'],
+    ['DTL 50 triệu', row.dtl == null ? '—' : fmt.n(row.dtl, 1) + ' phiên'],
+    ['Tác động 50 triệu', row.impact == null ? '—' : fmt.n(row.impact, 2) + '%'],
+    ['Nhóm', row.liqBucket || '—'],
+  ]));
+
+  const series = await data.cwSeries(row.t);
+  if (series?.adv?.length) {
+    const advCanvas = el('canvas');
+    const covCanvas = el('canvas');
+    const cut = Math.max(0, series.adv.length - 160);
+    const grid = el('div', { class: 'grid cols-2' }, [
+      chartCard('ADV20 theo phiên', advCanvas, 170),
+      chartCard('Độ phủ giao dịch 20 phiên (%)', covCanvas, 170),
+    ]);
+    host.appendChild(grid);
+    const paint = () => {
+      const g = getComputedStyle(document.documentElement);
+      drawLine(advCanvas, {
+        height: 170, labels: series.dates.slice(cut),
+        series: [{
+          name: 'ADV20', values: series.adv.slice(cut),
+          color: g.getPropertyValue('--accent').trim(), fill: true,
+        }],
+        yFormat: (v) => fmt.vnd(v),
+      });
+      drawLine(covCanvas, {
+        height: 170, labels: series.dates.slice(cut),
+        series: [{
+          name: 'Độ phủ', values: (series.cov || []).slice(cut),
+          color: g.getPropertyValue('--accent-2').trim(), fill: true,
+        }],
+        yMin: 0, yMax: 100, yFormat: (v) => fmt.n(v, 0) + '%',
+      });
+    };
+    requestAnimationFrame(paint);
+    onThemeChange(paint);
+  }
+
+  host.appendChild(sectionHead('Máy tính thoát vị thế', el('span', {
+    class: 'tiny muted', text: 'dựa trên ADV20 và biến động của chính CW này',
+  })));
+  const posInput = el('input', { class: 'input', type: 'number', value: '50', min: '1', step: '10', style: 'width:120px' });
+  const result = el('div', { class: 'grid cols-3', style: 'margin-top:10px' });
+  const calc = () => {
+    const pos = Number(posInput.value) * 1e6;
+    result.innerHTML = '';
+    if (!(pos > 0) || !(row.adv20 > 0)) return;
+    const part = data.liquidity?.thresholds?.participation || 0.2;
+    const eta = data.liquidity?.thresholds?.impactEta || 0.1;
+    const sigma = (row.atrPct || 5) / 100;
+    const dtl = pos / (part * row.adv20);
+    const impact = eta * sigma * Math.sqrt(pos / row.adv20) * 100;
+    result.append(
+      mini('Số phiên cần thoát', fmt.n(dtl, 1), dtl > 5 ? 'down' : dtl > 1 ? '' : 'up'),
+      mini('Tác động giá ước tính', fmt.n(impact, 2) + '%', impact > 1 ? 'down' : ''),
+      mini('Quy mô tối đa nên giao dịch', fmt.vnd(0.2 * row.adv20), ''),
+    );
+  };
+  posInput.addEventListener('input', calc);
+  host.appendChild(el('div', { class: 'filter-row' }, [
+    el('span', { class: 'tiny muted', text: 'Vị thế (triệu VND)' }), posInput,
+    el('span', { class: 'tiny muted', text: 'giả định tham gia 20% ADV20 mỗi phiên' }),
+  ]));
+  host.appendChild(result);
+  calc();
+
+  if (card) {
+    const liqWarn = (card.risk_warnings || []).filter((w) => /thanh khoản|ADV|phiên|trượt giá|Amihud|biên độ/i.test(w));
+    if (liqWarn.length) {
+      host.appendChild(el('div', { class: 'notice warn', html: `<b>Cảnh báo:</b><ul style="margin:6px 0 0 18px">${
+        liqWarn.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` }));
+    }
+  }
+
+  const peers = data.activeRows().filter((r) => r.u === row.u).sort((a, b) => (b.adv20 || 0) - (a.adv20 || 0));
+  if (peers.length > 1) {
+    host.appendChild(sectionHead(`Thanh khoản các CW cùng ${row.u}`));
+    host.appendChild(table({
+      compact: true,
+      onRowClick: (r) => navigate(`#/cw/${r.t}`),
+      columns: [
+        { key: 't', title: 'Mã', render: (r) => el('span', { class: 'tbl-ticker', text: r.t }) },
+        { key: 'adv20', title: 'ADV20', align: 'right', render: (r) => fmt.vnd(r.adv20) },
+        { key: 'cov20', title: 'Phủ TK', align: 'right', render: (r) => { const v = r.covList ?? r.cov20; return v == null ? '—' : fmt.n(v, 0) + '%'; } },
+        { key: 'zero20', title: 'Phiên trắng', align: 'right', render: (r) => fmt.n(r.zero20, 0) },
+        { key: 'dtl', title: 'DTL 50tr', align: 'right', render: (r) => (r.dtl == null ? '—' : fmt.n(r.dtl, 1)) },
+        { key: 'impact', title: 'Tác động', align: 'right', render: (r) => (r.impact == null ? '—' : fmt.n(r.impact, 2) + '%') },
+        { key: 'score', title: 'Điểm', align: 'right', render: (r) => fmt.n(r.score, 1) },
+      ],
+      rows: peers,
+    }));
+  }
+  host.appendChild(el('div', { class: 'tiny muted', style: 'margin-top:8px', text:
+    'ADV20 tính trên lịch giao dịch đầy đủ, phiên không khớp lệnh = 0 VND. '
+    + 'DTL và tác động giá là ước lượng theo công thức công bố (20% ADV, mô hình căn bậc hai), không phải bảo đảm.' }));
+}
+
 function tabScenario(host, row) {
   const controls = el('div', { class: 'card scenario-controls' });
   const out = el('div', { class: 'card' });
@@ -542,6 +650,7 @@ export default async function detail(view, ticker) {
     body.innerHTML = '';
     if (state.tab === 'overview') tabOverview(body, row, card);
     else if (state.tab === 'valuation') tabValuation(body, row, card);
+    else if (state.tab === 'liquidity') tabLiquidity(body, row, card);
     else if (state.tab === 'scenario') tabScenario(body, row);
     else if (state.tab === 'peers') tabPeers(body, row);
     else tabPlan(body, row, card);

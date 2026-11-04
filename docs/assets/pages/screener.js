@@ -19,6 +19,12 @@ const FIELDS = [
   { key: 'fvSmile', label: 'Giá trị hợp lý (smile)', type: 'num', unit: 'VND', step: 10 },
   { key: 'upsideSmile', label: 'Upside so giá trị hợp lý', type: 'num', unit: '%', step: 5 },
   { key: 'value20', label: 'GT giao dịch TB 20P', type: 'num', unit: 'VND', step: 1000000 },
+  { key: 'adv20', label: 'ADV20 (lịch đầy đủ)', type: 'num', unit: 'VND', step: 10000000 },
+  { key: 'covList', label: 'Độ phủ giao dịch từ khi niêm yết', type: 'num', unit: '%', step: 10 },
+  { key: 'cov20', label: 'Độ phủ giao dịch 20P (thô)', type: 'num', unit: '%', step: 10 },
+  { key: 'amihud', label: 'Amihud20 (%/1 tỷ VND)', type: 'num', unit: '%', step: 0.5 },
+  { key: 'range20', label: 'Biên độ high-low 20P', type: 'num', unit: '%', step: 1 },
+  { key: 'dtl', label: 'Số phiên thoát 50 tr (20% ADV)', type: 'num', unit: 'phiên', step: 1 },
   { key: 'vol', label: 'Khối lượng phiên', type: 'num', unit: 'CW', step: 10000 },
   { key: 'rsi', label: 'RSI (CW)', type: 'num', unit: '', step: 5 },
   { key: 'atrPct', label: 'ATR / giá', type: 'num', unit: '%', step: 1 },
@@ -87,6 +93,24 @@ const PRESETS = {
       { field: 'premium', op: '>=', v1: 40 },
     ],
   },
+  liquidity: {
+    label: 'Thanh khoản tốt',
+    logic: 'AND',
+    conditions: [
+      { field: 'adv20', op: '>=', v1: 200000000 },
+      { field: 'covList', op: '>=', v1: 80 },
+      { field: 'dte', op: '>=', v1: 30 },
+    ],
+  },
+  exit: {
+    label: 'Dễ thoát hàng',
+    logic: 'AND',
+    conditions: [
+      { field: 'dtl', op: '<=', v1: 1 },
+      { field: 'covList', op: '>=', v1: 90 },
+      { field: 'range20', op: '<=', v1: 8 },
+    ],
+  },
   watch: {
     label: 'MUA/MUA MẠNH + DQ cao',
     logic: 'AND',
@@ -121,6 +145,13 @@ const ALL_COLUMNS = [
   { key: 'fvSmile', title: 'FV smile', align: 'right', render: (r) => fmt.px(r.fvSmile) },
   { key: 'upsideSmile', title: 'Upside', align: 'right', render: (r) => el('span', { class: fmt.cls(r.upsideSmile), text: fmt.pct(r.upsideSmile, 1) }) },
   { key: 'value20', title: 'GT 20P', align: 'right', render: (r) => fmt.vnd(r.value20) },
+  { key: 'adv20', title: 'ADV20', align: 'right', render: (r) => fmt.vnd(r.adv20) },
+  { key: 'covList', title: 'Phủ TK', align: 'right', render: (r) => { const v = r.covList ?? r.cov20; return v === null || v === undefined ? '—' : fmt.n(v, 0) + '%'; } },
+  { key: 'cov20', title: 'Phủ 20P', align: 'right', render: (r) => (r.cov20 === null || r.cov20 === undefined ? '—' : fmt.n(r.cov20, 0) + '%') },
+  { key: 'amihud', title: 'Amihud', align: 'right', render: (r) => fmt.n(r.amihud, 2) },
+  { key: 'range20', title: 'Biên độ HL', align: 'right', render: (r) => (r.range20 === null || r.range20 === undefined ? '—' : fmt.n(r.range20, 1) + '%') },
+  { key: 'dtl', title: 'DTL 50tr', align: 'right', render: (r) => (r.dtl === null || r.dtl === undefined ? '—' : fmt.n(r.dtl, 1)) },
+  { key: 'liqBucket', title: 'Nhóm TK', render: (r) => el('span', { class: 'badge tag', text: r.liqBucket || '—' }) },
   { key: 'value', title: 'GT phiên', align: 'right', render: (r) => fmt.vnd(r.value) },
   { key: 'vol', title: 'KL phiên', align: 'right', render: (r) => fmt.compact(r.vol) },
   { key: 'rsi', title: 'RSI', align: 'right', render: (r) => fmt.n(r.rsi, 0) },
@@ -146,7 +177,7 @@ const ALL_COLUMNS = [
   },
 ];
 
-const DEFAULT_COLS = ['t', 'u', 'price', 'chg1', 'ret5', 'premium', 'dte', 'iv', 'ivVsHv', 'value20', 'score', 'rec'];
+const DEFAULT_COLS = ['t', 'u', 'price', 'chg1', 'ret5', 'premium', 'dte', 'iv', 'ivVsHv', 'adv20', 'covList', 'score', 'rec'];
 
 let state = {
   logic: 'AND',
@@ -401,6 +432,8 @@ function exportCsv(rows) {
     ['premium', 'Premium (%)'], ['dte', 'DTE'], ['iv', 'IV'], ['ivVsHv', 'IV-HV (%)'], ['ivRank', 'IV rank'],
     ['delta', 'Delta'], ['gamma', 'Gamma'], ['theta', 'Theta'], ['vega', 'Vega'], ['fvSmile', 'FV smile'],
     ['upsideSmile', 'Upside (%)'], ['fvHv', 'FV HV'], ['value', 'GT phiên'], ['value20', 'GT 20P'], ['vol', 'KL phiên'],
+  ['adv20', 'ADV20 (VND)'], ['covList', 'Phủ từ niêm yết (%)'], ['cov20', 'Độ phủ 20P thô (%)'], ['amihud', 'Amihud20 (%/tỷ)'], ['range20', 'Biên độ HL (%)'],
+  ['dtl', 'DTL 50tr (phiên)'], ['liqBucket', 'Nhóm thanh khoản'],
     ['rsi', 'RSI'], ['sessions', 'Số phiên'], ['score', 'Điểm'], ['dq', 'DQ'], ['rec', 'Khuyến nghị'],
   ];
   const out = rows.map((r) => Object.fromEntries(cols.map(([k, label]) => [label, r[k] ?? ''])));
@@ -462,7 +495,11 @@ export default function screener(view) {
   const params = new URLSearchParams(m && m[1] ? m[1] : '');
   state.q = params.get('u') || '';
   state.recFilter = params.get('rec') || '';
-  if (params.get('preset') && PRESETS[params.get('preset')]) {
+  if (params.get('iss')) {
+    state.q = '';
+    state.conditions = [{ field: 'iss', op: '=', v1: params.get('iss') }];
+    state.logic = 'AND';
+  } else if (params.get('preset') && PRESETS[params.get('preset')]) {
     state.conditions = PRESETS[params.get('preset')].conditions.map((c) => ({ ...c }));
     state.logic = PRESETS[params.get('preset')].logic;
   } else if (params.get('u') || params.get('rec')) {

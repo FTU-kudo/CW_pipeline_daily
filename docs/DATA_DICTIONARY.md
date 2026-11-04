@@ -114,8 +114,20 @@ Mỗi dòng (CW active):
 | `ivRank` | 0–100 | percentile IV 1 năm |
 | `ivQuality` | str | ok / low / stale |
 | `vol`, `value`, `value20` | CW, VND, VND | KL phiên, GT phiên, GT TB 20 phiên |
-| `traded20` | % | % phiên có giao dịch (20 phiên) |
+| `traded20` | % | % phiên có giao dịch (20 phiên) — thô, chưa trừ thời gian niêm yết |
 | `volAccel` | × | KL 5 phiên / KL TB 20 phiên |
+| `adv20`, `adv5` | VND/phiên | GT giao dịch bình quân 20/5 phiên trên **lịch giao dịch đầy đủ** (phiên không khớp lệnh = 0) |
+| `cov20` | % | Độ phủ giao dịch 20 phiên thô (CW mới niêm yết sẽ thấp) |
+| `covList` | % | Độ phủ tính từ ngày giao dịch đầu tiên — dùng cho cảnh báo/cổng |
+| `listedSessions` | phiên | Số phiên kể từ ngày giao dịch đầu tiên |
+| `zero20` | phiên | Số phiên không khớp lệnh trong 20 phiên |
+| `amihud` | %/1 tỷ VND | Amihud20: trung vị \|r\|/GT giao dịch × 1e9 (cao = tác động giá lớn) |
+| `range20` | % | Trung vị (high − low)/close 20 phiên — proxy chênh lệch mua-bán |
+| `turnover` | % | Khối lượng bình quân / lượng CW lưu hành |
+| `liqTrend` | × | ADV5/ADV20 (>1 = thanh khoản cải thiện) |
+| `dtl` | phiên | Số phiên cần thoát vị thế 50 triệu VND ở mức 20% ADV20 |
+| `impact` | % | Ước lượng tác động giá cho 50 triệu VND: η·σ·√(Q/ADV), η = 0,10 |
+| `liqBucket` | str | Nhóm thanh khoản hiển thị (rất thấp → rất cao) |
 | `rsi`, `macdH`, `ma20`, `ma50`, `above20`, `above50`, `breakout` | | chỉ báo trên chuỗi CW |
 | `atr`, `atrPct` | VND, % | ATR(14) và ATR/giá |
 | `sessions` | phiên | số phiên có dữ liệu |
@@ -187,6 +199,23 @@ Các mảng cùng độ dài, cùng thứ tự thời gian. Phần tử thiếu 
 `{asof, items: [...]}`; mỗi item: `{u, close, ret1, ret5, ret21, ret63, rsi, ma20, ma50, ma200, above20, hv20, hv60, hv252, distHigh60, nCw, avgScore, bestCw, bestScore}`.
 
 ---
+
+## 7b. `liquidity.json`
+
+Mặt cắt thanh khoản của phiên dữ liệu:
+
+| Khoá | Nội dung |
+|---|---|
+| `kpi` | ADV20 trung vị/trung bình, độ phủ trung vị, Amihud trung vị, biên độ trung vị, tập trung top-1/5/10, số CW vướng từng ngưỡng cảnh báo |
+| `distribution` | p25/median/p75/p90 của `adv`, `coverage`, `amihud`, `range` |
+| `buckets` | Phân bố theo nhóm ADV20: số CW, % vũ trụ, % giá trị phiên, độ phủ trung vị |
+| `byIssuer`, `byUnderlying` | ADV20 trung vị, độ phủ, giá trị theo TCPH / cổ phiếu cơ sở |
+| `universeFlags` | Một dòng / CW: `adv20`, `cov20`, `covList`, `zero20`, `amihud`, `range20`, `dtl`, `bucket`, `rec`, `score` |
+| `idle` | CW đang niêm yết nhưng không có giao dịch trong 14 phiên gần nhất (không vào snapshot) |
+| `rankCorr` | Tương quan hạng trong mặt cắt: thanh khoản × premium/IV/DTE |
+| `thresholds`, `gates` | Tham số mô hình (tỷ lệ tham gia, vị thế tham chiếu, η, ngưỡng cảnh báo) và cổng khuyến nghị |
+
+`backtest.json` có thêm khối `liquidity` (quintile ADV20 toàn vũ trụ, ngưỡng ADV, lợi nhuận/thắng lệ).
 
 ## 8. `backtest.json`
 

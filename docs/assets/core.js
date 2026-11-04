@@ -123,7 +123,7 @@ export async function loadJSON(path) {
 
 export const data = {
   meta: null, market: null, screener: null, recommendations: null,
-  underlyings: null, quality: null, methodology: null, backtest: null,
+  underlyings: null, quality: null, methodology: null, backtest: null, liquidity: null,
   series: new Map(),
   async init(onProgress = () => {}) {
     const steps = [
@@ -134,6 +134,7 @@ export const data = {
       ['underlyings', 'underlyings.json'],
       ['quality', 'quality.json'],
       ['methodology', 'methodology.json'],
+      ['liquidity', 'liquidity.json'],
     ];
     let i = 0;
     for (const [key, file] of steps) {

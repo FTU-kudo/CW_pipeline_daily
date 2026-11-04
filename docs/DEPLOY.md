@@ -103,7 +103,7 @@ Checklist thủ công trên dashboard:
 - [ ] Khuyến nghị: mở card, xem lý do, kế hoạch hoặc "Chưa đủ dữ liệu"
 - [ ] Backtest: đường vốn, độ nhạy, bảng lệnh, caveats
 - [ ] Watchlist/danh mục lưu sau khi tải lại trang
-- [ ] Chất lượng dữ liệu: 15 kiểm tra, 0 lỗi
+- [ ] Chất lượng dữ liệu: 16 kiểm tra, 0 lỗi
 
 ## 8. Xử lý sự cố
 

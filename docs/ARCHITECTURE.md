@@ -24,12 +24,13 @@ Không có backend, không có database, không có API key trong repo. Mọi th
                         │ cwintel/data.py    chuẩn hoá, dedupe     │
                         │ cwintel/dates.py   parse ngày/số VN      │
                         │ cwintel/panels.py  panel đặc trưng       │
+                        │ cwintel/liquidity.py ADV/Amihud/DTL    │
                         │ cwintel/bs.py      BS, Greeks, IV        │
                         │ cwintel/indicators.py RSI/MACD/ATR/HV    │
                         │ cwintel/scoring.py CW Score + cổng       │
                         │ cwintel/recommend.py card, kế hoạch      │
                         │ cwintel/backtest.py walk-forward         │
-                        │ cwintel/quality.py 15 kiểm tra DQ        │
+                        │ cwintel/quality.py 16 kiểm tra DQ        │
                         │ cwintel/methodology.py công bố phương pháp│
                         │ cwintel/build.py   xuất artifact         │
                         └──────────────────┬───────────────────────┘
@@ -93,7 +94,7 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 | `recommendations.json` | card đầy đủ cho mọi CW active | ~1,1 MB |
 | `underlyings.json` | tổng hợp 22 cổ phiếu cơ sở | ~6 KB |
 | `backtest.json` | summary, curve, trades, buckets, độ nhạy, caveats | ~100 KB |
-| `quality.json` | 15 kiểm tra + headline | ~5 KB |
+| `quality.json` | 16 kiểm tra + headline | ~5 KB |
 | `methodology.json` | công thức, trọng số, cổng, giới hạn | ~9 KB |
 | `series/cw/<ticker>.json` | ~759 tệp, chỉ CW active hoặc giao dịch trong 365 ngày | ~11 MB |
 | `series/und/<sym>.json` | 22 tệp, 500 phiên gần nhất | ~2 MB |

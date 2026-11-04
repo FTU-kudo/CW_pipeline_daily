@@ -104,7 +104,7 @@ CW thiếu dữ liệu vì thế **không bị điểm 0 oan** — chỉ giảm 
 |---|---|---|
 | `underlying_momentum` | 25% | 40% percentile return 21 phiên + 20% percentile return 63 phiên + 20% trend (trên MA20/MA50) + 15% dải RSI cơ sở + 5% khoảng cách đỉnh 60 phiên. **Percentile tính trên các underlying duy nhất**, không theo số CW. |
 | `valuation` | 20% | 30% percentile premium trong cùng cơ sở + 30% percentile IV residual trong cùng cơ sở + 15% percentile IV−HV + 10% percentile FV smile upside + 5% IV rank + 10% dải delta (ưu tiên 0,30–0,70; phạt <0,15 hoặc >0,85). |
-| `liquidity` | 15% | 50% percentile log(GT TB 20 phiên) + 25% % phiên có giao dịch + 25% percentile tăng tốc khối lượng. |
+| `liquidity` | 15% | 35% percentile log(ADV20 — GT giao dịch bình quân trên lịch đầy đủ) + 20% percentile Amihud20 (thấp tốt) + 20% độ phủ giao dịch tính từ khi niêm yết + 15% dải tác động giá ước tính cho vị thế 50 triệu VND + 10% dải xu hướng ADV5/ADV20. |
 | `risk_reward` | 20% | 30% dải theta/ngày + 25% dải khoảng cách hoà vốn + 25% dải DTE + 10% dải biến động (ưu tiên vùng 40–65 percentile) + 10% dải gearing hiệu dụng. |
 | `technical` | 10% | 30% dải RSI CW + 20% MACD histogram + 10% độ dốc MACD + 20% trên MA20 + 10% trên MA50 + 10% breakout 20 phiên. |
 | `time_to_maturity` | 10% | Dải DTE: 45–180 ngày = 100; 180–270 = 80; 30–45 = 70; 270–365 = 55; 21–30 = 40; 14–21 = 20; <14 = 5; >365 = 35. |
@@ -142,13 +142,21 @@ Ngưỡng được áp **tăng dần** (lỗi cũ áp giảm dần khiến toàn
 | Điểm thanh khoản tối thiểu | 60 | 40 |
 | DQ tối thiểu | 0,80 | 0,65 |
 | DTE tối thiểu | 21 ngày | 14 ngày |
-| GT giao dịch TB 20 phiên | 50 triệu | 10 triệu |
+| ADV20 (GT/phiên, lịch đầy đủ) | 100 triệu | 20 triệu |
+| Độ phủ giao dịch (từ niêm yết) | 80% | 50% |
+| Biên độ high-low 20P tối đa | 12% | — |
+| GT giao dịch trung vị 20 phiên | 50 triệu | 10 triệu |
 | IV − HV tối đa | +40% | +60% |
 | Số phiên lịch sử tối thiểu | 15 | 10 |
 
 Vi phạm → hạ xuống một bậc **và ghi lý do** vào `rec_reason` (ví dụ "Hạ từ MUA MẠNH do lịch sử giao dịch quá ngắn"). Nếu vi phạm tiếp cổng của bậc dưới, hạ tiếp. Không bao giờ tự động nâng hạng.
 
 Cổng IV được thêm sau khi nghiên cứu bộ lọc (xem §6.4): chỉ CW có IV ≤ HV mới có kỳ vọng dương mỗi lệnh.
+
+Cổng thanh khoản (`ADV20`, độ phủ, biên độ) được thêm sau nghiên cứu **liquidity** (xem `docs/RESEARCH_LIQUIDITY.md`).
+Bằng chứng: trên 7.134 quan sát 20 phiên, nhóm ADV20 thấp nhất lỗ trung bình −18,3% và 14,1% lệnh không thoát được
+đúng hạn, nhóm cao nhất −3,9% và 8,0%; tác động này **không** chuyển thành alpha khi đã lọc top-5 theo điểm,
+nên cổng thanh khoản được dùng để chặn rủi ro thoát hàng, không phải để tăng lợi nhuận.
 
 ### 4.2 Kế hoạch giao dịch
 
@@ -193,33 +201,45 @@ R:R           = (TP1 − giá) / (giá − stop)
 
 | Chiến lược | Tổng LN | CAGR | Vol | Sharpe | MDD | % kỳ dương |
 |---|---|---|---|---|---|---|
-| Top-5 Score | −91,1% | −50,8% | 67,5% | −0,75 | −92,4% | 41,9% |
+| Top-5 Score | −84,5% | −42,1% | 67,0% | −0,53 | −86,7% | 46,5% |
 | Toàn vũ trụ EW | −95,0% | −58,5% | 43,0% | −1,85 | −94,9% | 30,2% |
-| Ngẫu nhiên | −96,4% | −62,3% | 52,5% | −1,61 | −96,3% | — |
-| Cổ phiếu cơ sở EW | +44,9% | — | — | 0,44 | −20,3% | — |
+| Ngẫu nhiên | −96,4% | −62,3% | 52,5% | −1,61 | −96,3% | 27,9% |
+| Cổ phiếu cơ sở EW | +44,9% | +11,5% | 18,6% | 0,44 | −20,3% | 53,5% |
 
-Chi tiết lệnh: 215 lệnh, win 47,4%, TB −2,96%/lệnh, trung vị −7,2%, PF 0,78, stop 46,0%, TP 44,2%, giữ TB 7,3 phiên.
+Chi tiết lệnh: 215 lệnh, win 47,9%, TB −2,44%/lệnh, trung vị −8,1%, PF 0,81, stop 45,6%, TP 45,1%, giữ TB 7,2 phiên.
+
+*Lưu ý phiên bản:* điểm v1.1.0 đổi trọng số thành phần thanh khoản và bổ sung cổng ADV/độ phủ/biên độ, nên
+kết quả top-5 thay đổi so với v1.0.0 (−91,1% → −84,5%). Đây là **cùng một giai đoạn, cùng chi phí**, chỉ khác
+cách chấm điểm; không phải kết quả được chọn lọc.
 
 ### 6.3 Độ nhạy
 
 | Thay đổi | Kết quả |
 |---|---|
-| Giữ 5 / 10 / 20 phiên | −74,8% / −83,0% / −87,8% tổng |
-| Ngưỡng điểm 45 / 65 / 80 | −87,8% / −87,5% / −43,8% |
-| Chi phí 0,5% / 1% / 2% mỗi chiều | TB/lệnh −2,06% / −3,06% / −5,06% |
+| Giữ 5 / 10 / 20 phiên | −75,3% / −78,9% / −84,5% tổng |
+| Ngưỡng điểm 45 / 65 / 80 | −84,5% / −86,8% / −49,9% |
+| Chi phí 0,5% / 1% / 2% mỗi chiều | TB/lệnh −1,54% / −2,54% / −4,54% |
 
 ### 6.4 Bộ lọc — phát hiện quan trọng
 
 | Bộ lọc | n | TB/lệnh | Win | PF | Tổng |
 |---|---|---|---|---|---|
-| Baseline (top-5 Score) | 215 | −2,96% | 47,4% | 0,78 | −87,8% |
-| **IV ≤ HV** | 56 | **+0,27%** | **58,9%** | **1,02** | −86,0% |
-| **IV ≤ HV và cơ sở trên MA50** | 44 | **+1,17%** | **61,4%** | **1,09** | −61,7% |
-| IV residual ≤ 0 | 69 | −4,46% | 45,1% | 0,70 | −93,8% |
-| Cơ sở trên MA50 | 171 | −3,61% | 47,6% | 0,73 | −86,9% |
-| Điểm ≥ 80 | 127 | −0,63% | 52,8% | 0,95 | −33,7% |
+| Baseline (top-5 Score) | 215 | −2,44% | 47,9% | 0,81 | −84,5% |
+| **IV ≤ HV** | 56 | **−0,13%** | **57,1%** | **0,99** | −86,5% |
+| **IV ≤ HV và cơ sở trên MA50** | 44 | **+0,66%** | **59,1%** | **1,05** | −63,2% |
+| IV residual ≤ 0 | 215 | −4,93% | 43,3% | 0,66 | −95,0% |
+| Cơ sở trên MA50 | 206 | −3,37% | 47,1% | 0,74 | −85,0% |
+| Điểm ≥ 80 | 140 | −1,76% | 50,7% | 0,86 | −71,6% |
+| ADV20 ≥ 200 triệu | 207 | −3,91% | 45,4% | 0,71 | −92,1% |
+| Biên độ high-low ≤ 10% | 215 | −3,01% | 45,1% | 0,71 | −82,3% |
+| IV ≤ HV và biên độ ≤ 10% | 33 | **+4,72%** | **66,7%** | **1,65** | +43,5% |
 
-Kết luận: **điểm cao một mình không đủ**; điều kiện "không trả giá biến động cao hơn biến động thực tế" mới tạo kỳ vọng dương. Vì vậy cổng IV−HV ≤ 40% được đưa vào MUA/MUA MẠNH.
+Kết luận: **điểm cao một mình không đủ**; điều kiện "không trả giá biến động cao hơn biến động thực tế" giúp
+giảm lỗ (từ −2,44% xuống −0,13%/lệnh) nhưng chưa dương. Chỉ khi kết hợp thêm cơ sở trên MA50 mới có kỳ vọng
+dương nhẹ (+0,66%/lệnh, 44 lệnh). Vì vậy cổng IV−HV ≤ 40% được đưa vào MUA/MUA MẠNH.
+
+Bộ lọc thanh khoản (ADV, Amihud, biên độ) **không** cải thiện lợi nhuận top-5 — chi tiết và diễn giải trong
+[`RESEARCH_LIQUIDITY.md`](RESEARCH_LIQUIDITY.md). Chúng được dùng làm cổng rủi ro thực thi, không phải tín hiệu alpha.
 
 ### 6.5 Kiểm định tính đơn điệu của thang điểm
 
@@ -227,12 +247,14 @@ Lợi nhuận 20 phiên tới theo nhóm điểm (toàn bộ CW, không chỉ to
 
 | Nhóm | n | TB | Trung vị | Win |
 |---|---|---|---|---|
-| 80–100 | 223 | −2,0% | −9,3% | 40,8% |
-| 65–79 | 1.924 | −1,0% | −7,3% | 39,5% |
-| 45–64 | 2.624 | −10,7% | −16,7% | 29,8% |
-| 30–44 | 115 | −34,7% | −32,9% | 15,7% |
+| 80–100 | 295 | −1,83% | −7,62% | 40,7% |
+| 65–79 | 2.050 | −0,37% | −7,69% | 39,7% |
+| 45–64 | 2.444 | −12,19% | −17,30% | 28,7% |
+| 30–44 | 97 | −34,77% | −34,96% | 18,6% |
 
-Đơn điệu nhưng **yếu** — chênh lệch giữa nhóm cao và trung bình nhỏ. Đây là lý do xếp hạng được trình bày như **thang tương đối trong vũ trụ hiện tại**, không phải xác suất sinh lời.
+Đơn điệu ở nửa dưới nhưng **không đơn điệu ở đỉnh**: nhóm 65–79 tốt hơn nhẹ nhóm 80–100 (chênh lệch nằm trong
+sai số với 295 quan sát). Vì vậy xếp hạng được trình bày như **thang tương đối trong vũ trụ hiện tại**, không
+phải xác suất sinh lời, và cổng chất lượng được dùng để tránh "điểm cao nhưng không giao dịch được". Đây là lý do xếp hạng được trình bày như **thang tương đối trong vũ trụ hiện tại**, không phải xác suất sinh lời.
 
 ---
 
@@ -244,16 +266,20 @@ Lợi nhuận 20 phiên tới theo nhóm điểm (toàn bộ CW, không chỉ to
 4. **Không mô hình hoá sự kiện doanh nghiệp tương lai** (cổ tức, thưởng) làm thay đổi K, n.
 5. **Rủi ro tổ chức phát hành** không định lượng được từ dữ liệu giá; chỉ cảnh báo khi tập trung > 35% GT giao dịch.
 6. **Backtest quá khứ 2023–2026** — thị trường CW Việt Nam còn non, chỉ 18 TCPH; kết quả nhạy với giai đoạn.
-7. **Không over-fit**: chỉ một bộ trọng số được công bố; các bảng độ nhạy cho thấy kết quả không phụ thuộc tinh chỉnh nhỏ, và bộ lọc IV được chọn vì có cơ sở kinh tế (không mua biến động đắt) chứ không phải tối ưu tham số.
+7. **Thanh khoản không có dữ liệu sổ lệnh**: ADV bao gồm giao dịch tạo lập thị trường, biên độ high-low là proxy
+   cho chênh lệch mua-bán, và DTL giả định tham gia đều 20% ADV — xem `RESEARCH_LIQUIDITY.md` §11.
+8. **Không over-fit**: chỉ một bộ trọng số được công bố; các bảng độ nhạy cho thấy kết quả không phụ thuộc tinh chỉnh nhỏ, và bộ lọc IV được chọn vì có cơ sở kinh tế (không mua biến động đắt) chứ không phải tối ưu tham số.
 
 ---
 
 ## 8. Kiểm thử
 
-`pytest -q` — 60+ test, gồm:
+`pytest -q` — 71 test, gồm:
 
 - BS: parity, tỷ lệ, đáo hạn, arbitrage bounds, Greeks vs sai phân hữu hạn, IV round-trip (scalar + vector).
 - Chỉ báo: SMA/EMA/RSI/MACD/ATR/HV, percentile, parse ngày & số kiểu VN.
 - Scoring: ngưỡng tăng dần, cổng hạ hạng, DQ, percentile theo underlying duy nhất, universe tối thiểu không crash.
+- Thanh khoản: ADV trên lịch đầy đủ (phiên trắng = 0), độ phủ từ niêm yết, DTL/tác động giá, rebase tại as-of,
+  cờ cảnh báo, cổng ADV/độ phủ/biên độ hạ hạng đúng bậc.
 - Backtest: `rows_asof` không dùng tương lai, dung sai, entry sau tín hiệu, trần TCPH, metrics, MFE/MAE.
 - Artifact: schema JSON, không có lý do rỗng, không STRONG_BUY trên CW ngắn hạn/không thanh khoản, series khớp manifest, backtest báo lỗi trung thực.
