@@ -217,6 +217,21 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+/* ---------- vòng đời CW ---------- */
+.life-card { display: flex; flex-direction: column; gap: 4px; }
+.life-card .kpi-value { font-size: 24px; }
+.life-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.life-chip {
+  font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 4px;
+  border: 1px solid var(--border); color: var(--text-2); background: var(--surface-2);
+  white-space: nowrap;
+}
+.life-chip.clickable { cursor: pointer; }
+.life-chip.clickable:hover { border-color: var(--accent); color: var(--accent); }
+.life-bar-cell { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; width: 100%; }
+.life-bar { display: inline-block; height: 6px; min-width: 1px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+html[data-lang="both"] .life-chip, html[data-lang="both"] .badge { white-space: normal; }
+
 .kpi-card {
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; min-width: 0;
@@ -241,6 +256,12 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .badge.HIGH_RISK { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--down); border-color: color-mix(in srgb, var(--down) 32%, transparent); }
 .badge.NO_DATA { background: var(--surface-3); color: var(--text-3); border-color: var(--border); }
 .badge.tag { background: var(--surface-3); color: var(--text-2); border-color: var(--border); font-weight: 500; }
+/* Trạng thái vòng đời CW (còn hiệu lực / không giao dịch / đáo hạn / ngừng GD) */
+.badge.st-ok { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--up); border-color: color-mix(in srgb, var(--up) 30%, transparent); }
+.badge.st-warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
+.badge.st-off { background: var(--surface-3); color: var(--text-3); border-color: var(--border); }
+.badge.st-stop { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); border-color: color-mix(in srgb, var(--down) 30%, transparent); }
+
 .badge.ITM { color: var(--up); }
 .badge.ATM { color: var(--warn); }
 .badge.OTM { color: var(--text-3); }

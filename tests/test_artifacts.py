@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 DATA = Path(__file__).resolve().parents[1] / "docs" / "data"
@@ -139,3 +140,80 @@ def test_underlyings_payload():
         assert it["u"]
         assert it["nCw"] >= 0
         assert it["hv252"] is None or 0 < it["hv252"] < 3
+
+
+# ──────────────────────────────────────────────────────────────────
+# VÒNG ĐỜI CW — chặn tái phát lỗi "đếm trùng mã đã đáo hạn"
+# ──────────────────────────────────────────────────────────────────
+def test_universe_identity_matches_states():
+    """Tổng vũ trụ = còn hiệu lực + chờ niêm yết + đã đáo hạn + ngừng GD (+ thiếu ngày)."""
+    u = _load("meta.json")["universe"]
+    parts = u["listed"] + u["pending"] + u["matured"] + u["delistedEarly"] + u["unknown"]
+    assert parts == u["total"]
+    assert u["traded"] + u["notTraded"] == u["listed"]
+    assert u["expired"] == u["matured"] + u["delistedEarly"]
+    assert u["total"] == len(_load("screener.json")["active"]) + len(_load("screener.json")["expired"])
+
+
+def test_screener_sets_are_disjoint():
+    """Không một CW nào vừa "còn hiệu lực" vừa "đã đáo hạn" (lỗi cũ: 13 mã nằm cả hai)."""
+    s = _load("screener.json")
+    active = {r["t"] for r in s["active"]}
+    expired = {r["t"] for r in s["expired"]}
+    assert not (active & expired)
+
+
+def test_snapshot_has_no_matured_warrants():
+    asof = pd.Timestamp(_load("meta.json")["asof"])
+    for r in _load("screener.json")["active"]:
+        assert r.get("state") == "listed", r["t"]
+        assert pd.Timestamp(r["mat"]) > asof, r["t"]
+        assert r["dte"] is None or r["dte"] >= 0, r["t"]
+
+
+def test_expired_rows_are_really_expired():
+    asof = pd.Timestamp(_load("meta.json")["asof"])
+    rows = _load("screener.json")["expired"]
+    assert rows
+    for r in rows:
+        st = r.get("state")
+        assert st in {"matured", "delisted_early", "pending", "unknown"}, r["t"]
+        if st == "matured":
+            assert pd.Timestamp(r["mat"]) <= asof, r["t"]
+            assert r["dte"] is None or r["dte"] <= 0, r["t"]
+
+
+def test_recommendations_only_for_live_warrants():
+    live = {r["t"] for r in _load("screener.json")["active"]}
+    for c in _load("recommendations.json")["cards"]:
+        assert c["ticker"] in live, c["ticker"]
+
+
+def test_lifecycle_payload_is_published_and_consistent():
+    lc = _load("lifecycle.json")
+    assert lc["asof"] == _load("meta.json")["asof"]
+    assert lc["identity"]["ok"] is True
+    u = _load("meta.json")["universe"]
+    for key in ("total", "listed", "traded", "matured", "delistedEarly", "pending", "unknown"):
+        assert lc["counts"][key] == u[key], key
+    assert lc["recentSessions"] >= 1
+    assert lc["recentSince"] <= lc["asof"]
+    # sự kiện phải khớp với danh sách mã kèm theo
+    assert lc["newListings"]["count"] == len(lc["newListings"]["rows"]) or lc["newListings"]["count"] > len(lc["newListings"]["rows"])
+    assert lc["recentMaturities"]["count"] == len(lc["recentMaturities"]["rows"]) or lc["recentMaturities"]["count"] > len(lc["recentMaturities"]["rows"])
+    for r in lc["newListings"]["rows"]:
+        assert r["firstTrade"] >= lc["recentSince"]
+    for r in lc["recentMaturities"]["rows"]:
+        assert lc["recentSince"] < r["maturity"] <= lc["asof"]
+
+
+def test_lifecycle_calendar_covers_current_month():
+    lc = _load("lifecycle.json")
+    cal = lc["calendar"]
+    assert cal
+    cur = [c for c in cal if c["isCurrent"]]
+    assert len(cur) == 1
+    assert cur[0]["month"] == lc["asof"][:7]
+    # còn hiệu lực, đáo hạn trong tháng hiện tại = số mã listed có maturity tháng này
+    assert cur[0]["listedNow"] >= 0
+    assert all({"month", "label", "listings", "maturities", "listedNow"} <= set(c) for c in cal)

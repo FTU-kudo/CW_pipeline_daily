@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import config, liquidity as liqmod
+from . import config, lifecycle, liquidity as liqmod
 from .bs import price_vector
 from .data import MarketData
 from .panels import slice_asof
@@ -164,12 +164,24 @@ def add_peer_metrics(d: pd.DataFrame, r: float) -> pd.DataFrame:
 
 def build_snapshot(market: MarketData, panel: pd.DataFrame, asof: pd.Timestamp,
                    tolerance_days: int = 7) -> pd.DataFrame:
-    """Mặt cắt tại `asof`: mỗi CW tối đa 1 dòng, kèm điểm và khuyến nghị."""
+    """Mặt cắt tại `asof`: mỗi CW tối đa 1 dòng, kèm điểm và khuyến nghị.
+
+    Chỉ giữ CW **còn hiệu lực tại asof** (xem `cwintel.lifecycle.alive_tickers`).
+    CW đã đáo hạn / chờ niêm yết được chuyển sang `screener.expired`, nhờ đó
+    snapshot, khuyến nghị và các KPI không bao giờ đếm trùng một hợp đồng đã hết
+    hạn. DTE được tính lại tại asof thay vì lấy DTE của phiên khớp lệnh cuối.
+    """
     sub = slice_asof(panel, asof, tolerance_days=tolerance_days)
     if sub.empty:
         return sub
+    asof = pd.Timestamp(asof).normalize()
+    alive = lifecycle.alive_tickers(market.master, asof)
+    if alive:
+        sub = sub[sub["ticker"].isin(alive)].copy()
+        if sub.empty:
+            return sub
     d = _pick(sub, SNAPSHOT_COLS)
-    d["staleness_days"] = (pd.Timestamp(asof) - d["date"]).dt.days
+    d["staleness_days"] = (asof - pd.to_datetime(d["date"])).dt.days
     # Thanh khoản phải phản ánh phiên as-of, kể cả các phiên trắng sau lần khớp cuối
     d = liqmod.rebase_to_asof(d, panel, asof)
 
@@ -180,6 +192,14 @@ def build_snapshot(market: MarketData, panel: pd.DataFrame, asof: pd.Timestamp,
                 "moneyness_vs", "K_raw", "ratio_raw"):
         if col in m.columns:
             d[col] = d["ticker"].map(m[col])
+
+    # DTE/tenor tính tại asof (không kế thừa từ dòng panel của phiên cũ hơn)
+    mat = pd.to_datetime(d["maturity"], errors="coerce")
+    d["days_to_maturity"] = (mat - asof).dt.days
+    d["T"] = d["days_to_maturity"] / config.DAYS_PER_YEAR
+    d["days_since_trade"] = d["staleness_days"]
+    d["lifecycle_state"] = "listed"
+    d["is_active"] = True
 
     d = add_peer_metrics(d, market.risk_free)
 

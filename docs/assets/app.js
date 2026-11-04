@@ -28,6 +28,7 @@ const BOOT_MSG = {
   quality: 'Đang chạy kiểm tra chất lượng dữ liệu…',
   methodology: 'Đang tải phương pháp luận…',
   liquidity: 'Đang tải dữ liệu thanh khoản…',
+  lifecycle: 'Đang đối chiếu vòng đời CW (niêm yết / đáo hạn)…',
   done: 'Sẵn sàng.',
 };
 

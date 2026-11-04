@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import METHODOLOGY_VERSION, __version__, config, liquidity as liq
+from . import METHODOLOGY_VERSION, __version__, config, lifecycle, liquidity as liq
 from .backtest import History, build_signals, rebalance_dates, run_backtest
 from .data import MarketData, load_market_data
 from .panels import build_cw_panel, build_underlying_features, slice_asof
@@ -77,6 +77,26 @@ def _f(value, nd=2):
     return round(v, nd)
 
 
+def _on_date(value, asof: pd.Timestamp | None) -> bool | None:
+    """Dòng có khớp lệnh đúng phiên `asof` không (None nếu thiếu dữ liệu)."""
+    if asof is None or value is None or value is pd.NaT:
+        return None
+    try:
+        return pd.Timestamp(value).normalize() == asof
+    except (TypeError, ValueError):
+        return None
+
+
+def _days_since(value, asof: pd.Timestamp | None) -> int | None:
+    """Số ngày kể từ `value` tới `asof` (None nếu thiếu dữ liệu)."""
+    if asof is None or value is None or value is pd.NaT:
+        return None
+    try:
+        return int((asof - pd.Timestamp(value).normalize()).days)
+    except (TypeError, ValueError):
+        return None
+
+
 def _pct_change(series: pd.Series, n: int = 1):
     if len(series) <= n:
         return None
@@ -90,7 +110,8 @@ def _pct_change(series: pd.Series, n: int = 1):
 # ──────────────────────────────────────────────────────────────────
 # SCREENER / SNAPSHOT
 # ──────────────────────────────────────────────────────────────────
-def snapshot_payload(snap: pd.DataFrame) -> list[dict]:
+def snapshot_payload(snap: pd.DataFrame, asof: pd.Timestamp | None = None) -> list[dict]:
+    asof = pd.Timestamp(asof).normalize() if asof is not None else None
     rows = []
     for _, r in snap.iterrows():
         rows.append({
@@ -99,6 +120,9 @@ def snapshot_payload(snap: pd.DataFrame) -> list[dict]:
             "iss": r.get("issuer"),
             "issName": r.get("issuer_name"),
             "active": bool(r.get("is_active")),
+            "state": r.get("lifecycle_state") or "listed",
+            "tradedOn": _on_date(r.get("date"), asof),
+            "daysSince": _days_since(r.get("date"), asof),
             "date": r.get("date"),
             "price": _f(r.get("close"), 1),
             "chg1": _f(pd.to_numeric(r.get("ret1"), errors="coerce") * 100, 2)
@@ -238,7 +262,8 @@ def _breadth_history(panel: pd.DataFrame, days: int = 250) -> list[dict]:
     return out
 
 
-def market_payload(snap: pd.DataFrame, panel: pd.DataFrame, asof: pd.Timestamp) -> dict:
+def market_payload(snap: pd.DataFrame, panel: pd.DataFrame, asof: pd.Timestamp,
+                   life: dict | None = None) -> dict:
     active = snap[snap["is_active"]].copy() if "is_active" in snap else snap
     if active.empty:
         return {"asof": asof, "kpi": {}, "heatmap": [], "by_issuer": [], "by_underlying": [],
@@ -267,10 +292,20 @@ def market_payload(snap: pd.DataFrame, panel: pd.DataFrame, asof: pd.Timestamp) 
             })
         return sorted(out, key=lambda x: -x["count"])
 
+    lc = (life or {}).get("counts", {}) or {}
+    traded_on = int(lc.get("traded", len(active)))
     kpi = {
         "active": int(len(active)),
-        "total": int(len(snap)),
-        "expired": int((~snap["is_active"]).sum()) if "is_active" in snap else 0,
+        "traded": traded_on,
+        "listed": int(lc.get("listed", len(active))),
+        "notTraded": int(lc.get("notTraded", max(int(len(active)) - traded_on, 0))),
+        "matured": int(lc.get("matured", 0)),
+        "maturedRecent": int(lc.get("maturedRecent", 0)),
+        "newListings": int(lc.get("newListings", 0)),
+        "delistedEarly": int(lc.get("delistedEarly", 0)),
+        "pending": int(lc.get("pending", 0)),
+        "total": int(lc.get("total", len(snap))),
+        "expired": int(lc.get("expired", 0)),
         "up": int((ret1 > 0).sum()),
         "down": int((ret1 < 0).sum()),
         "flat": int((ret1 == 0).sum()),
@@ -470,25 +505,41 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
         panel["delta_option"] = panel["delta"] * panel["ratio"]
 
     snap = build_snapshot(market, panel, asof, tolerance_days=14)
+    life_payload = lifecycle.payload(market.master, asof, panel=panel)
     log(f"snapshot={len(snap)} CW | rec={snap['recommendation'].value_counts().to_dict()}")
+    log("lifecycle: " + ", ".join(f"{k}={v}" for k, v in life_payload["counts"].items())
+        + f" | identity={'OK' if life_payload['identity']['ok'] else 'LỆCH'}")
 
     # ── files
     sizes = {}
     sizes["market.json"] = _write(out_dir / "market.json",
-                                  market_payload(snap, panel, asof))
-    screener_rows = snapshot_payload(snap)
+                                  market_payload(snap, panel, asof, life=life_payload))
+    sizes["lifecycle.json"] = _write(out_dir / "lifecycle.json", life_payload)
+    screener_rows = snapshot_payload(snap, asof)
 
-    # CW đã đáo hạn: lấy dòng cuối cùng trong panel để tham chiếu (không chấm điểm)
+    # CW đã đáo hạn / ngừng giao dịch / chờ niêm yết: lấy dòng cuối trong panel để
+    # tham chiếu (không chấm điểm, không vào snapshot)
+    cls = lifecycle.classify(market.master, asof, panel=panel)
     expired = market.master[~market.master["is_active"]].copy()
+    state_by_ticker = dict(zip(cls["ticker"], cls["state"])) if len(cls) else {}
+    since_by_ticker = dict(zip(cls["ticker"], cls["days_since_print"])) if len(cls) else {}
     last_rows = slice_asof(panel, asof, tolerance_days=10_000)
     last_by_ticker = last_rows.set_index("ticker")
 
     expired_rows = []
     for _, m in expired.iterrows():
         t = m["ticker"]
+        state = state_by_ticker.get(t, "matured")
         base = {
             "t": t, "u": m["underlying"], "iss": m["issuer"], "issName": m["issuer_name"],
-            "active": False, "date": m["last_trade"], "mat": m["maturity"],
+            "active": False, "state": state,
+            "daysSince": (
+                int(-m["days_to_maturity"]) if state == "matured" and pd.notna(m["days_to_maturity"])
+                else (int(since_by_ticker[t]) if since_by_ticker.get(t) is not None
+                      and pd.notna(since_by_ticker.get(t)) else None)
+            ),
+            "tradedOn": False,
+            "date": m["last_trade"], "mat": m["maturity"],
             "K": _f(m["K"], 0), "ratio": _f(m["ratio"], 4),
             "money": m.get("moneyness_vs"), "dte": int(m["days_to_maturity"])
             if pd.notna(m["days_to_maturity"]) else None,
@@ -619,7 +670,7 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
     log(f"series: {len(cw_series)} CW files ({removed} stale removed)")
 
     # ── quality report
-    quality = run_quality_checks(market, panel, snap)
+    quality = run_quality_checks(market, panel, snap, life=life_payload)
     sizes["quality.json"] = _write(out_dir / "quality.json", quality)
     log(f"quality: {quality['summary']['error']} errors, "
         f"{quality['summary']['warn']} warnings")
@@ -653,9 +704,19 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
         "dataAgeDays": int(data_age),
         "stale": bool(data_age > config.STALE_DATA_DAYS_WARNING),
         "universe": {
-            "total": int(len(market.master)),
-            "active": int(market.master["is_active"].sum()),
-            "expired": int((~market.master["is_active"]).sum()),
+            # Nguồn duy nhất: cwintel.lifecycle — tổng luôn khớp tổng các trạng thái.
+            "total": int(life_payload["counts"]["total"]),
+            "listed": int(life_payload["counts"]["listed"]),
+            "traded": int(life_payload["counts"]["traded"]),
+            "notTraded": int(life_payload["counts"]["notTraded"]),
+            "expired": int(life_payload["counts"]["expired"]),
+            "matured": int(life_payload["counts"]["matured"]),
+            "delistedEarly": int(life_payload["counts"]["delistedEarly"]),
+            "pending": int(life_payload["counts"]["pending"]),
+            "unknown": int(life_payload["counts"]["unknown"]),
+            "maturedRecent": int(life_payload["counts"]["maturedRecent"]),
+            "newListings": int(life_payload["counts"]["newListings"]),
+            "active": int(life_payload["counts"]["traded"]),
             "underlyings": int(market.master["underlying"].nunique()),
             "issuers": int(market.master["issuer"].nunique()),
         },
@@ -709,8 +770,10 @@ def main(argv: list[str] | None = None) -> int:
     result = build_all(out_dir=args.out, run_bt=not args.no_backtest, asof=asof,
                        verbose=not args.quiet)
     meta = result["meta"]
-    print(f"OK {meta['asof']} · {meta['universe']['active']} CW active · "
-          f"{sum(result['sizes'].values())/1e6:.2f} MB · {meta['buildSeconds']:.1f}s")
+    u = meta["universe"]
+    print(f"OK {meta['asof']} · {u['traded']} giao dịch / {u['listed']} còn hiệu lực · "
+          f"{u['expired']} đã hết hạn · {sum(result['sizes'].values())/1e6:.2f} MB · "
+          f"{meta['buildSeconds']:.1f}s")
     return 0
 
 

@@ -188,3 +188,16 @@ ALERT_DEFAULTS = {
 # ──────────────────────────────────────────────────────────────────
 STALE_DATA_DAYS_WARNING = 4      # dữ liệu cũ hơn 4 ngày lịch → cảnh báo "không phải realtime"
 MIN_SESSIONS_FOR_TECH = 30       # dưới ngưỡng này RSI/MACD không đáng tin
+
+# ──────────────────────────────────────────────────────────────────
+# VÒNG ĐỜI CW (niêm yết / đáo hạn / ngừng giao dịch)
+# ──────────────────────────────────────────────────────────────────
+# CW được niêm yết và đáo hạn liên tục, nên mọi mặt cắt phải phân loại theo vòng
+# đời (xem cwintel/lifecycle.py). Cửa sổ sự kiện tính bằng PHIÊN, không phải ngày.
+LIFECYCLE_RECENT_SESSIONS = 10     # "vừa niêm yết / vừa đáo hạn" trong 10 phiên
+LIFECYCLE_FORWARD_DAYS = (30, 60, 90)   # các mốc "sắp đáo hạn"
+LIFECYCLE_CALENDAR_BACK = 12       # số tháng lịch sử trong lịch vòng đời
+LIFECYCLE_CALENDAR_FWD = 12        # số tháng tới
+# Một CW còn hạn mà không khớp lệnh quá ngưỡng này (và còn xa ngày đáo hạn) được
+# coi là đã ngừng giao dịch sớm — khác với "phiên trắng" thông thường.
+LIFECYCLE_EARLY_STOP_DAYS = 45

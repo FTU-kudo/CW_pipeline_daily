@@ -197,12 +197,13 @@ def build_master(vs: pd.DataFrame, asof: pd.Timestamp) -> pd.DataFrame:
     df["moneyness_vs"] = vs.get("trang_thai_cw", "").astype(str)
     df["underlying_vs"] = parse_numbers(vs["gia_ck_co_so"])
 
-    # Trạng thái theo điều khoản hợp đồng, KHÔNG so với "hôm nay" (xem AUDIT §4).
-    matured = df["maturity"].notna() & (df["maturity"] < asof)
-    stopped = df["last_trade"].notna() & (df["last_trade"] < asof - pd.Timedelta(days=7))
-    df["is_active"] = ~(matured | stopped)
-    # CW đã ngừng giao dịch nhưng chưa tới ngày đáo hạn (huỷ niêm yết)
-    df["delisted_early"] = (~matured) & stopped
+    # Trạng thái hợp đồng tại asof. CHỈ dựa trên điều khoản (maturity, first_trade):
+    # `last_trade` từ Vietstock là phiên giao dịch cuối THEO KẾ HOẠCH (nằm ở tương
+    # lai so với asof) nên không dùng được để phát hiện "ngừng giao dịch" — việc đó
+    # do cwintel/lifecycle.py làm từ giá quan sát được.
+    matured = df["maturity"].notna() & (df["maturity"] <= asof)
+    not_started = df["first_trade"].notna() & (df["first_trade"] > asof)
+    df["is_active"] = (~matured) & (~not_started) & df["maturity"].notna()
     df["status"] = np.where(df["is_active"], "active", "expired")
 
     df["days_to_maturity"] = (df["maturity"] - asof).dt.days
@@ -247,6 +248,10 @@ def load_market_data(asof: pd.Timestamp | None = None) -> MarketData:
         "rows": int(len(master)),
         "active": int(master["is_active"].sum()) if len(master) else 0,
         "expired": int((~master["is_active"]).sum()) if len(master) else 0,
+        "matured": int((master["maturity"] <= asof).sum()) if len(master) else 0,
+        "pending": int(((master["maturity"] > asof) & (master["first_trade"] > asof)).sum())
+        if len(master) else 0,
+        "missing_maturity": int(master["maturity"].isna().sum()) if len(master) else 0,
         "issuers": int(master["issuer"].nunique()) if len(master) else 0,
         "underlyings": int(master["underlying"].nunique()) if len(master) else 0,
         "missing_terms": int((~master["terms_valid"]).sum()) if len(master) else 0,
