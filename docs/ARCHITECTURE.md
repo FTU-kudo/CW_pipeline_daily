@@ -243,6 +243,13 @@ Cách sửa, giữ được cả hai theme:
 - Trạng thái độ mới dữ liệu dùng ba mức màu: `.pill.warn` + `.banner-warn` (lệch 1 phiên) và
   `.banner-danger` (lệch ≥ 2 phiên). Chuỗi do JS sinh dùng `tx(vi, en)` — ở chế độ VI+EN ghép
   "VI · EN" và gắn `data-no-i18n` để bộ dịch DOM không dịch chồng.
+- Lớp **Interaction & visual polish** ở cuối `app.css` dùng token bóng riêng cho dark/light.
+  Card/KPI/khuyến nghị nâng `translateY(-4px)` và tăng bóng khi hover; nút/chip nâng 2px, có trạng
+  thái `:active`, `:focus-visible`/`:focus-within`. Hover chỉ bật trong `@media (hover: hover)
+  and (pointer: fine)` để không bị dính trên cảm ứng; `@media (pointer: coarse)` tăng vùng chạm;
+  `prefers-reduced-motion` tắt cả transition lẫn transform. Transform không làm thay đổi layout.
+- Chip mã CW có hành động trong `overview.js::lifeChips()` là `<button type="button">` thật,
+  nên Enter/Space và screen reader hoạt động; chip chỉ hiển thị vẫn là `<span>`, không tạo nút giả.
 
 ## 4. Hiệu năng
 

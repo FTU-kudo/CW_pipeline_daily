@@ -46,7 +46,7 @@ Chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 | `cwintel/` | Thư viện phân tích mới: chuẩn hoá, Black–Scholes, chỉ báo, panel, scoring, recommendation, backtest, build JSON |
 | `docs/data/` | Artifact tĩnh cho dashboard (meta/market/screener/recommendations/underlyings/liquidity/lifecycle/backtest/quality/methodology + series) |
 | `docs/assets/` | SPA không phụ thuộc thư viện ngoài (vanilla JS + canvas) |
-| `tests/` | 152 kiểm thử pytest (BS, Greeks, IV, chỉ báo, thanh khoản, vòng đời CW, scoring, backtest, artifact) |
+| `tests/` | 157 kiểm thử pytest (BS, Greeks, IV, chỉ báo, thanh khoản, vòng đời CW, scoring, backtest, artifact) |
 
 ---
 
@@ -125,7 +125,7 @@ Kết luận không tô hồng: **mua CW nắm giữ ngắn hạn có kỳ vọn
 
 Dashboard chạy được ở ba chế độ ngôn ngữ — **VI** (mặc định), **EN**, **VI+EN** hiển thị song song — chuyển bằng công tắc trên topbar, lưu ở `localStorage`. Bản dịch nằm trong `docs/assets/i18n.js` (~600 nhãn + ~40 mẫu câu động cho nội dung do engine sinh), không cần backend, không thêm request mạng, không phát sinh artifact mới. Số liệu, ngày tháng và đơn vị đổi theo locale (`vi-VN` ↔ `en-US`). Giao diện có ba chế độ **Sáng / Tối / Theo hệ thống**, chart tự vẽ lại khi đổi theme hay đổi kích thước cửa sổ. Cơ chế chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#31-song-ngữ-việt-anh-docsassetsi18njs).
 
-Kiểm thử: `python -m pytest tests -q` (**152 test**) + bộ kiểm thử đồng hồ `node tests/js/clock.test.mjs` (**92 kiểm tra**, gồm lịch lễ, múi giờ và WCAG); bộ JS cũng được gọi từ pytest khi có Node. Kiểm thử DOM chạy 12 route ở cả VI/EN/VI+EN và dark/light, yêu cầu 0 lỗi console và không còn chuỗi chưa dịch ở chế độ EN.
+Kiểm thử: `python -m pytest tests -q` (**157 test**) + bộ kiểm thử đồng hồ `node tests/js/clock.test.mjs` (**92 kiểm tra**, gồm lịch lễ, múi giờ và WCAG); bộ JS cũng được gọi từ pytest khi có Node. Kiểm thử DOM chạy 12 route ở cả VI/EN/VI+EN và dark/light, yêu cầu 0 lỗi console và không còn chuỗi chưa dịch ở chế độ EN.
 
 ## 6. Triển khai
 
