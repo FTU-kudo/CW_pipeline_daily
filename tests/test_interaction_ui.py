@@ -21,6 +21,12 @@ def _block(selector: str) -> str:
     return CSS[start:CSS.index("}", start) + 1]
 
 
+def _last_block(selector: str) -> str:
+    """Lấy rule ghi đè cuối cùng của selector trong stylesheet."""
+    start = CSS.rindex(selector)
+    return CSS[start:CSS.index("}", start) + 1]
+
+
 def test_card_shadows_and_lift_tokens_cover_both_themes() -> None:
     for token in ("--card-rest-shadow", "--card-lift-shadow", "--control-lift-shadow"):
         assert CSS.count(token) >= 3, f"{token} phải có ở cả dark/light và được sử dụng"
@@ -58,6 +64,25 @@ def test_pressed_state_and_touch_targets_exist() -> None:
     coarse = CSS[CSS.index("@media (pointer: coarse)"):]
     assert ".life-chip.clickable" in coarse and "min-height: 30px" in coarse
     assert ".nav-item" in coarse and "min-height: 40px" in coarse
+
+
+def test_sidebar_is_bold_and_emphasized_in_both_themes() -> None:
+    sidebar = _last_block(".sidebar {")
+    assert "border-right-color: var(--sidebar-border)" in sidebar
+    assert "box-shadow: var(--sidebar-shadow)" in sidebar
+    # Chỉ nhấn bằng màu/viền/shadow, không đổi chiều rộng hay đẩy nội dung chính.
+    assert not re.search(r"\b(width|padding|margin)\s*:", sidebar)
+    for theme in ('html[data-theme="dark"]', 'html[data-theme="light"]'):
+        start = CSS.rindex(theme)
+        assert "--sidebar-shadow:" in CSS[start:CSS.index("}", start)]
+
+    nav = _last_block(".nav-item {")
+    active = _last_block(".nav-item.active {")
+    group = _last_block(".nav-group {")
+    assert "color: var(--text)" in nav and "font-weight: 600" in nav
+    assert "background: var(--sidebar-active-bg)" in active
+    assert "inset 3px 0 0 var(--accent)" in active
+    assert "font-weight: 700" in active and "font-weight: 700" in group
 
 
 def test_lifecycle_chips_are_native_buttons_only_when_actionable() -> None:

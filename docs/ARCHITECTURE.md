@@ -250,6 +250,9 @@ Cách sửa, giữ được cả hai theme:
   `prefers-reduced-motion` tắt cả transition lẫn transform. Transform không làm thay đổi layout.
 - Chip mã CW có hành động trong `overview.js::lifeChips()` là `<button type="button">` thật,
   nên Enter/Space và screen reader hoạt động; chip chỉ hiển thị vẫn là `<span>`, không tạo nút giả.
+- Lớp **Sidebar emphasis** giữ nguyên chiều rộng/bố cục nhưng tăng thứ bậc cho cột trái: menu
+  semibold 600, mục active và nhãn nhóm bold 700, nền active pha accent cùng thanh accent 3px.
+  Viền và shadow dùng token theo dark/light; hover phụ chỉ bật trên con trỏ chính xác.
 
 ## 4. Hiệu năng
 
