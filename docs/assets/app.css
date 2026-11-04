@@ -821,3 +821,127 @@ table.tbl.gates tbody tr:hover td { background: color-mix(in srgb, var(--surface
 .rec-card.rec-AVOID { border-left-color: var(--warn-2); }
 .rec-card.rec-HIGH_RISK { border-left-color: var(--down); }
 .rec-card.rec-NO_DATA { border-left-color: var(--border); }
+
+/* ============================================================
+   INTERACTION & VISUAL POLISH
+   Nâng khối rõ nhưng không đổi layout; chỉ hover trên thiết bị có chuột.
+   ============================================================ */
+:root {
+  --radius: 12px;
+  --radius-sm: 8px;
+  --lift-duration: 180ms;
+  --lift-ease: cubic-bezier(.2, .8, .2, 1);
+  --hover-border: color-mix(in srgb, var(--accent) 30%, var(--border-2));
+}
+html[data-theme="dark"] {
+  --card-rest-shadow: 0 1px 0 rgba(255,255,255,.025), 0 7px 20px rgba(0,0,0,.22);
+  --card-lift-shadow: 0 18px 38px rgba(0,0,0,.46), 0 0 0 1px rgba(0,208,156,.08);
+  --control-lift-shadow: 0 7px 16px rgba(0,0,0,.3);
+}
+html[data-theme="light"] {
+  --card-rest-shadow: 0 1px 2px rgba(16,24,32,.045), 0 7px 20px rgba(16,24,32,.055);
+  --card-lift-shadow: 0 18px 38px rgba(33,55,77,.16), 0 3px 9px rgba(33,55,77,.07);
+  --control-lift-shadow: 0 7px 16px rgba(33,55,77,.12);
+}
+
+body {
+  background-image: radial-gradient(920px 460px at 88% -12%,
+    color-mix(in srgb, var(--accent) 4%, transparent), transparent 72%);
+}
+::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--text); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.page-head h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.35px; }
+.page-head .sub { margin-top: 6px; }
+.kpi-card { padding: 14px 15px; }
+.kpi-value { font-size: 23px; line-height: 1.2; }
+.life-card .kpi-value { font-size: 26px; }
+
+.card, .kpi-card, .rec-card {
+  box-shadow: var(--card-rest-shadow);
+  transition: transform var(--lift-duration) var(--lift-ease),
+    box-shadow var(--lift-duration) var(--lift-ease),
+    border-color var(--lift-duration) var(--lift-ease),
+    background-color var(--lift-duration) var(--lift-ease);
+}
+.kpi-card::before { transition: width var(--lift-duration) var(--lift-ease), filter var(--lift-duration) var(--lift-ease); }
+.kpi-card:focus-within, .life-card:focus-within, .rec-card:focus-within {
+  border-color: var(--hover-border);
+  box-shadow: var(--card-lift-shadow);
+}
+
+.btn, .icon-btn, .chip, .life-chip, .tab, .nav-item, .search-row, .saved-filter,
+.lang-switch button {
+  transition: transform var(--lift-duration) var(--lift-ease),
+    box-shadow var(--lift-duration) var(--lift-ease),
+    border-color var(--lift-duration) var(--lift-ease),
+    background-color var(--lift-duration) var(--lift-ease),
+    color var(--lift-duration) var(--lift-ease);
+}
+.life-chip { appearance: none; line-height: 1.4; }
+.life-chip.clickable { min-height: 24px; padding-inline: 8px; }
+.life-chip.clickable:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface-2)); }
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover, .kpi-card:hover, .rec-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-lift-shadow);
+    z-index: 3;
+  }
+  .card:hover, .kpi-card:hover { border-color: var(--hover-border); }
+  .kpi-card:hover::before { width: 4px; filter: brightness(1.18); }
+
+  .btn:hover, .icon-btn:hover, .chip:hover, .life-chip.clickable:hover {
+    transform: translateY(-2px);
+    border-color: var(--hover-border);
+    box-shadow: var(--control-lift-shadow);
+    text-decoration: none;
+  }
+  .btn.primary:hover {
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+  .nav-item:hover {
+    transform: translateX(3px);
+    background: var(--surface-3);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .tab:hover { background: var(--surface-2); border-radius: 8px 8px 0 0; }
+  .search-row:hover, .saved-filter:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  table.tbl tbody tr.clickable:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-2)); }
+  table.tbl tbody tr.clickable:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+}
+
+.btn:active, .icon-btn:active, .chip:active, .life-chip.clickable:active {
+  transform: translateY(0) scale(.98);
+  transition-duration: 60ms;
+}
+.nav-item:active { transform: translateX(1px); }
+
+/* Vùng chạm thoải mái hơn mà không áp dụng hover dính trên màn hình cảm ứng. */
+@media (pointer: coarse) {
+  .btn { min-height: 38px; }
+  .btn.sm { min-height: 34px; }
+  .icon-btn { width: 38px; height: 38px; }
+  .chip { min-height: 32px; }
+  .life-chip.clickable { min-height: 30px; padding-inline: 10px; }
+  .nav-item { min-height: 40px; }
+}
+
+@media (max-width: 560px) {
+  .page-head h1 { font-size: 19px; }
+  .kpi-value { font-size: 20px; }
+  .life-card .kpi-value { font-size: 23px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .kpi-card, .rec-card, .btn, .icon-btn, .chip, .life-chip, .tab,
+  .nav-item, .search-row, .saved-filter, .lang-switch button { transition: none !important; }
+  .card:hover, .kpi-card:hover, .rec-card:hover, .btn:hover, .icon-btn:hover,
+  .chip:hover, .life-chip.clickable:hover, .nav-item:hover, .btn:active,
+  .icon-btn:active, .chip:active, .life-chip.clickable:active, .nav-item:active {
+    transform: none !important;
+  }
+}

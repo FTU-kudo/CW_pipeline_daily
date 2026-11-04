@@ -3,6 +3,7 @@ import {
   el, fmt, data, pageHead, kpiCard, sectionHead, scoreCell, table,
   drawLine, drawBars, onThemeChange, navigate, downloadCsv, toast,
 } from '../core.js';
+import { bi } from '../i18n.js';
 
 let state = { topTab: 'gainers' };
 
@@ -273,13 +274,20 @@ export default function overview(view) {
 
 function lifeChips(rows, key = 't', clickable = true) {
   const list = (rows || []).slice(0, 8);
-  return el('div', { class: 'life-chips' }, list.map((r) => el('span', {
-    class: 'life-chip' + (clickable && key === 't' ? ' clickable' : ''),
-    text: r[key],
-    title: [r.u, r.maturity || r.firstTrade, r.dte !== undefined ? `${r.dte} ngày` : null]
-      .filter(Boolean).join(' · '),
-    onclick: clickable && key === 't' ? () => navigate(`#/cw/${r.t}`) : null,
-  })));
+  return el('div', { class: 'life-chips' }, list.map((r) => {
+    const interactive = clickable && key === 't';
+    // Nút thật khi có hành động: Enter/Space và screen reader hoạt động như click.
+    return el(interactive ? 'button' : 'span', {
+      class: 'life-chip' + (interactive ? ' clickable' : ''),
+      type: interactive ? 'button' : null,
+      text: r[key],
+      'aria-label': interactive
+        ? `${bi('Mở phân tích chi tiết', 'Open detailed analysis for')} ${r.t}` : null,
+      title: [r.u, r.maturity || r.firstTrade, r.dte !== undefined ? `${r.dte} ngày` : null]
+        .filter(Boolean).join(' · '),
+      onclick: interactive ? () => navigate(`#/cw/${r.t}`) : null,
+    });
+  }));
 }
 
 function lifecycleSection() {
