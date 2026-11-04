@@ -130,7 +130,19 @@ Chi tiết triển khai:
 - Số liệu, ngày tháng và đơn vị (`triệu`/`tỷ` ↔ `m`/`bn`) đổi theo locale trong `core.js` (`fmt.n`, `fmt.vnd`, `fmt.unit`, `fmt.dte`, `fmt.rec`).
 - Kiểm thử tĩnh: `tests/test_dashboard_i18n.py` (khoá trùng, bản dịch rỗng/sót tiếng Việt, có công tắc, có hook i18n); kiểm thử DOM chạy cả 4 tổ hợp VI/EN/VI+EN × dark/light, yêu cầu 0 lỗi console và 0 chuỗi chưa dịch ở chế độ EN.
 
-### 3.2 Giao diện sáng/tối
+### 3.2 Heatmap: thang màu & tương phản (`docs/assets/heatscale.js`)
+
+Heatmap từng **không hiển thị được** vì `colorFor()` nhận `metric.domain` — một **hàm** `(rows) => …` — thay vì giá trị đã resolve, nên `value / function = NaN` và `mix()` trả `#NaNNaNNaN`. CSS không hợp lệ ⇒ ô trong suốt; `.tm-cell` lại hardcode `color:#fff` ⇒ chữ trắng trên nền trắng ở light mode (dark mode chỉ mất mã màu).
+
+Cách sửa, giữ được cả hai theme:
+
+- `heatscale.js` là module **thuần, không phụ thuộc DOM**: `resolveDomain()` (hàm/mảng/số/null), `mix()`, `luminance()`, `contrast()`, `pickText()`, `readable()`, `scaleColor()`, `legendStops()`.
+- `scaleColor()` **luôn** trả `#rrggbb` hợp lệ; mọi đầu vào `NaN/null/undefined/Infinity` rơi về `NO_DATA_COLOR`, không bao giờ sinh `#NaN`.
+- `readable(bg)` chọn chữ trắng hoặc chữ đen theo tương phản, và nếu vẫn dưới 4,6:1 thì **dịch nhẹ độ sáng của nền** (giữ nguyên sắc) cho tới khi đạt — nên chữ trên mọi ô đạt WCAG AA ở cả light/dark, không cần hardcode màu chữ.
+- `heatmap.js`: `resolveMetric(name, rows)` trả metric với `domain` đã resolve; mỗi ô đặt cả `background` và `color` inline; thêm `role="link"`, `tabindex`, `aria-label`, mở bằng Enter/Space; legend lấy đúng dải màu đang dùng + ô "N/A"; có trạng thái rỗng và vẽ lại khi đổi kích thước (`ResizeObserver`, chỉ khi bề rộng đổi > 8 px để tránh vòng lặp).
+- Kiểm thử: `tests/js/heatscale.test.mjs` (3.100+ phép kiểm tra: màu hợp lệ, tương phản ≥ 4,5:1 cho mọi thang/giá trị, domain kiểu hàm, legend, `safeHex`) chạy qua `tests/test_heatmap_scale.py`; cộng thêm kiểm thử DOM 8 chỉ số × {light, dark} yêu cầu 0 ô lỗi, 0 ô tương phản thấp, 0 lỗi console.
+
+### 3.3 Giao diện sáng/tối
 
 - Hai bảng token đầy đủ trong `app.css` (`html[data-theme="dark"|"light"]`), không hardcode màu trong page.
 - Nút topbar xoay vòng **Sáng → Tối → Theo hệ thống** (`cwintel:themeMode`), có lắng nghe `prefers-color-scheme`; `data-theme` trên `<html>` để CSS và chart dùng cùng nguồn.

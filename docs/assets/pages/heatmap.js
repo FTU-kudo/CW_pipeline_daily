@@ -1,5 +1,6 @@
 /* Heatmap dạng treemap — tô màu theo %thay đổi / điểm / premium / IV / giá trị */
 import { el, fmt, data, pageHead, navigate, toast } from '../core.js';
+import { legendStops, readable, resolveDomain, scaleColor } from '../heatscale.js';
 
 const METRICS = {
   chg1: {
@@ -46,45 +47,17 @@ function percentileAbs(arr, p) {
   return v[Math.floor(v.length * p)];
 }
 
-function colorFor(value, metric) {
-  if (!Number.isFinite(value)) return '#3a4657';
-  const { scale, domain } = metric;
-  if (scale === 'div') {
-    const hi = Array.isArray(domain) ? domain[1] : domain;
-    const t = Math.max(-1, Math.min(1, value / (hi || 1)));
-    return t >= 0 ? mix('#1b2735', '#00c896', t) : mix('#1b2735', '#ff4d4d', -t);
-  }
-  if (scale === 'score') {
-    const t = Math.max(0, Math.min(1, value / 100));
-    return t < 0.45 ? mix('#8a2b2b', '#c9a227', t / 0.45) : mix('#c9a227', '#00c896', (t - 0.45) / 0.55);
-  }
-  if (scale === 'asc') {
-    const [lo, hi] = domain;
-    const t = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
-    return mix('#00a87e', '#b03a2e', t);
-  }
-  if (scale === 'blue') {
-    const [lo, hi] = domain;
-    const t = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
-    return mix('#123a5c', '#2e9bff', t);
-  }
-  if (scale === 'maturity') {
-    const [lo, hi] = domain;
-    const t = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
-    return t < 0.5 ? mix('#a33a2a', '#b58b22', t / 0.5) : mix('#b58b22', '#1f7a5c', (t - 0.5) / 0.5);
-  }
-  if (scale === 'intensity') {
-    const t = Math.max(0, Math.min(1, Math.log10(Math.max(1, value)) / 10));
-    return mix('#123039', '#00b894', t);
-  }
-  return '#3a4657';
+/* Metric đã resolve: domain là số/mảng/null thay vì hàm — đây chính là lỗi
+   khiến mọi ô trước đây có nền "#NaNNaNNaN" (CSS không hợp lệ → ô trong suốt,
+   chữ trắng trên nền trắng ở light mode). Hàm tô màu cũ đã bị bỏ. */
+function resolveMetric(name, rows) {
+  const base = METRICS[name] || METRICS.chg1;
+  return { ...base, domain: resolveDomain(base.domain, rows) };
 }
 
-function mix(a, b, t) {
-  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
-  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
-  const p = pa.map((v, i) => Math.round(v + (pb[i] - v) * Math.max(0, Math.min(1, t))));
-  return '#' + p.map((v) => v.toString(16).padStart(2, '0')).join('');
+/** Trả về cặp màu nền/chữ đã đảm bảo tương phản cho từng ô. */
+function cellColors(value, metric) {
+  return readable(scaleColor(value, metric.scale, metric.domain));
 }
 
 function worstRatio(row, length) {
@@ -145,22 +118,36 @@ function rowsFiltered() {
   return rows;
 }
 
+let lastWidth = 0;
+
 function renderHeat() {
-  const host = rootEl.querySelector('#heat-host');
-  const stats = rootEl.querySelector('#heat-stats');
+  const host = rootEl?.querySelector('#heat-host');
+  const stats = rootEl?.querySelector('#heat-stats');
+  const legend = rootEl?.querySelector('#heat-legend');
   if (!host) return;
   host.innerHTML = '';
+  stats.innerHTML = '';
+  legend.innerHTML = '';
+
   const rows = rowsFiltered();
-  const metric = METRICS[state.metric];
-  const size = SIZES[state.size];
-  const group = GROUPS[state.group];
-  const domain = metric.domain(rows);
+  const metric = resolveMetric(state.metric, rows);
+  const size = SIZES[state.size] || SIZES.value20;
+  const group = GROUPS[state.group] || GROUPS.u;
+
+  if (!rows.length) {
+    host.appendChild(el('div', {
+      class: 'empty',
+      text: 'Không có CW nào khớp bộ lọc hiện tại. Thử bỏ bớt điều kiện lọc.',
+    }));
+    return;
+  }
 
   const width = host.clientWidth || 900;
+  lastWidth = width;
   const height = Math.max(420, Math.min(720, Math.round(window.innerHeight * 0.62)));
   const inner = { x: 0, y: 0, w: width, h: height };
 
-  const enriched = rows.map((r) => ({ row: r, weight: size.get(r), value: metric.get(r) }));
+  const enriched = rows.map((r) => ({ row: r, weight: Math.max(1, size.get(r) || 1), value: metric.get(r) }));
   const groupMap = new Map();
   for (const it of enriched) {
     const key = group.key(it.row);
@@ -185,15 +172,10 @@ function renderHeat() {
   for (const g of placedGroups) {
     if (state.group !== 'none') {
       tree.appendChild(el('div', {
-        style: `position:absolute;left:${g.rect.x}px;top:${g.rect.y}px;width:${g.rect.w}px;height:${g.rect.h}px;`
-          + 'border:1px solid var(--border-2);border-radius:4px;pointer-events:none;box-sizing:border-box;',
+        class: 'tm-group',
+        style: `left:${g.rect.x}px;top:${g.rect.y}px;width:${g.rect.w}px;height:${g.rect.h}px;`,
       }, [
-        el('div', {
-          class: 'tiny',
-          style: 'position:absolute;top:0;left:0;right:0;height:15px;overflow:hidden;padding:1px 4px;'
-            + 'color:var(--text-2);background:var(--surface-2);font-family:var(--font-mono);',
-          text: g.key,
-        }),
+        el('div', { class: 'tm-group-label', text: g.key }),
       ]));
     }
     const pad = state.group === 'none' ? 0 : 16;
@@ -202,21 +184,35 @@ function renderHeat() {
       w: Math.max(0, g.rect.w - 2), h: Math.max(0, g.rect.h - pad - 2),
     };
     if (innerRect.w < 2 || innerRect.h < 2) continue;
+
     const items = g.items;
     const gw = items.reduce((a, b) => a + b.weight, 0) || 1;
     const gscale = (innerRect.w * innerRect.h) / gw;
     const cells = squarify(items.map((it) => ({ ...it, area: it.weight * gscale })), innerRect);
+
     for (const cell of cells) {
       const r = cell.row;
       const val = cell.value;
-      const color = colorFor(val, metric);
+      const { bg, fg } = cellColors(val, metric);
+      const tiny = cell.w < 46 || cell.h < 34;
+      const label = `${r.t} · ${metric.label}: ${metric.fmt(val)}`;
       const box = el('div', {
-        class: 'tm-cell' + (cell.w < 46 || cell.h < 34 ? ' tiny-cell' : ''),
-        style: `left:${cell.x}px;top:${cell.y}px;width:${cell.w}px;height:${cell.h}px;background:${color}`,
+        class: 'tm-cell' + (tiny ? ' tiny-cell' : ''),
+        style: `left:${cell.x}px;top:${cell.y}px;width:${Math.max(0, cell.w)}px;height:${Math.max(0, cell.h)}px;`
+          + `background:${bg};color:${fg};`,
         title: `${r.t} · ${r.u}\n${metric.label}: ${metric.fmt(val)}\nGiá: ${fmt.px(r.price)} · ${fmt.pct(r.chg1, 2)}\n`
           + `Điểm: ${fmt.n(r.score, 1)} (${fmt.rec(r.rec)})\nPremium: ${fmt.pct(r.premium, 1, false)}\n`
           + `DTE: ${r.dte} · GT/phiên: ${fmt.vnd(r.value)}`,
+        role: 'link',
+        tabindex: '0',
+        'aria-label': `${label} — mở phân tích chi tiết`,
         onclick: () => navigate(`#/cw/${r.t}`),
+        onkeydown: (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            navigate(`#/cw/${r.t}`);
+          }
+        },
       }, [
         el('span', { class: 'tm-t', text: r.t }),
         el('span', { class: 'tm-v', text: metric.fmt(val) }),
@@ -232,7 +228,6 @@ function renderHeat() {
   const up = rows.filter((r) => (r.chg1 || 0) > 0).length;
   const down = rows.filter((r) => (r.chg1 || 0) < 0).length;
   const totalValue = rows.reduce((a, r) => a + (r.value20 || 0), 0);
-  stats.innerHTML = '';
   for (const [k, v] of [
     ['Số CW', fmt.n(rows.length, 0)],
     ['Tăng / Giảm', `${up} / ${down}`],
@@ -242,27 +237,53 @@ function renderHeat() {
     stats.appendChild(el('span', { html: `<span class="muted">${k}:</span> <b class="mono">${v}</b>` }));
   }
 
-  // legend
-  const legend = rootEl.querySelector('#heat-legend');
-  legend.innerHTML = '';
-  const [lo, hi] = metric.domain === METRICS.score.domain
-    ? [0, 100]
-    : (Array.isArray(domain) ? domain : [-Math.abs(domain || 1), Math.abs(domain || 1)]);
-  const stops = Array.from({ length: 7 }, (_, i) => {
-    const t = i / 6;
-    const v = lo + (hi - lo) * t;
-    return colorFor(metric.scale === 'div' ? (t * 2 - 1) * hi : v, metric);
-  });
-  const lowLabel = metric.scale === 'div' ? `−${fmt.n(hi, 1)}`
+  // legend — lấy đúng dải màu đang dùng
+  const stops = legendStops(metric.scale, metric.domain, 7);
+  const { bg: legendBg, fg: legendFg } = readable(stops[Math.floor(stops.length / 2)]);
+  const [lo, hi] = Array.isArray(metric.domain) ? metric.domain
+    : (metric.scale === 'div'
+      ? [-Math.abs(metric.domain || 1), Math.abs(metric.domain || 1)]
+      : [0, 100]);
+  const lowLabel = metric.scale === 'div' ? `−${fmt.n(Math.abs(hi), 1)}`
     : metric.scale === 'intensity' ? 'thấp' : metric.fmt(lo);
-  const highLabel = metric.scale === 'div' ? `+${fmt.n(hi, 1)}`
+  const highLabel = metric.scale === 'div' ? `+${fmt.n(Math.abs(hi), 1)}`
     : metric.scale === 'intensity' ? 'cao' : metric.fmt(hi);
   legend.appendChild(el('span', { text: lowLabel }));
   legend.appendChild(el('div', {
     class: 'scale',
     style: `background:linear-gradient(90deg,${stops.join(',')})`,
+    title: `${metric.label}: ${lowLabel} → ${highLabel}`,
   }));
   legend.appendChild(el('span', { text: highLabel }));
+  legend.appendChild(el('span', {
+    class: 'tiny muted',
+    style: `margin-left:8px;padding:1px 6px;border-radius:4px;background:${legendBg};color:${legendFg}`,
+    text: 'N/A',
+    title: 'Ô xám = không có dữ liệu cho chỉ số này',
+  }));
+}
+
+function bindResize() {
+  if (bindResize._bound) return;
+  bindResize._bound = true;
+  let timer = null;
+  const kick = () => {
+    if (!rootEl || !rootEl.isConnected) return;
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      if (!rootEl || !rootEl.isConnected) return;
+      const host = rootEl.querySelector('#heat-host');
+      if (!host) return;
+      // chỉ vẽ lại khi bề rộng thực sự đổi, tránh vòng lặp ResizeObserver
+      if (Math.abs((host.clientWidth || 0) - lastWidth) > 8) renderHeat();
+    }, 140);
+  };
+  window.addEventListener('resize', kick, { passive: true });
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(kick);
+    bindResize._ro = ro;
+    ro.observe(document.getElementById('view') || document.body);
+  }
 }
 
 function control(label, selectEl) {
@@ -310,7 +331,7 @@ export default function heatmap(view) {
 
   view.appendChild(rootEl);
   requestAnimationFrame(renderHeat);
-  window.addEventListener('resize', renderHeat, { passive: true });
+  bindResize();
 
   function exportRows() {
     const rows = rowsFiltered();
