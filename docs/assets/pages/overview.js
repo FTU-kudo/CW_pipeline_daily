@@ -189,7 +189,7 @@ export default function overview(view) {
   ));
 
   // KPI
-  const kpi = el('div', { class: 'grid kpi section' }, [
+  const kpi = el('div', { class: 'grid kpi overview-kpi section' }, [
     kpiCard({
       label: 'CW còn hiệu lực',
       value: fmt.n(k.listed ?? k.active, 0),
