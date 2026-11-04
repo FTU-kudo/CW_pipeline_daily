@@ -115,7 +115,7 @@ for (const tz of ['America/New_York', 'Europe/London', 'Asia/Tokyo']) {
   ok(out === '09:00:00|ato', `TZ=${tz} vẫn ra 09:00 ATO (nhận được ${out})`);
 }
 
-/* 8. Đồng hồ + KPI mới phải đạt WCAG AA ở cả hai theme (đọc token thật từ app.css) */
+/* 8. Đồng hồ + KPI + navigation active phải đạt WCAG AA ở cả hai theme. */
 {
   const fs = await import('node:fs');
   const { contrast, mix } = await import('../../docs/assets/heatscale.js');
@@ -145,6 +145,9 @@ for (const tz of ['America/New_York', 'Europe/London', 'Asia/Tokyo']) {
       const ratio = contrast(fg, t['surface-2']);
       ok(ratio >= 4.5, `${theme}: KPI tone-${tone} ≥ AA (${ratio.toFixed(1)})`);
     }
+    const navBg = mix(t.surface, t['accent-2'], 0.10);
+    const navRatio = contrast(t['accent-2'], navBg);
+    ok(navRatio >= 4.5, `${theme}: navigation active ≥ AA (${navRatio.toFixed(1)})`);
   }
   // CSS phải dùng đúng các hệ số đã kiểm tra ở trên
   ok(css.includes('color-mix(in srgb, var(--accent) 88%, var(--text))')

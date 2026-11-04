@@ -250,9 +250,13 @@ Cách sửa, giữ được cả hai theme:
   `prefers-reduced-motion` tắt cả transition lẫn transform. Transform không làm thay đổi layout.
 - Chip mã CW có hành động trong `overview.js::lifeChips()` là `<button type="button">` thật,
   nên Enter/Space và screen reader hoạt động; chip chỉ hiển thị vẫn là `<span>`, không tạo nút giả.
-- Lớp **Sidebar emphasis** giữ nguyên chiều rộng/bố cục nhưng tăng thứ bậc cho cột trái: menu
-  semibold 600, mục active và nhãn nhóm bold 700, nền active pha accent cùng thanh accent 3px.
-  Viền và shadow dùng token theo dark/light; hover phụ chỉ bật trên con trỏ chính xác.
+- Lớp **Sidebar emphasis** chuẩn hoá menu semibold 600, nhãn nhóm/mục active bold 700 và
+  các token viền, shadow, trạng thái hover cho cột điều hướng.
+- Lớp **Reference-inspired analytics shell** sau đó thay shell bằng sidebar/topbar dạng panel nổi
+  (radius 16–20px, shadow theo theme), mục active xanh dương nhạt và nhịp nội dung rộng hơn.
+  Tiêu đề/KPI/card/bảng/control dùng cùng hệ radius và tương phản; active nav đạt WCAG AA.
+  Ở ≤900px sidebar trở lại drawer; ở ≤700px topbar wrap để search có một hàng riêng, và vùng
+  chạm coarse vẫn giữ icon 38px/menu 42px. Các rule này chỉ thay presentation, không đổi router/data.
 
 ## 4. Hiệu năng
 
