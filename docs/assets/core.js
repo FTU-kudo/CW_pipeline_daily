@@ -259,6 +259,11 @@ export function initTheme() {
     });
   }
   window.addEventListener('cwintel:lang', paintTheme);
+  // Canvas không tự repaint khi webfont tải xong như DOM; vẽ lại để nhãn đúng phông.
+  if (document.fonts?.ready && !initTheme._fontsBound) {
+    initTheme._fontsBound = true;
+    document.fonts.ready.then(redrawAllCharts).catch(() => { /* font fallback vẫn dùng được */ });
+  }
 }
 
 const redrawHooks = new Set();

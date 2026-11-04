@@ -257,6 +257,14 @@ Cách sửa, giữ được cả hai theme:
   Tiêu đề/KPI/card/bảng/control dùng cùng hệ radius và tương phản; active nav đạt WCAG AA.
   Ở ≤900px sidebar trở lại drawer; ở ≤700px topbar wrap để search có một hàng riêng, và vùng
   chạm coarse vẫn giữ icon 38px/menu 42px. Các rule này chỉ thay presentation, không đổi router/data.
+- **Be Vietnam Pro** được self-host trong `docs/assets/fonts/` (Latin + Vietnamese, weight 400–700,
+  kèm OFL), preload bản 400 và nạp qua `be-vietnam-pro.css`; không gọi Google Fonts. Cả
+  `--font-sans` lẫn token `--font-mono` cũ trỏ tới phông này để UI, bảng và canvas đồng nhất;
+  `body` bật `tabular-nums` để giữ căn cột số; `document.fonts.ready` trigger redraw để canvas
+  không giữ phông fallback sau lần tải đầu.
+- `overview.js` dùng `overview-kpi` cho 10 KPI: lưới desktop **5 × 2**, tablet 2 cột và một cột
+  ở màn hình ≤420px. Card là grid `auto auto 1fr`, label có min-height hai dòng và cùng min-height
+  tổng thể để giá trị/mô tả thẳng hàng, không cắt nội dung động.
 
 ## 4. Hiệu năng
 
