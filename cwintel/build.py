@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import METHODOLOGY_VERSION, __version__, config, lifecycle, liquidity as liq
+from . import METHODOLOGY_VERSION, __version__, config, lifecycle, liquidity as liq, sessions
 from .backtest import History, build_signals, rebalance_dates, run_backtest
 from .data import MarketData, load_market_data
 from .panels import build_cw_panel, build_underlying_features, slice_asof
@@ -669,8 +669,16 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
                 removed += 1
     log(f"series: {len(cw_series)} CW files ({removed} stale removed)")
 
+    # ── độ mới của dữ liệu: so asof với phiên đã đóng gần nhất (giờ ICT)
+    session = sessions.session_status(asof)
+    if session["lagSessions"]:
+        log(f"session: dữ liệu dừng ở {session['asofLabel']}, thiếu "
+            f"{session['lagSessions']} phiên tới {session['expectedLabel']}")
+    else:
+        log(f"session: dữ liệu đã tới phiên {session['asofLabel']}")
+
     # ── quality report
-    quality = run_quality_checks(market, panel, snap, life=life_payload)
+    quality = run_quality_checks(market, panel, snap, life=life_payload, session=session)
     sizes["quality.json"] = _write(out_dir / "quality.json", quality)
     log(f"quality: {quality['summary']['error']} errors, "
         f"{quality['summary']['warn']} warnings")
@@ -702,7 +710,12 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
         "asof": asof.strftime("%Y-%m-%d"),
         "asofLabel": asof.strftime("%d/%m/%Y"),
         "dataAgeDays": int(data_age),
-        "stale": bool(data_age > config.STALE_DATA_DAYS_WARNING),
+        "dataAgeSessions": int(session["lagSessions"]),
+        "expectedAsOf": session["expected"],
+        "expectedAsOfLabel": session["expectedLabel"],
+        "session": session,
+        "stale": bool(session["lagSessions"] >= 2
+                      or data_age > config.STALE_DATA_DAYS_WARNING),
         "universe": {
             # Nguồn duy nhất: cwintel.lifecycle — tổng luôn khớp tổng các trạng thái.
             "total": int(life_payload["counts"]["total"]),

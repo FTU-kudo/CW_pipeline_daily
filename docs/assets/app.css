@@ -188,6 +188,17 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
   background: color-mix(in srgb, var(--warn) 10%, var(--surface));
   color: var(--text);
 }
+.banner-warn { box-shadow: inset 3px 0 0 var(--warn); }
+.banner-danger {
+  border-color: color-mix(in srgb, var(--down) 55%, var(--border));
+  background: color-mix(in srgb, var(--down) 11%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--down);
+}
+/* trộn 80% đỏ + 20% màu chữ: giữ sắc cảnh báo nhưng đạt ≥ 5,9:1 ở cả hai theme */
+.banner-danger b { color: color-mix(in srgb, var(--down) 80%, var(--text)); }
+.warn-text { color: var(--warn); }
+.mini-stat b.down { color: var(--down); }
+.mini-stat b.warn-text { color: var(--warn); }
 .view { padding: 16px; flex: 1; min-width: 0; }
 .footer {
   display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;

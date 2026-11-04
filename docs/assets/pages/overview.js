@@ -168,7 +168,7 @@ export default function overview(view) {
 
   view.appendChild(pageHead(
     'Tổng quan thị trường chứng quyền',
-    `Phiên dữ liệu <b>${esc(meta.asofLabel || '—')}</b> · ${k.listed || k.active || 0} CW còn hiệu lực `
+    `Phiên dữ liệu cuối <b>${esc(meta.asofLabel || '—')}</b> · ${k.listed || k.active || 0} CW còn hiệu lực `
       + `(${k.traded ?? k.active ?? 0} giao dịch phiên này) · ${k.underlyings || 0} cổ phiếu cơ sở · ${k.issuers || 0} tổ chức phát hành`,
     [
       el('button', {
