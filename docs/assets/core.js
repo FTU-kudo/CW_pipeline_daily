@@ -137,8 +137,11 @@ export async function loadJSON(path) {
 export const data = {
   meta: null, market: null, screener: null, recommendations: null,
   underlyings: null, quality: null, methodology: null, backtest: null, liquidity: null,
+  lifecycle: null,
   series: new Map(),
   async init(onProgress = () => {}) {
+    // Phần tử thứ 3 = tuỳ chọn: thiếu file vẫn chạy dashboard (dùng số liệu dự phòng
+    // từ meta.universe), để bản build mới không làm hỏng bản cũ đang cache.
     const steps = [
       ['meta', 'meta.json'],
       ['market', 'market.json'],
@@ -148,11 +151,17 @@ export const data = {
       ['quality', 'quality.json'],
       ['methodology', 'methodology.json'],
       ['liquidity', 'liquidity.json'],
+      ['lifecycle', 'lifecycle.json', true],
     ];
     let i = 0;
-    for (const [key, file] of steps) {
+    for (const [key, file, optional] of steps) {
       onProgress(++i / (steps.length + 1), key);
-      this[key] = await loadJSON('data/' + file);
+      try {
+        this[key] = await loadJSON('data/' + file);
+      } catch (err) {
+        if (!optional) throw err;
+        this[key] = null;
+      }
     }
     onProgress(1, 'done');
   },
@@ -180,8 +189,15 @@ export const data = {
       return s;
     } catch { this.series.set(key, null); return null; }
   },
+  // `active` = CW còn hiệu lực (đã lọc theo vòng đời ở tầng build); `expired` = đã
+  // đáo hạn / ngừng giao dịch / chờ niêm yết. Hai tập KHÔNG giao nhau.
   activeRows() { return this.screener?.active || []; },
+  listedRows() { return this.screener?.active || []; },
+  expiredRows() { return this.screener?.expired || []; },
   allRows() { return [...(this.screener?.active || []), ...(this.screener?.expired || [])]; },
+  lifeCounts() { return this.lifecycle?.counts || this.meta?.universe || {}; },
+  tradedRows() { return this.activeRows().filter((r) => r.tradedOn !== false); },
+  notTradedRows() { return this.activeRows().filter((r) => r.tradedOn === false); },
   row(ticker) { return this.allRows().find((r) => r.t === ticker) || null; },
   card(ticker) { return (this.recommendations?.cards || []).find((c) => c.ticker === ticker) || null; },
 };

@@ -168,7 +168,8 @@ export default function overview(view) {
 
   view.appendChild(pageHead(
     'Tổng quan thị trường chứng quyền',
-    `Phiên dữ liệu <b>${esc(meta.asofLabel || '—')}</b> · ${k.active || 0} CW đang giao dịch · ${k.underlyings || 0} cổ phiếu cơ sở · ${k.issuers || 0} tổ chức phát hành`,
+    `Phiên dữ liệu <b>${esc(meta.asofLabel || '—')}</b> · ${k.listed || k.active || 0} CW còn hiệu lực `
+      + `(${k.traded ?? k.active ?? 0} giao dịch phiên này) · ${k.underlyings || 0} cổ phiếu cơ sở · ${k.issuers || 0} tổ chức phát hành`,
     [
       el('button', {
         class: 'btn sm',
@@ -188,7 +189,12 @@ export default function overview(view) {
 
   // KPI
   const kpi = el('div', { class: 'grid kpi section' }, [
-    kpiCard({ label: 'CW đang giao dịch', value: fmt.n(k.active, 0), sub: `${fmt.n(k.expired, 0)} đã đáo hạn · tổng ${fmt.n(k.total, 0)}` }),
+    kpiCard({
+      label: 'CW còn hiệu lực',
+      value: fmt.n(k.listed ?? k.active, 0),
+      sub: `${fmt.n(k.traded ?? k.active, 0)} giao dịch phiên này · ${fmt.n(k.notTraded || 0)} không giao dịch<br>`
+        + `${fmt.n(k.matured ?? k.expired, 0)} đã đáo hạn · tổng ${fmt.n(k.total, 0)} hợp đồng`,
+    }),
     kpiCard({
       label: 'Tăng / Giảm',
       value: `${fmt.n(k.up, 0)} / ${fmt.n(k.down, 0)}`,
@@ -215,6 +221,7 @@ export default function overview(view) {
     kpiCard({ label: 'Điểm TB toàn thị trường', value: fmt.n(k.avgScore, 1), sub: `${k.scoreAbove65 || 0} mã ≥ 65 điểm` }),
   ]);
   view.appendChild(kpi);
+  view.appendChild(lifecycleSection());
 
   // breadth + distribution
   view.appendChild(breadthCharts());
@@ -250,15 +257,112 @@ export default function overview(view) {
   const notes = el('div', { class: 'card' }, [
     el('div', { class: 'card-title' }, [el('h3', { text: 'Ghi chú dữ liệu' })]),
     el('div', { class: 'notice' }, [
-      el('div', {
-        html: `Dữ liệu là <b>snapshot cuối phiên ${esc(meta.asofLabel)}</b> (cập nhật ${esc(meta.generatedAt)}), không phải realtime. `
-          + `Các mã không giao dịch trong 14 phiên bị loại khỏi thống kê tổng quan. `
-          + `Premium hoà vốn = (K + giá CW × tỷ lệ)/S − 1. Điểm CW là <b>thang tương đối</b> trong vũ trụ hiện tại.`,
-      }),
+      // Mỗi câu là một text node riêng để bản dịch EN khớp chính xác (i18n không
+      // dịch được câu đã bị cắt vụn bởi thẻ <b>).
+      el('div', { text: `Dữ liệu là snapshot cuối phiên ${meta.asofLabel || '—'} `
+        + `(cập nhật ${meta.generatedAt || '—'}), không phải realtime.` }),
+      el('div', { text: 'CW đã đáo hạn hoặc ngừng giao dịch được tách khỏi snapshot nên không được '
+        + 'chấm điểm hay khuyến nghị; mã không khớp lệnh trong 14 phiên cũng không vào snapshot.' }),
+      el('div', { text: 'Premium hoà vốn = (K + giá CW × tỷ lệ)/S − 1. '
+        + 'Điểm CW là thang tương đối trong vũ trụ hiện tại.' }),
     ]),
     el('div', { class: 'tiny muted', html: `Nguồn: Vietstock (điều khoản) · vnstock VCI/KBS (OHLCV) · HNX/VBMA (lãi suất phi rủi ro 10Y = ${fmt.pct((meta.riskFree?.value || 0) * 100, 2, false)}).` }),
   ]);
   view.appendChild(notes);
+}
+
+function lifeChips(rows, key = 't', clickable = true) {
+  const list = (rows || []).slice(0, 8);
+  return el('div', { class: 'life-chips' }, list.map((r) => el('span', {
+    class: 'life-chip' + (clickable && key === 't' ? ' clickable' : ''),
+    text: r[key],
+    title: [r.u, r.maturity || r.firstTrade, r.dte !== undefined ? `${r.dte} ngày` : null]
+      .filter(Boolean).join(' · '),
+    onclick: clickable && key === 't' ? () => navigate(`#/cw/${r.t}`) : null,
+  })));
+}
+
+function lifecycleSection() {
+  const lc = data.lifecycle;
+  const u = data.meta?.universe || data.market?.kpi || {};
+  const c = lc?.counts || {
+    total: u.total, listed: u.listed ?? u.active, traded: u.traded ?? u.active,
+    notTraded: u.notTraded || 0, matured: u.matured ?? u.expired,
+    delistedEarly: u.delistedEarly || 0, pending: u.pending || 0,
+  };
+  const sessions = lc?.recentSessions || 10;
+  const since = fmt.date(lc?.recentSince);
+  const up = lc?.upcoming || {};
+  const d30 = up.d30 || { count: 0, rows: [] };
+  const next = lc?.nextMaturity;
+  const wrap = el('div', { class: 'section' });
+  wrap.appendChild(sectionHead(
+    'Vòng đời chứng quyền',
+    el('span', { class: 'small muted', text: `${sessions} phiên gần nhất · từ ${since}` }),
+  ));
+
+  const card = (label, value, sub, rows, clickable = true) => el('div', { class: 'card life-card' }, [
+    el('div', { class: 'kpi-label', text: label }),
+    el('div', { class: 'kpi-value', text: fmt.n(value, 0) }),
+    el('div', { class: 'kpi-sub', html: sub }),
+    rows && rows.length ? lifeChips(rows, 't', clickable) : null,
+  ]);
+
+  wrap.appendChild(el('div', { class: 'grid cols-4 section' }, [
+    card('Niêm yết mới', lc?.newListings?.count ?? c.newListings ?? 0,
+      `${sessions} phiên · ${c.listed || 0} mã đang còn hiệu lực`, lc?.newListings?.rows),
+    card('Vừa đáo hạn', lc?.recentMaturities?.count ?? c.maturedRecent ?? 0,
+      `${sessions} phiên · tổng đã đáo hạn ${fmt.n(c.matured, 0)}`, lc?.recentMaturities?.rows, false),
+    card('Sắp đáo hạn', d30.count,
+      `≤ 30 ngày · ${(up.d60 || {}).count || 0} mã trong 60 ngày · ${(up.d90 || {}).count || 0} trong 90 ngày`,
+      d30.rows, true),
+    card('Ngừng giao dịch sớm', c.delistedEarly || lc?.earlyDelistings?.count || 0,
+      (c.delistedEarly || 0) ? 'còn hạn nhưng không còn khớp lệnh' : 'không có mã nào bị ngừng sớm',
+      lc?.earlyDelistings?.rows, false),
+  ]));
+
+  if (next) {
+    wrap.appendChild(el('div', { class: 'notice tiny', text:
+      `Hợp đồng gần đáo hạn nhất: ${next.t} (${next.u || ''}) — ${fmt.date(next.maturity)}, `
+      + `còn ${next.dte} ngày. Sau ngày đáo hạn mã này tự chuyển sang danh sách đã đáo hạn `
+      + `và không còn được khuyến nghị.` }));
+  }
+
+  // Lịch niêm yết / đáo hạn theo tháng
+  const cal = lc?.calendar || [];
+  if (cal.length) {
+    const curIdx = cal.findIndex((m) => m.isCurrent);
+    const start = Math.max(0, (curIdx < 0 ? 0 : curIdx) - 6);
+    const rows = cal.slice(start, start + 19);
+    const maxListed = Math.max(1, ...rows.map((r) => r.listedNow || 0));
+    wrap.appendChild(el('div', { class: 'card section' }, [
+      el('div', { class: 'card-title' }, [el('h3', { text: 'Lịch niêm yết & đáo hạn theo tháng' })]),
+      table({
+        compact: true,
+        rows,
+        empty: 'Không có dữ liệu lịch',
+        columns: [
+          { key: 'label', title: 'Tháng', render: (r) => el('span', { class: r.isCurrent ? 'mono strong' : 'mono', text: r.label + (r.isCurrent ? ' ◂' : '') }) },
+          { key: 'listings', title: 'Niêm yết', align: 'right', render: (r) => fmt.n(r.listings, 0) },
+          { key: 'maturities', title: 'Đáo hạn', align: 'right', render: (r) => fmt.n(r.maturities, 0) },
+          {
+            key: 'listedNow', title: 'Còn hiệu lực, đáo hạn trong tháng', align: 'right',
+            render: (r) => el('span', { class: 'life-bar-cell' }, [
+              el('span', { class: 'life-bar', style: `width:${Math.round((r.listedNow || 0) / maxListed * 100)}%` }),
+              el('span', { class: 'mono', text: fmt.n(r.listedNow || 0, 0) }),
+            ]),
+          },
+        ],
+      }),
+      el('div', { class: 'tiny muted', style: 'margin-top:8px', text:
+        `Tổng vũ trụ ${fmt.n(c.total, 0)} hợp đồng = còn hiệu lực ${fmt.n(c.listed, 0)}`
+        + ` + đã đáo hạn ${fmt.n(c.matured, 0)}`
+        + (c.delistedEarly ? ` + ngừng giao dịch sớm ${fmt.n(c.delistedEarly, 0)}` : '')
+        + (c.pending ? ` + chờ niêm yết ${fmt.n(c.pending, 0)}` : '')
+        + (lc?.identity?.ok === false ? ' — LỆCH, xem báo cáo chất lượng' : '') }),
+    ]));
+  }
+  return wrap;
 }
 
 function esc(s) {

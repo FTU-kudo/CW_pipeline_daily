@@ -1,9 +1,9 @@
 /* Trang Khuyến nghị + Backtest */
 import {
   el, fmt, data, pageHead, sectionHead, badge, scoreCell, table, kpiCard, navigate,
-  drawLine, drawBars, onThemeChange, openDrawer, closeDrawer, downloadCsv, toast,
+  drawLine, onThemeChange, openDrawer, closeDrawer, downloadCsv, toast,
 } from '../core.js';
-import { bi } from '../i18n.js';
+import { bi, getLang } from '../i18n.js';
 
 /* ===================== KHUYẾN NGHỊ ===================== */
 const recState = { rec: '', q: '', sort: 'score', limit: 60 };
@@ -283,297 +283,588 @@ function exportCards(cards) {
 }
 
 /* ===================== BACKTEST ===================== */
-function metricCard(labelKey, label, value, sub, cls) {
-  return kpiCard({ label, value, sub, valueClass: cls });
-}
+
+/** Song ngữ cho câu có số liệu: EN mode → tiếng Anh, VI+EN → cả hai. */
+const T = (vi, en) => (getLang() === 'both' ? `${vi} · ${en}` : bi(vi, en));
+
+const STRAT_LABEL = {
+  score_top: ['Top-5 theo CW Score (sau phí)', 'Top-5 by CW Score (net)'],
+  score_top_gross: ['Top-5 theo CW Score (trước phí)', 'Top-5 by CW Score (gross)'],
+  ew_universe: ['Toàn vũ trụ CW (EW)', 'Whole CW universe (EW)'],
+  random: ['Ngẫu nhiên 5 mã (10 seed)', 'Random 5 warrants (10 seeds)'],
+  underlying_ew: ['Cổ phiếu cơ sở (EW)', 'Underlying stocks (EW)'],
+};
+
+const EXIT_LABEL = {
+  horizon: ['Hết hạn giữ', 'Holding period end'],
+  stop: ['Stop-loss', 'Stop-loss'],
+  take_profit: ['Take-profit', 'Take-profit'],
+  data_end: ['Hết dữ liệu', 'No more data'],
+};
 
 export async function backtestPage(view) {
   const bt = await data.backtestData();
+  const cfg = bt.config || {};
   const s = bt.summary || {};
   const ts = bt.trade_stats || {};
-  const strat = s.score_top || {};
+  const net = s.score_top || {};
+  const gross = s.score_top_gross || {};
+  const ew = s.ew_universe || {};
+  const rnd = s.random || {};
+  const bench = s.underlying_ew || {};
+  const curve = bt.curve || [];
+  const monthly = bt.monthly || [];
+  const buckets = bt.buckets || [];
+  const regime = bt.regime || {};
+  const caveats = bt.caveats || [];
+  const caveatsEn = bt.caveats_en || [];
+  const bestFilter = (bt.filter_sensitivity || [])
+    .filter((r) => Number.isFinite(r.total_return_pct))
+    .reduce((a, b) => (!a || b.total_return_pct > a.total_return_pct ? b : a), null);
+  const bestFilterLabel = bestFilter ? T(bestFilter.filter, bestFilter.filter_en || bestFilter.filter) : '';
+  const dragPp = Math.abs(bt.cost_drag_pct || 0);          // độ lớn chi phí, tính bằng điểm %
 
   view.appendChild(pageHead(
     'Backtest walk-forward',
-    `Tín hiệu chấm điểm tại ngày T, vào lệnh phiên T+1, nắm giữ ${bt.config?.holding_sessions || '—'} phiên. `
-    + `Chi phí ${bt.config?.cost_per_side_bps ? (bt.config.cost_per_side_bps / 100).toFixed(2) : '—'}%/chiều (bid-ask + phí + trượt giá).`,
-    [el('button', { class: 'btn sm', text: '⇩ Tải trades (CSV)', onclick: () => exportTrades(bt) })],
+    T(
+      `Chấm điểm tại ngày T · vào lệnh phiên T+1 · tái cân bằng ${cfg.rebalance || '—'} · `
+        + `top-${cfg.top_n || '—'} · chi phí ${fmt.n(cfg.cost_per_side_pct, 2)}%/chiều `
+        + `(${fmt.n(cfg.round_trip_pct, 1)}%/vòng) · ${fmt.date(cfg.start)} → ${fmt.date(cfg.end)}`,
+      `Score on day T · enter on session T+1 · rebalance ${cfg.rebalance_sessions
+        ? `every ${cfg.rebalance_sessions} sessions` : '—'} · top-${cfg.top_n || '—'} · `
+        + `cost ${fmt.n(cfg.cost_per_side_pct, 2)}%/side (${fmt.n(cfg.round_trip_pct, 1)}%/round trip) · `
+        + `${fmt.date(cfg.start)} → ${fmt.date(cfg.end)}`,
+    ),
+    [el('button', {
+      class: 'btn sm', text: '⇩ Tải trades (CSV)', onclick: () => exportTrades(bt),
+    }), el('button', {
+      class: 'btn sm', text: 'Phương pháp →', onclick: () => navigate('#/method'),
+    })],
   ));
 
-  view.appendChild(el('div', { class: 'notice danger', html: '<b>Kết quả được báo cáo trung thực, kể cả khi xấu.</b> Chiến lược top-5 theo CW Score <b>thua lỗ</b> trong giai đoạn kiểm định — nguyên nhân chính là cấu trúc giảm giá của CW Việt Nam (theta + IV cao). '
-    + 'Điều này không bị che giấu; các bộ lọc có kỳ vọng dương được trình bày trong bảng độ nhạy bên dưới.' }));
-
-  view.appendChild(el('div', { class: 'grid kpi section' }, [
-    kpiCard({ label: 'Tổng lợi nhuận — top-5 Score', value: fmt.pct(strat.total_return_pct, 1), sub: `CAGR ${fmt.pct(strat.cagr_pct, 1)}`, valueClass: strat.total_return_pct >= 0 ? 'up' : 'down' }),
-    kpiCard({ label: 'Sharpe', value: fmt.n(strat.sharpe, 2), sub: `Vol ${fmt.pct(strat.ann_vol_pct, 1, false)}` }),
-    kpiCard({ label: 'Max drawdown', value: fmt.pct(strat.max_drawdown_pct, 1), sub: `${bt.config?.n_signal_dates || 0} kỳ tái cấu trúc`, valueClass: 'down' }),
-    kpiCard({ label: 'Tỷ lệ thắng', value: fmt.pct(ts.win_rate_pct, 1, false), sub: `${ts.n_trades} lệnh` }),
-    kpiCard({ label: 'Profit factor', value: fmt.n(ts.profit_factor, 2), sub: `TB thắng ${fmt.pct(ts.avg_win_pct, 1)} / lỗ ${fmt.pct(ts.avg_loss_pct, 1)}` }),
-    kpiCard({ label: 'Lợi nhuận TB/lệnh', value: fmt.pct(ts.avg_return_pct, 2), sub: `trung vị ${fmt.pct(ts.median_return_pct, 1)}`, valueClass: ts.avg_return_pct >= 0 ? 'up' : 'down' }),
-    kpiCard({ label: 'Stop / TP hit', value: `${fmt.pct(ts.stop_hit_rate_pct, 0, false)} / ${fmt.pct(ts.tp_hit_rate_pct, 0, false)}`, sub: `giữ TB ${fmt.n(ts.avg_holding_sessions, 1)} phiên` }),
-    kpiCard({ label: 'Benchmark cổ phiếu cơ sở', value: fmt.pct(s.underlying_ew?.total_return_pct, 1), sub: `Sharpe ${fmt.n(s.underlying_ew?.sharpe, 2)}`, valueClass: s.underlying_ew?.total_return_pct >= 0 ? 'up' : 'down' }),
+  /* ---------- 1. Kết luận ---------- */
+  view.appendChild(el('div', { class: 'card bt-verdict' }, [
+    el('div', { class: 'bt-verdict-row' }, [
+      el('span', { class: 'bt-verdict-tag down', text: T('Kết quả thật', 'The honest result') }),
+      el('div', { class: 'bt-verdict-text', text: T(
+        `Top-5 theo CW Score đạt ${fmt.pct(net.total_return_pct, 1)} sau phí và `
+          + `${fmt.pct(gross.total_return_pct, 1)} trước phí — chi phí giao dịch ăn `
+          + `${fmt.n(dragPp, 1)} điểm %. Cùng kỳ, rổ cổ phiếu cơ sở equal-weight đạt `
+          + `${fmt.pct(bench.total_return_pct, 1)}.`,
+        `The top-5 by CW Score returned ${fmt.pct(net.total_return_pct, 1)} after costs and `
+          + `${fmt.pct(gross.total_return_pct, 1)} before costs — trading costs consumed `
+          + `${fmt.n(dragPp, 1)} pp. Over the same period the equal-weight underlying `
+          + `basket returned ${fmt.pct(bench.total_return_pct, 1)}.`,
+      ) }),
+    ]),
+    bestFilter ? el('div', { class: 'bt-verdict-text', text: T(
+      `Bộ lọc duy nhất cho tổng lợi nhuận dương: “${bestFilterLabel}” → `
+        + `${fmt.pct(bestFilter.total_return_pct, 1)} tổng, ${fmt.pct(bestFilter.avg_trade_ret_pct, 2)}/lệnh, `
+        + `nhưng chỉ ${fmt.n(bestFilter.n_trades, 0)} lệnh — quá ít để coi là bằng chứng. Xem bảng bộ lọc bên dưới.`,
+      `The only filter with a positive total return: “${bestFilterLabel}” → `
+        + `${fmt.pct(bestFilter.total_return_pct, 1)} total, ${fmt.pct(bestFilter.avg_trade_ret_pct, 2)}/trade, `
+        + `but only ${fmt.n(bestFilter.n_trades, 0)} trades — far too few to treat as evidence. `
+        + `See the filter table below.`) }) : null,
+    el('div', { class: 'bt-verdict-text muted', text: T(
+      'Chiến lược thua lỗ trong giai đoạn kiểm định và điều đó không bị che giấu. Ba mục dưới đây '
+        + 'tách rõ tín hiệu yếu, chi phí và beta thị trường — để biết phần nào có thể cải thiện và '
+        + 'phần nào là bản chất của chứng quyền.',
+      'The strategy lost money over the test period and that is not hidden. The three sections below '
+        + 'separate weak signal, costs and market beta — so you can see which part can be improved and '
+        + 'which part is the nature of warrants.',
+    ) }),
   ]));
 
-  // equity curve
-  const curve = bt.curve || [];
+  /* ---------- 2. KPI ---------- */
+  const kpi = (vi, en, value, sub, cls) => kpiCard({ label: T(vi, en), value, sub, valueClass: cls });
+  view.appendChild(el('div', { class: 'grid kpi section' }, [
+    kpi('Tổng lợi nhuận (sau phí)', 'Total return (net)', fmt.pct(net.total_return_pct, 1),
+      T(`vốn cuối kỳ ${fmt.n(net.final_equity, 0)} trên 100`,
+        `final equity ${fmt.n(net.final_equity, 0)} per 100`),
+      (net.total_return_pct || 0) >= 0 ? 'up' : 'down'),
+    kpi('Trước phí giao dịch', 'Before trading costs', fmt.pct(gross.total_return_pct, 1),
+      T(`chi phí ăn ${fmt.n(dragPp, 1)} điểm %`, `costs ate ${fmt.n(dragPp, 1)} pp`),
+      (gross.total_return_pct || 0) >= 0 ? 'up' : 'down'),
+    kpi('CAGR (sau phí)', 'CAGR (net)', fmt.pct(net.cagr_pct, 1),
+      `Sharpe ${fmt.n(net.sharpe, 2)} · Sortino ${fmt.n(net.sortino, 2)}`,
+      (net.cagr_pct || 0) >= 0 ? 'up' : 'down'),
+    kpi('Drawdown lớn nhất', 'Maximum drawdown', fmt.pct(net.max_drawdown_pct, 1),
+      T(`theo đường vốn từng phiên (${fmt.n(cfg.n_sessions, 0)} phiên)`,
+        `from the daily equity path (${fmt.n(cfg.n_sessions, 0)} sessions)`), 'down'),
+    kpi('Tỷ lệ thắng (lệnh)', 'Win rate (trades)', fmt.pct(ts.win_rate_pct, 1, false),
+      T(`${fmt.n(ts.n_trades, 0)} lệnh · PF ${fmt.n(ts.profit_factor, 2)}`,
+        `${fmt.n(ts.n_trades, 0)} trades · PF ${fmt.n(ts.profit_factor, 2)}`)),
+    kpi('Lãi TB mỗi lệnh', 'Average P&L per trade', fmt.pct(ts.avg_return_pct, 2),
+      T(`trung vị ${fmt.pct(ts.median_return_pct, 1)} · payoff ${fmt.n(ts.payoff_ratio, 2)}`,
+        `median ${fmt.pct(ts.median_return_pct, 1)} · payoff ${fmt.n(ts.payoff_ratio, 2)}`),
+      (ts.avg_return_pct || 0) >= 0 ? 'up' : 'down'),
+    kpi('Cổ phiếu cơ sở (EW)', 'Underlying (EW)', fmt.pct(bench.total_return_pct, 1),
+      `Sharpe ${fmt.n(bench.sharpe, 2)} · MDD ${fmt.pct(bench.max_drawdown_pct, 1)}`,
+      (bench.total_return_pct || 0) >= 0 ? 'up' : 'down'),
+    kpi('Toàn vũ trụ CW', 'Whole CW universe', fmt.pct(ew.total_return_pct, 1),
+      T(`ngẫu nhiên ${fmt.pct(rnd.total_return_pct, 1)} · top-5 hơn EW `
+          + `${fmt.pct((net.total_return_pct || 0) - (ew.total_return_pct || 0), 1)}`,
+        `random ${fmt.pct(rnd.total_return_pct, 1)} · top-5 beats EW by `
+          + `${fmt.pct((net.total_return_pct || 0) - (ew.total_return_pct || 0), 1)}`),
+      (ew.total_return_pct || 0) >= 0 ? 'up' : 'down'),
+  ]));
+
+  /* ---------- 3. Đường vốn + drawdown ---------- */
   const eqCanvas = el('canvas');
-  const eqCard = el('div', { class: 'card section' }, [
+  const ddCanvas = el('canvas');
+  view.appendChild(el('div', { class: 'card section' }, [
     el('div', { class: 'card-title' }, [
-      el('h3', { text: 'Đường vốn — 4 chiến lược (base 100)' }),
-      el('div', { class: 'legend-inline' }, [
-        el('span', { html: '<i style="background:var(--accent)"></i>Top-5 Score' }),
-        el('span', { html: '<i style="background:var(--accent-2)"></i>Toàn vũ trụ' }),
-        el('span', { html: '<i style="background:var(--violet)"></i>Ngẫu nhiên' }),
-        el('span', { html: '<i style="background:var(--warn)"></i>Cổ phiếu cơ sở' }),
-      ]),
+      el('h3', { text: T('Đường vốn theo phiên (base 100)', 'Daily equity path (base 100)') }),
+      el('span', { class: 'tiny muted', text: T('Đánh dấu theo giá đóng cửa từng phiên',
+        'Marked to market at each session close') }),
     ]),
     el('div', { class: 'chart-box' }, [eqCanvas]),
-  ]);
-  view.appendChild(eqCard);
-  const eqPaint = () => {
-    const g = getComputedStyle(document.documentElement);
-    drawLine(eqCanvas, {
-      height: 300, labels: curve.map((c) => fmt.date(c.date)),
-      series: [
-        { name: 'Top-5 Score', values: curve.map((c) => c.eq_score), color: g.getPropertyValue('--accent').trim() },
-        { name: 'Toàn vũ trụ', values: curve.map((c) => c.eq_ew), color: g.getPropertyValue('--accent-2').trim() },
-        { name: 'Ngẫu nhiên', values: curve.map((c) => c.eq_random), color: g.getPropertyValue('--violet').trim() },
-        { name: 'Cổ phiếu cơ sở', values: curve.map((c) => c.eq_underlying), color: g.getPropertyValue('--warn').trim() },
-      ],
-      yFormat: (v) => fmt.n(v, 0),
-    });
-  };
-  requestAnimationFrame(eqPaint);
-  onThemeChange(eqPaint);
-  eqCanvas.style.height = '300px';
+  ]));
+  view.appendChild(el('div', { class: 'card section' }, [
+    el('div', { class: 'card-title' }, [
+      el('h3', { text: T('Drawdown của chiến lược top-5', 'Drawdown of the top-5 strategy') }),
+      el('span', { class: 'tiny muted', text: T(`đáy ${fmt.pct(net.max_drawdown_pct, 1)}`,
+        `trough ${fmt.pct(net.max_drawdown_pct, 1)}`) }),
+    ]),
+    el('div', { class: 'chart-box' }, [ddCanvas]),
+  ]));
 
-  // summary table + monthly
-  const sumTable = table({
-    compact: true,
-    rows: Object.entries(s).map(([k, v]) => ({ k, ...v })),
-    columns: [
-      { key: 'k', title: 'Chiến lược', render: (r) => ({ score_top: 'Top-5 theo CW Score', ew_universe: 'Toàn vũ trụ CW', random: 'Ngẫu nhiên', underlying_ew: 'Cổ phiếu cơ sở (EW)' }[r.k] || r.k) },
-      { key: 'total_return_pct', title: 'Tổng LN', align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
-      { key: 'cagr_pct', title: 'CAGR', align: 'right', render: (r) => fmt.pct(r.cagr_pct, 1) },
-      { key: 'ann_vol_pct', title: 'Vol', align: 'right', render: (r) => fmt.pct(r.ann_vol_pct, 1, false) },
-      { key: 'sharpe', title: 'Sharpe', align: 'right', render: (r) => fmt.n(r.sharpe, 2) },
-      { key: 'max_drawdown_pct', title: 'MDD', align: 'right', render: (r) => el('span', { class: 'down', text: fmt.pct(r.max_drawdown_pct, 1) }) },
-      { key: 'avg_period_ret_pct', title: 'TB/kỳ', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_period_ret_pct), text: fmt.pct(r.avg_period_ret_pct, 2) }) },
-      { key: 'positive_periods_pct', title: '% kỳ dương', align: 'right', render: (r) => fmt.pct(r.positive_periods_pct, 1, false) },
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const labels = curve.map((c) => fmt.date(c.date));
+  const eqPaint = () => drawLine(eqCanvas, {
+    height: 300,
+    labels,
+    series: [
+      { name: STRAT_LABEL.score_top[getLang() === 'en' ? 1 : 0], values: curve.map((c) => c.eq_score), color: cssVar('--accent'), width: 2.2 },
+      { name: STRAT_LABEL.score_top_gross[getLang() === 'en' ? 1 : 0], values: curve.map((c) => c.eq_gross), color: cssVar('--accent-2') },
+      { name: STRAT_LABEL.ew_universe[getLang() === 'en' ? 1 : 0], values: curve.map((c) => c.eq_ew), color: cssVar('--violet') },
+      { name: STRAT_LABEL.random[getLang() === 'en' ? 1 : 0], values: curve.map((c) => c.eq_random), color: cssVar('--text-3') },
+      { name: STRAT_LABEL.underlying_ew[getLang() === 'en' ? 1 : 0], values: curve.map((c) => c.eq_underlying), color: cssVar('--warn'), width: 2.2 },
     ],
+    yFormat: (v) => fmt.n(v, 0),
   });
+  const ddPaint = () => drawLine(ddCanvas, {
+    height: 150,
+    labels,
+    series: [{ name: 'Drawdown', values: curve.map((c) => c.dd_score), color: cssVar('--down'), fill: true, width: 1.4 }],
+    zeroLine: true,
+    yFormat: (v) => fmt.pct(v, 0, false),
+  });
+  requestAnimationFrame(() => { eqPaint(); ddPaint(); });
+  onThemeChange(() => { eqPaint(); ddPaint(); });
 
-  const monthly = bt.monthly || [];
-  const mCanvas = el('canvas');
-  const mCard = el('div', { class: 'card' }, [
-    el('div', { class: 'card-title' }, [el('h3', { text: 'Lợi nhuận theo tháng — top-5 Score' })]),
-    el('div', { class: 'chart-box' }, [mCanvas]),
-  ]);
+  /* ---------- 4. So sánh chiến lược ---------- */
+  const stratRows = Object.keys(STRAT_LABEL).filter((k) => s[k]).map((k) => ({ k, ...s[k] }));
+  view.appendChild(el('div', { class: 'section' }, [
+    sectionHead('So sánh chiến lược', el('span', { class: 'tiny muted',
+      text: T('CAGR/Sharpe tính theo kỳ tái cân bằng · MDD theo phiên',
+        'CAGR/Sharpe from rebalance periods · MDD from daily path') })),
+    table({
+      compact: true,
+      rows: stratRows,
+      columns: [
+        { key: 'k', title: T('Chiến lược', 'Strategy'), render: (r) => el('span', { class: 'strong', text: T(...(STRAT_LABEL[r.k] || [r.k, r.k])) }) },
+        { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
+        { key: 'cagr_pct', title: 'CAGR', align: 'right', render: (r) => fmt.pct(r.cagr_pct, 1) },
+        { key: 'ann_vol_pct', title: T('Vol/năm', 'Vol p.a.'), align: 'right', render: (r) => fmt.pct(r.ann_vol_pct, 1, false) },
+        { key: 'sharpe', title: 'Sharpe', align: 'right', render: (r) => fmt.n(r.sharpe, 2) },
+        { key: 'max_drawdown_pct', title: 'MDD', align: 'right', render: (r) => el('span', { class: 'down', text: fmt.pct(r.max_drawdown_pct, 1) }) },
+        { key: 'positive_periods_pct', title: T('% kỳ dương', '% positive periods'), align: 'right', render: (r) => fmt.pct(r.positive_periods_pct, 0, false) },
+        { key: 'final_equity', title: T('Vốn cuối (100)', 'Final equity (100)'), align: 'right', render: (r) => el('span', { class: 'mono', text: fmt.n(r.final_equity, 1) }) },
+      ],
+    }),
+  ]));
+
+  /* ---------- 5. Lợi nhuận theo tháng (heatmap) ---------- */
+  view.appendChild(el('div', { class: 'card section' }, [
+    el('div', { class: 'card-title' }, [
+      el('h3', { text: T('Lợi nhuận theo tháng — top-5 Score (sau phí)',
+        'Monthly returns — top-5 by score (net)') }),
+      heatSummary(monthly),
+    ]),
+    monthlyHeatmap(monthly, cfg.end),
+    el('div', { class: 'tiny muted', style: 'margin-top:8px', text: T(
+      'Mỗi ô là lợi nhuận của tháng đó tính từ đường vốn theo phiên (không phải trung bình các kỳ). '
+        + 'Ô “·” = tháng không có phiên giao dịch; ô viền nét đứt = tháng dở dang (dữ liệu tới '
+        + `${fmt.date(cfg.end)}).`,
+      'Each cell is that month’s return from the daily equity path (not an average of periods). '
+        + 'A “·” cell means no trading session that month; a dashed cell is an incomplete month '
+        + `(data through ${fmt.date(cfg.end)}).`) }),
+  ]));
+
+  /* ---------- 6. Thang điểm có dự báo được? ---------- */
+  const bucketRows = buckets.filter((b) => b && (b.n || 0) > 0);
+  const emptyBuckets = buckets.filter((b) => b && !(b.n || 0));
+  const maxAbs = Math.max(1, ...bucketRows.map((b) => Math.abs(b.avg_ret_pct || 0)));
+  const bucketBars = el('div', { class: 'bt-bars' }, bucketRows.map((b) => el('div', { class: 'bt-bar-row' }, [
+    el('span', { class: 'mono bt-bar-name', text: b.bucket }),
+    el('div', { class: 'bt-bar-track' }, [
+      el('span', { class: 'bt-bar ' + ((b.avg_ret_pct || 0) >= 0 ? 'pos' : 'neg'), style: `width:${Math.max(2, Math.round(Math.abs(b.avg_ret_pct || 0) / maxAbs * 100))}%` }),
+    ]),
+    el('span', { class: 'mono bt-bar-val ' + fmt.cls(b.avg_ret_pct), text: fmt.pct(b.avg_ret_pct, 1) }),
+    el('span', { class: 'tiny muted bt-bar-n', text: `n=${fmt.n(b.n, 0)}` }),
+  ])));
+
+  view.appendChild(el('div', { class: 'section' }, [
+    sectionHead(
+      T('Thang điểm có dự báo được lợi nhuận?', 'Does the score predict returns?'),
+      el('span', { class: 'tiny muted', text: T(
+        `Lợi nhuận ${cfg.holding_sessions || 20} phiên của toàn bộ CW đủ điều kiện, trước phí`,
+        `${cfg.holding_sessions || 20}-session return of every eligible warrant, before costs`) }),
+    ),
+    el('div', { class: 'grid cols-2' }, [
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card-title' }, [el('h3', { text: T('Lợi nhuận TB theo nhóm điểm', 'Average return by score bucket') })]),
+        bucketBars,
+        emptyBuckets.length ? el('div', { class: 'tiny muted', style: 'margin-top:8px', text: T(
+          `${emptyBuckets.map((b) => b.bucket).join(', ')}: không đủ quan sát để kết luận.`,
+          `${emptyBuckets.map((b) => b.bucket).join(', ')}: not enough observations to conclude.`) }) : null,
+      ]),
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card-title' }, [el('h3', { text: T('Thống kê chi tiết', 'Detailed statistics') })]),
+        table({
+          compact: true,
+          rows: bucketRows,
+          columns: [
+            { key: 'bucket', title: T('Nhóm điểm', 'Score bucket'), render: (r) => el('span', { class: 'mono', text: r.bucket }) },
+            { key: 'n', title: T('Số quan sát', 'Observations'), align: 'right', render: (r) => fmt.n(r.n, 0) },
+            { key: 'avg_ret_pct', title: T('TB 20 phiên', 'Avg 20-session'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 1) }) },
+            { key: 'median_ret_pct', title: T('Trung vị', 'Median'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.median_ret_pct), text: fmt.pct(r.median_ret_pct, 1) }) },
+            { key: 'win_rate_pct', title: T('Tỷ lệ thắng', 'Win rate'), align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 0, false) },
+            { key: 'profit_factor', title: 'PF', align: 'right', render: (r) => fmt.n(r.profit_factor, 2) },
+          ],
+        }),
+      ]),
+    ]),
+    el('div', { class: 'notice tiny', style: 'margin-top:8px', text: T(
+      'Đây là kiểm định tính đơn điệu của thang điểm, không phải hiệu quả chiến lược: nếu thang điểm tốt, '
+        + 'nhóm điểm cao phải có lợi nhuận kỳ vọng cao hơn nhóm thấp. Chênh lệch hiện tại còn yếu và không đơn điệu.',
+      'This tests score monotonicity, not strategy performance: for a good score, the top bucket must carry a '
+        + 'higher expected return than the bottom one. The current spread is weak and non-monotonic.') }),
+  ]));
+
+  /* ---------- 7. Chế độ thị trường + vì sao lỗ ---------- */
   view.appendChild(el('div', { class: 'grid cols-2 section' }, [
-    el('div', {}, [sectionHead('So sánh chiến lược'), sumTable]),
-    mCard,
+    el('div', { class: 'card' }, [
+      el('div', { class: 'card-title' }, [el('h3', { text: 'Kết quả theo chế độ thị trường' })]),
+      el('div', { class: 'tiny muted', style: 'margin-bottom:8px', text: T(
+        'Chia các kỳ tái cân bằng theo dấu lợi nhuận của rổ cổ phiếu cơ sở trong cùng kỳ — cho thấy '
+          + 'chiến lược phụ thuộc vào xu hướng thị trường tới mức nào.',
+        'Rebalance periods split by the sign of the underlying basket’s return in the same period — '
+          + 'showing how much the strategy depends on the market trend.') }),
+      table({
+        compact: true,
+        rows: [{ key: 'Cơ sở TĂNG', ...(regime.up || {}) }, { key: 'Cơ sở GIẢM', ...(regime.down || {}) }],
+        columns: [
+          { key: 'key', title: T('Chế độ', 'Regime') },
+          { key: 'n_periods', title: T('Số kỳ', 'Periods'), align: 'right', render: (r) => fmt.n(r.n_periods, 0) },
+          { key: 'avg_bench_pct', title: T('Cơ sở TB/kỳ', 'Underlying avg'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_bench_pct), text: fmt.pct(r.avg_bench_pct, 2) }) },
+          { key: 'avg_ret_pct', title: T('Chiến lược TB/kỳ', 'Strategy avg'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 2) }) },
+          { key: 'win_rate_pct', title: T('% kỳ dương', '% positive'), align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 0, false) },
+        ],
+      }),
+    ]),
+    explainerCard(bt, cfg),
   ]));
-  const mPaint = () => drawBars(mCanvas, {
-    height: 220, labels: monthly.map((m) => m.month.slice(2)),
-    values: monthly.map((m) => m.ret_pct),
-    colors: monthly.map((m) => (m.ret_pct >= 0
-      ? getComputedStyle(document.documentElement).getPropertyValue('--up').trim()
-      : getComputedStyle(document.documentElement).getPropertyValue('--down').trim())),
-    tipFormat: (v) => fmt.pct(v, 2),
-  });
-  requestAnimationFrame(mPaint);
-  onThemeChange(mPaint);
-  mCanvas.style.height = '220px';
 
-  // theo chế độ thị trường (suy ra từ benchmark cổ phiếu cơ sở của từng kỳ)
-  const regimeRows = (() => {
-    const groups = { 'Cơ sở TĂNG': [], 'Cơ sở GIẢM': [] };
-    for (const c of curve) {
-      if (!Number.isFinite(c.score_top) || !Number.isFinite(c.underlying_ew)) continue;
-      (c.underlying_ew > 0 ? groups['Cơ sở TĂNG'] : groups['Cơ sở GIẢM']).push(c.score_top);
-    }
-    return Object.entries(groups).map(([label, arr]) => {
-      if (!arr.length) return { label, n: 0 };
-      const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-      const wins = arr.filter((v) => v > 0).length;
-      return {
-        label, n: arr.length,
-        avg: mean * 100,
-        median: [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] * 100,
-        win: (wins / arr.length) * 100,
-      };
-    });
-  })();
-
-  // buckets
-  const buckets = bt.buckets || [];
-  const bCanvas = el('canvas');
-  const bCard = el('div', { class: 'card' }, [
-    el('div', { class: 'card-title' }, [el('h3', { text: 'Lợi nhuận 20 phiên tới theo nhóm điểm (toàn bộ CW)' })]),
-    el('div', { class: 'chart-box' }, [bCanvas]),
-    el('div', { class: 'tiny muted', text: 'Đây là kiểm định tính đơn điệu của thang điểm: nhóm điểm cao phải có lợi nhuận kỳ vọng tốt hơn. Chênh lệch hiện còn yếu.' }),
-  ]);
-  view.appendChild(el('div', { class: 'grid cols-2 section' }, [bCard, (() => {
-    const card = el('div', { class: 'card' });
-    card.appendChild(el('div', { class: 'card-title' }, [el('h3', { text: 'Thống kê theo nhóm điểm' })]));
-    card.appendChild(table({
-      compact: true,
-      rows: buckets,
-      columns: [
-        { key: 'bucket', title: 'Nhóm điểm' },
-        { key: 'n', title: 'n', align: 'right' },
-        { key: 'avg_ret_pct', title: 'TB', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 1) }) },
-        { key: 'median_ret_pct', title: 'Trung vị', align: 'right', render: (r) => el('span', { class: fmt.cls(r.median_ret_pct), text: fmt.pct(r.median_ret_pct, 1) }) },
-        { key: 'win_rate_pct', title: 'Win rate', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-      ],
-    }));
-    return card;
-  })()]));
-  const bPaint = () => drawBars(bCanvas, {
-    height: 200, labels: buckets.map((b) => b.bucket),
-    values: buckets.map((b) => b.avg_ret_pct),
-    colors: buckets.map((b) => (b.avg_ret_pct >= 0
-      ? getComputedStyle(document.documentElement).getPropertyValue('--up').trim()
-      : getComputedStyle(document.documentElement).getPropertyValue('--down').trim())),
-    tipFormat: (v, i) => `${fmt.pct(v, 2)} · win ${fmt.pct(buckets[i].win_rate_pct, 1, false)} · n=${buckets[i].n}`,
-    yFormat: (v) => fmt.pct(v, 0),
-  });
-  requestAnimationFrame(bPaint);
-  onThemeChange(bPaint);
-  bCanvas.style.height = '200px';
-
-  // regime
-  const regimeCard = el('div', { class: 'card section' }, [
-    el('div', { class: 'card-title' }, [el('h3', { text: 'Kết quả theo chế độ thị trường' })]),
-    el('div', { class: 'tiny muted', style: 'margin-bottom:8px', text: 'Chia 43 kỳ tái cấu trúc theo dấu lợi nhuận của cổ phiếu cơ sở trong cùng kỳ — cho thấy chiến lược có phụ thuộc vào xu hướng thị trường hay không.' }),
-    table({
-      compact: true, rows: regimeRows,
-      columns: [
-        { key: 'label', title: 'Chế độ' },
-        { key: 'n', title: 'Số kỳ', align: 'right' },
-        { key: 'avg', title: 'TB/kỳ', align: 'right', render: (r) => (r.n ? el('span', { class: fmt.cls(r.avg), text: fmt.pct(r.avg, 2) }) : '—') },
-        { key: 'median', title: 'Trung vị', align: 'right', render: (r) => (r.n ? el('span', { class: fmt.cls(r.median), text: fmt.pct(r.median, 2) }) : '—') },
-        { key: 'win', title: '% kỳ dương', align: 'right', render: (r) => (r.n ? fmt.pct(r.win, 1, false) : '—') },
-      ],
-    }),
-  ]);
-  view.appendChild(regimeCard);
-
-  // sensitivity
-  const sensCard = el('div', { class: 'card section' });
-  sensCard.appendChild(el('div', { class: 'card-title' }, [el('h3', { text: 'Độ nhạy & kiểm định bộ lọc' })]));
-  const sensTables = el('div', { class: 'grid cols-2' });
-  sensTables.appendChild(el('div', {}, [
-    el('div', { class: 'tiny muted', style: 'margin-bottom:4px', text: 'Thời gian nắm giữ' }),
-    table({
-      compact: true,
-      rows: bt.holding_sensitivity || [],
-      columns: [
-        { key: 'holding_sessions', title: 'Phiên giữ', align: 'right' },
-        { key: 'n_trades', title: 'Số lệnh', align: 'right' },
-        { key: 'avg_trade_ret_pct', title: 'TB/lệnh', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-        { key: 'total_return_pct', title: 'Tổng', align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
-      ],
-    }),
+  /* ---------- 8. Độ nhạy ---------- */
+  view.appendChild(el('div', { class: 'section' }, [
+    sectionHead('Độ nhạy & kiểm định bộ lọc', el('span', { class: 'tiny muted',
+      text: T('Mỗi dòng chạy lại toàn bộ mô phỏng với một giả định khác',
+        'Each row re-runs the whole simulation under one different assumption') })),
+    el('div', { class: 'grid cols-2' }, [
+      sensitivityCard(
+        T('Chi phí mỗi chiều', 'Cost per side'),
+        T('Dòng đậm là giả định đang dùng.', 'The bold row is the assumption in use.'),
+        bt.cost_sensitivity || [],
+        [
+          { key: 'cost_per_side_pct', title: T('%/chiều', '%/side'), render: (r) => el('span', { class: r.is_default ? 'strong' : 'mono', text: fmt.pct(r.cost_per_side_pct, 2, false) }) },
+          { key: 'round_trip_pct', title: T('%/vòng', '%/round trip'), align: 'right', render: (r) => fmt.pct(r.round_trip_pct, 2, false) },
+          { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct) + (r.is_default ? ' strong' : ''), text: fmt.pct(r.total_return_pct, 1) }) },
+        ],
+      ),
+      sensitivityCard(
+        T('Thời gian nắm giữ', 'Holding period'),
+        T('Giữ càng lâu, theta bào mòn càng nhiều.', 'The longer the hold, the more theta erodes value.'),
+        bt.holding_sensitivity || [],
+        [
+          { key: 'holding_sessions', title: T('Phiên', 'Sessions'), align: 'right', render: (r) => el('span', { class: r.holding_sessions === cfg.holding_sessions ? 'strong mono' : 'mono', text: fmt.n(r.holding_sessions, 0) }) },
+          { key: 'n_trades', title: T('Số lệnh', 'Trades'), align: 'right', render: (r) => fmt.n(r.n_trades, 0) },
+          { key: 'avg_trade_ret_pct', title: T('TB/lệnh', 'Avg/trade'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
+          { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
+        ],
+      ),
+      sensitivityCard(
+        T('Ngưỡng điểm tối thiểu', 'Minimum score gate'),
+        T('Chỉ mua khi điểm ≥ ngưỡng.', 'Only buy when the score reaches the gate.'),
+        bt.gate_sensitivity || [],
+        [
+          { key: 'score_gate', title: T('Điểm ≥', 'Score ≥'), align: 'right' },
+          { key: 'n_trades', title: T('Số lệnh', 'Trades'), align: 'right', render: (r) => fmt.n(r.n_trades, 0) },
+          { key: 'avg_trade_ret_pct', title: T('TB/lệnh', 'Avg/trade'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
+          { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
+        ],
+      ),
+      sensitivityCard(
+        T('Stop-loss / take-profit', 'Stop-loss / take-profit'),
+        T('Stop −2 ATR, TP +2R, khớp thận trọng khi giá mở cửa gap qua ngưỡng.',
+          'Stop −2 ATR, TP +2R, filled conservatively when the open gaps through a level.'),
+        bt.stop_sensitivity || [],
+        [
+          { key: 'variant', title: T('Biến thể', 'Variant'), render: (r) => el('span', { class: r.with_stops ? 'strong' : '', text: r.with_stops ? T('Có stop/TP (mặc định)', 'With stop/TP (default)') : T('Không stop/TP', 'No stop/TP') }) },
+          { key: 'n_trades', title: T('Số lệnh', 'Trades'), align: 'right', render: (r) => fmt.n(r.n_trades, 0) },
+          { key: 'avg_trade_ret_pct', title: T('TB/lệnh', 'Avg/trade'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
+          { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
+          { key: 'max_drawdown_pct', title: 'MDD', align: 'right', render: (r) => el('span', { class: 'down', text: fmt.pct(r.max_drawdown_pct, 1) }) },
+        ],
+      ),
+    ]),
   ]));
-  sensTables.appendChild(el('div', {}, [
-    el('div', { class: 'tiny muted', style: 'margin-bottom:4px', text: 'Ngưỡng điểm tối thiểu' }),
-    table({
-      compact: true,
-      rows: bt.gate_sensitivity || [],
-      columns: [
-        { key: 'score_gate', title: 'Ngưỡng', align: 'right' },
-        { key: 'n_trades', title: 'Số lệnh', align: 'right' },
-        { key: 'avg_trade_ret_pct', title: 'TB/lệnh', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-        { key: 'total_return_pct', title: 'Tổng', align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
-      ],
-    }),
-  ]));
-  sensTables.appendChild(el('div', {}, [
-    el('div', { class: 'tiny muted', style: 'margin-bottom:4px', text: 'Chi phí mỗi chiều' }),
-    table({
-      compact: true,
-      rows: bt.cost_sensitivity || [],
-      columns: [
-        { key: 'cost_per_side_pct', title: '%/chiều', align: 'right', render: (r) => fmt.pct(r.cost_per_side_pct, 2, false) },
-        { key: 'avg_trade_ret_pct', title: 'TB/lệnh', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-      ],
-    }),
-  ]));
-  sensTables.appendChild(el('div', {}, [
-    el('div', { class: 'tiny muted', style: 'margin-bottom:4px', text: 'Bộ lọc bổ sung (mỗi lệnh)' }),
+
+  /* ---------- 8b. Bộ lọc bổ sung ---------- */
+  view.appendChild(el('div', { class: 'card section' }, [
+    el('div', { class: 'card-title' }, [
+      el('h3', { text: T('Kiểm định bộ lọc bổ sung', 'Additional filter tests') }),
+      el('span', { class: 'tiny muted', text: T('Xếp theo tổng lợi nhuận sau phí',
+        'Sorted by total return after costs') }),
+    ]),
     table({
       compact: true,
       rows: bt.filter_sensitivity || [],
       columns: [
-        { key: 'filter', title: 'Bộ lọc' },
-        { key: 'n_trades', title: 'n', align: 'right' },
-        { key: 'avg_trade_ret_pct', title: 'TB', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
+        {
+          key: 'filter', title: T('Bộ lọc', 'Filter'),
+          render: (r) => el('span', { class: (r.avg_trade_ret_pct || 0) > 0 ? 'strong' : '', text: T(r.filter, r.filter_en || r.filter) }),
+        },
+        { key: 'n_trades', title: T('Số lệnh', 'Trades'), align: 'right', render: (r) => fmt.n(r.n_trades, 0) },
+        { key: 'avg_trade_ret_pct', title: T('TB/lệnh', 'Avg/trade'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_trade_ret_pct), text: fmt.pct(r.avg_trade_ret_pct, 2) }) },
+        { key: 'win_rate_pct', title: T('Tỷ lệ thắng', 'Win rate'), align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
         { key: 'profit_factor', title: 'PF', align: 'right', render: (r) => fmt.n(r.profit_factor, 2) },
-        { key: 'total_return_pct', title: 'Tổng', align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
+        { key: 'total_return_pct', title: T('Tổng LN', 'Total'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }) },
       ],
     }),
+    el('div', { class: 'bt-filter-rows' }, positiveFilterNotes(bt)),
+    el('div', { class: 'notice tiny', style: 'margin-top:8px', text: T(
+      'Bộ lọc dùng chung một tập tín hiệu nên rất dễ overfit; bộ lọc có lợi nhuận dương cũng chỉ dựa trên '
+        + 'vài chục lệnh và tập trung ở một giai đoạn. Muốn dùng thật, phải kiểm định ngoài mẫu (walk-forward '
+        + 'cuốn tiếp) và kiểm tra độ ổn định theo thời gian.',
+      'All filters share one signal set, so they overfit easily; even the profitable one rests on a few dozen '
+        + 'trades concentrated in one stretch of history. Real use requires out-of-sample validation and a '
+        + 'stability check over time.') }),
   ]));
-  sensCard.appendChild(sensTables);
-  sensCard.appendChild(el('div', { class: 'notice ok', html: 'Bộ lọc <b>IV ≤ HV</b> (mua khi IV không cao hơn biến động lịch sử) là biến thể duy nhất có kỳ vọng dương trên mỗi lệnh trong giai đoạn này, tuy tổng lợi nhuận vẫn âm do chi phí và đuôi rủi ro. '
-    + 'Đây là lý do cổng <b>IV ≤ HV + 40%</b> được đưa vào điều kiện MUA/MUA MẠNH.' }));
-  view.appendChild(sensCard);
 
-  // by issuer/underlying
+  /* ---------- 9. Theo TCPH / cơ sở ---------- */
+  const groupCols = (first, upper = false) => [
+    { key: 'key', title: first, render: (r) => el('span', { class: upper ? 'mono' : '', text: upper ? String(r.key).toUpperCase() : r.key }) },
+    { key: 'n', title: T('Số lệnh', 'Trades'), align: 'right', render: (r) => fmt.n(r.n, 0) },
+    { key: 'avg_ret_pct', title: T('TB/lệnh', 'Avg/trade'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 2) }) },
+    { key: 'median_ret_pct', title: T('Trung vị', 'Median'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.median_ret_pct), text: fmt.pct(r.median_ret_pct, 1) }) },
+    { key: 'win_rate_pct', title: T('Tỷ lệ thắng', 'Win rate'), align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 0, false) },
+  ];
   view.appendChild(el('div', { class: 'grid cols-2 section' }, [
-    el('div', {}, [sectionHead('Kết quả theo tổ chức phát hành'), table({
-      compact: true, rows: bt.by_issuer || [],
-      columns: [
-        { key: 'key', title: 'TCPH' },
-        { key: 'n', title: 'Số lệnh', align: 'right' },
-        { key: 'avg_ret_pct', title: 'TB/lệnh', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-      ],
-    })]),
-    el('div', {}, [sectionHead('Kết quả theo cổ phiếu cơ sở'), table({
-      compact: true, rows: bt.by_underlying || [],
-      columns: [
-        { key: 'key', title: 'Cơ sở' },
-        { key: 'n', title: 'Số lệnh', align: 'right' },
-        { key: 'avg_ret_pct', title: 'TB/lệnh', align: 'right', render: (r) => el('span', { class: fmt.cls(r.avg_ret_pct), text: fmt.pct(r.avg_ret_pct, 2) }) },
-        { key: 'win_rate_pct', title: 'Win', align: 'right', render: (r) => fmt.pct(r.win_rate_pct, 1, false) },
-      ],
-    })]),
+    el('div', { class: 'card' }, [
+      el('div', { class: 'card-title' }, [el('h3', { text: 'Kết quả theo tổ chức phát hành' })]),
+      table({ compact: true, rows: bt.by_issuer || [], columns: groupCols(T('TCPH', 'Issuer'), true) }),
+    ]),
+    el('div', { class: 'card' }, [
+      el('div', { class: 'card-title' }, [el('h3', { text: 'Kết quả theo cổ phiếu cơ sở' })]),
+      table({ compact: true, rows: bt.by_underlying || [], columns: groupCols(T('Cơ sở', 'Underlying')) }),
+    ]),
   ]));
 
-  // trades
-  const tradesSection = el('div', { class: 'section' });
-  tradesSection.appendChild(sectionHead(`Toàn bộ lệnh (${(bt.trades || []).length})`));
-  tradesSection.appendChild(table({
-    compact: true,
-    rows: (bt.trades || []).slice().reverse(),
-    columns: [
-      { key: 'entry_date', title: 'Vào', render: (r) => fmt.date(r.entry_date) },
-      { key: 'exit_date', title: 'Ra', render: (r) => fmt.date(r.exit_date) },
-      { key: 'ticker', title: 'Mã', render: (r) => el('span', { class: 'tbl-ticker', text: r.ticker }) },
-      { key: 'underlying', title: 'Cơ sở' },
-      { key: 'score', title: 'Điểm', align: 'right', render: (r) => fmt.n(r.score, 1) },
-      { key: 'entry', title: 'Giá vào', align: 'right', render: (r) => fmt.px(r.entry) },
-      { key: 'ret_pct', title: 'LN', align: 'right', render: (r) => el('span', { class: fmt.cls(r.ret_pct), text: fmt.pct(r.ret_pct, 1) }) },
-      { key: 'mfe_pct', title: 'MFE', align: 'right', render: (r) => el('span', { class: 'up', text: fmt.pct(r.mfe_pct, 1) }) },
-      { key: 'mae_pct', title: 'MAE', align: 'right', render: (r) => el('span', { class: 'down', text: fmt.pct(r.mae_pct, 1) }) },
-      { key: 'holding_sessions', title: 'Phiên', align: 'right' },
-      { key: 'exit_reason', title: 'Thoát' },
-    ],
-  }));
-  view.appendChild(tradesSection);
-
-  // caveats + config
-  view.appendChild(el('div', { class: 'card' }, [
-    el('div', { class: 'card-title' }, [el('h3', { text: 'Giả định, giới hạn và chống thiên lệch' })]),
-    el('ul', { class: 'factor-list warn', style: 'padding-left:0' }, (bt.caveats || []).map((c) => el('li', { text: c }))),
-    el('div', { class: 'formula', style: 'margin-top:8px', text: `start=${bt.config?.start} · end=${bt.config?.end} · rebalance=${bt.config?.rebalance} · top_n=${bt.config?.top_n} · cost=${(bt.config?.cost_per_side_bps / 100).toFixed(2)}%${bi('/side', '/side')} · r=${bt.config?.risk_free}` }),
-    el('div', { class: 'tiny muted', style: 'margin-top:6px', text: costLine(bt.config) }),
+  /* ---------- 10. Nhật ký lệnh ---------- */
+  const trades = (bt.trades || []).slice().reverse();
+  view.appendChild(el('div', { class: 'section' }, [
+    sectionHead('Nhật ký lệnh', el('span', { class: 'tiny muted', text: T(
+      `${fmt.n(bt.n_trades_total, 0)} lệnh · hiển thị ${fmt.n(trades.length, 0)} lệnh gần nhất`,
+      `${fmt.n(bt.n_trades_total, 0)} trades · showing the latest ${fmt.n(trades.length, 0)}`) })),
+    table({
+      compact: true,
+      stickyFirst: true,
+      rows: trades,
+      onRowClick: (r) => navigate(`#/cw/${r.ticker}`),
+      columns: [
+        { key: 'entry_date', title: T('Vào', 'Entry'), render: (r) => fmt.date(r.entry_date) },
+        { key: 'exit_date', title: T('Ra', 'Exit'), render: (r) => fmt.date(r.exit_date) },
+        { key: 'ticker', title: T('Mã', 'Ticker'), render: (r) => el('span', { class: 'tbl-ticker', text: r.ticker }) },
+        { key: 'underlying', title: T('Cơ sở', 'Underlying') },
+        { key: 'score', title: T('Điểm', 'Score'), align: 'right', render: (r) => fmt.n(r.score, 1) },
+        { key: 'entry', title: T('Giá vào', 'Entry px'), align: 'right', render: (r) => fmt.px(r.entry) },
+        { key: 'exit', title: T('Giá ra', 'Exit px'), align: 'right', render: (r) => fmt.px(r.exit) },
+        { key: 'gross_ret_pct', title: T('Gộp', 'Gross'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.gross_ret_pct), text: fmt.pct(r.gross_ret_pct, 1) }) },
+        { key: 'ret_pct', title: T('Sau phí', 'Net'), align: 'right', render: (r) => el('span', { class: fmt.cls(r.ret_pct), text: fmt.pct(r.ret_pct, 1) }) },
+        { key: 'mfe_pct', title: 'MFE', align: 'right', render: (r) => el('span', { class: 'up', text: fmt.pct(r.mfe_pct, 1) }) },
+        { key: 'mae_pct', title: 'MAE', align: 'right', render: (r) => el('span', { class: 'down', text: fmt.pct(r.mae_pct, 1) }) },
+        { key: 'holding_sessions', title: T('Phiên', 'Sessions'), align: 'right' },
+        {
+          key: 'exit_reason', title: T('Thoát', 'Exit'),
+          render: (r) => {
+            const lab = EXIT_LABEL[r.exit_reason] || [r.exit_reason, r.exit_reason];
+            return el('span', { class: 'badge ' + (r.exit_reason === 'stop' ? 'HIGH_RISK' : r.exit_reason === 'take_profit' ? 'BUY' : 'tag'), text: T(...lab) });
+          },
+        },
+      ],
+    }),
+    el('div', { class: 'tiny muted', style: 'margin-top:6px', text: T(
+      'Nhấp vào một dòng để mở trang phân tích của mã đó.',
+      'Click a row to open that warrant’s analysis page.') }),
   ]));
+
+  /* ---------- 11. Giả định & giới hạn ---------- */
+  view.appendChild(el('div', { class: 'card section' }, [
+    el('div', { class: 'card-title' }, [
+      el('h3', { text: 'Giả định, giới hạn và chống thiên lệch' }),
+      el('span', { class: 'tiny muted', text: T('Đọc trước khi dùng bất kỳ con số nào ở trên',
+        'Read before using any figure above') }),
+    ]),
+    el('ul', { class: 'factor-list warn' }, caveats.map((c, i) => el('li', { text: T(c, caveatsEn[i] || c) }))),
+    el('div', { class: 'formula', style: 'margin-top:10px', text:
+      `start=${cfg.start} · end=${cfg.end} · rebalance=${cfg.rebalance_sessions || '—'} · `
+      + `top_n=${cfg.top_n} · holding=${cfg.holding_sessions} · `
+      + `cost=${fmt.n(cfg.cost_per_side_pct, 2)}%/side · r=${cfg.risk_free}` }),
+    el('div', { class: 'tiny muted', style: 'margin-top:6px', text: costLine(cfg) }),
+  ]));
+}
+
+/* ---------- widget ---------- */
+
+/** Tóm tắt các bộ lọc có lợi nhuận trung bình mỗi lệnh dương, kèm cảnh báo cỡ mẫu. */
+function positiveFilterNotes(bt) {
+  const rows = (bt.filter_sensitivity || []).filter((r) => (r.avg_trade_ret_pct || 0) > 0);
+  if (!rows.length) return [];
+  return rows.slice(0, 4).map((r) => {
+    const small = (r.n_trades || 0) < 50;
+    return el('div', { class: 'bt-filter-row' }, [
+      el('span', { class: 'bt-filter-name', text: T(r.filter, r.filter_en || r.filter) }),
+      el('span', { class: 'mono ' + fmt.cls(r.avg_trade_ret_pct), text: `${fmt.pct(r.avg_trade_ret_pct, 2)}${T('/lệnh', '/trade')}` }),
+      el('span', { class: 'mono', text: `${fmt.n(r.n_trades, 0)} ${T('lệnh', 'trades')}` }),
+      el('span', { class: 'mono ' + fmt.cls(r.total_return_pct), text: fmt.pct(r.total_return_pct, 1) }),
+      small ? el('span', { class: 'badge HOLD', text: T('mẫu nhỏ', 'small sample') }) : null,
+    ]);
+  });
+}
+
+function monthlyHeatmap(monthly, endDate) {
+  const partial = endDate ? String(endDate).slice(0, 7) : null;
+  const map = new Map(monthly.map((m) => [m.month, m.score_top_pct]));
+  const years = [...new Set(monthly.map((m) => Number(String(m.month).slice(0, 4))))].sort();
+  const rows = years.map((y) => {
+    const row = { year: String(y) };
+    let prod = 1;
+    let has = false;
+    for (let mo = 1; mo <= 12; mo++) {
+      const key = `${y}-${String(mo).padStart(2, '0')}`;
+      const v = map.get(key);
+      row['m' + mo] = v === undefined || v === null ? null : v;
+      if (Number.isFinite(v)) { prod *= 1 + v / 100; has = true; }
+    }
+    row.total = has ? (prod - 1) * 100 : null;
+    return row;
+  });
+  const cell = (v, monthKey) => {
+    if (!Number.isFinite(v)) return el('span', { class: 'mh-na', text: '·' });
+    const lvl = Math.min(4, Math.max(1, Math.ceil(Math.abs(v) / 4)));
+    const isPartial = partial && monthKey === partial;
+    return el('span', {
+      class: `mh-cell ${v >= 0 ? 'mh-pos' : 'mh-neg'}-${lvl}${isPartial ? ' mh-partial' : ''}`,
+      title: isPartial ? T('tháng dở dang', 'incomplete month') : null,
+      text: fmt.pct(v, 1),
+    });
+  };
+  const columns = [
+    { key: 'year', title: T('Năm', 'Year'), render: (r) => el('span', { class: 'mono strong', text: r.year }) },
+    ...['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+      .map((mm, i) => ({
+        key: 'm' + (i + 1), title: mm, align: 'right',
+        render: (r) => cell(r['m' + (i + 1)], `${r.year}-${String(i + 1).padStart(2, '0')}`),
+      })),
+    {
+      key: 'total', title: T('Cả năm', 'Year'), align: 'right',
+      render: (r) => (Number.isFinite(r.total)
+        ? el('span', { class: 'mono strong ' + fmt.cls(r.total), text: fmt.pct(r.total, 1) })
+        : el('span', { class: 'mh-na', text: '·' })),
+    },
+  ];
+  return table({ compact: true, rows, columns, empty: T('Chưa có dữ liệu tháng', 'No monthly data yet') });
+}
+
+function heatSummary(monthly) {
+  const vals = monthly.map((m) => m.score_top_pct).filter((v) => Number.isFinite(v));
+  if (!vals.length) return null;
+  const pos = vals.filter((v) => v > 0).length;
+  const best = monthly.reduce((a, b) => (b.score_top_pct > a.score_top_pct ? b : a), monthly[0]);
+  const worst = monthly.reduce((a, b) => (b.score_top_pct < a.score_top_pct ? b : a), monthly[0]);
+  return el('span', { class: 'tiny muted', text: T(
+    `${vals.length} tháng · ${pos} tháng dương · tốt nhất ${best.label} ${fmt.pct(best.score_top_pct, 1)}`
+      + ` · xấu nhất ${worst.label} ${fmt.pct(worst.score_top_pct, 1)}`,
+    `${vals.length} months · ${pos} up · best ${best.label} ${fmt.pct(best.score_top_pct, 1)}`
+      + ` · worst ${worst.label} ${fmt.pct(worst.score_top_pct, 1)}`) });
+}
+
+function explainerCard(bt, cfg) {
+  const s = bt.summary || {};
+  const dragPp = Math.abs(bt.cost_drag_pct || 0);
+  const net = s.score_top || {};
+  const gross = s.score_top_gross || {};
+  const ew = s.ew_universe || {};
+  const bench = s.underlying_ew || {};
+  const up = (bt.regime || {}).up || {};
+  const down = (bt.regime || {}).down || {};
+  const items = [
+    {
+      vi: ['1. Cấu trúc của chứng quyền',
+        'Premium hoà vốn của vũ trụ ở mức cao: cổ phiếu cơ sở phải tăng hàng chục phần trăm mới hoà vốn, '
+        + 'trong khi theta bào mòn mỗi phiên. Phần lớn CW giảm giá bất kể tín hiệu — đây là đặc điểm sản phẩm, '
+        + 'không phải lỗi mô hình.'],
+      en: ['1. Structure of the product',
+        'Break-even premiums across the universe are high: the underlying must rally tens of percent just to '
+        + 'break even, while theta erodes value every session. Most warrants fall regardless of the signal — '
+        + 'that is the product, not a model error.'],
+    },
+    {
+      vi: ['2. Chi phí giao dịch',
+        `${fmt.n(cfg.cost_per_side_pct, 2)}%/chiều (${fmt.n(cfg.round_trip_pct, 1)}%/vòng) × `
+        + `${fmt.n(cfg.n_signal_dates, 0)} vòng tái cân bằng: riêng chi phí đã lấy đi ${fmt.n(dragPp, 1)} điểm %. `
+        + 'Nếu chỉ phải trả hoa hồng + trượt giá thực tế (khoảng 0,45%/chiều), kết quả vẫn âm nhưng nhẹ hơn nhiều.'],
+      en: ['2. Trading costs',
+        `${fmt.n(cfg.cost_per_side_pct, 2)}%/side (${fmt.n(cfg.round_trip_pct, 1)}%/round trip) × `
+        + `${fmt.n(cfg.n_signal_dates, 0)} rebalances: costs alone took ${fmt.n(dragPp, 1)} pp. `
+        + 'At a realistic commission-plus-slippage level (~0.45%/side) the result stays negative but far milder.'],
+    },
+    {
+      vi: ['3. Tín hiệu chưa đủ mạnh',
+        `Trước phí, top-5 đạt ${fmt.pct(gross.total_return_pct, 1)} so với toàn vũ trụ ${fmt.pct(ew.total_return_pct, 1)} `
+        + '— thang điểm tách được nhóm tốt hơn, nhưng chưa đủ để bù chi phí và độ biến động.'],
+      en: ['3. The signal is not strong enough',
+        `Before costs the top-5 returned ${fmt.pct(gross.total_return_pct, 1)} versus ${fmt.pct(ew.total_return_pct, 1)} `
+        + 'for the whole universe — the score does separate a better group, but not enough to cover costs and volatility.'],
+    },
+    {
+      vi: ['4. Phụ thuộc xu hướng thị trường',
+        `Khi cổ phiếu cơ sở tăng, chiến lược lãi trung bình ${fmt.pct(up.avg_ret_pct, 2)}/kỳ; khi cơ sở giảm, `
+        + `lỗ ${fmt.pct(down.avg_ret_pct, 2)}/kỳ. Đó là beta nhiều hơn là alpha: cùng kỳ rổ cơ sở đạt `
+        + `${fmt.pct(bench.total_return_pct, 1)}, chiến lược ${fmt.pct(net.total_return_pct, 1)}.`],
+      en: ['4. Market-trend dependence',
+        `When the underlying rises the strategy makes ${fmt.pct(up.avg_ret_pct, 2)}/period on average; when it falls `
+        + `it loses ${fmt.pct(down.avg_ret_pct, 2)}/period. That is beta rather than alpha: the underlying basket `
+        + `returned ${fmt.pct(bench.total_return_pct, 1)} versus ${fmt.pct(net.total_return_pct, 1)} for the strategy.`],
+    },
+  ];
+  return el('div', { class: 'card' }, [
+    el('div', { class: 'card-title' }, [el('h3', { text: T('Vì sao chiến lược thua lỗ', 'Why the strategy loses money') })]),
+    el('div', { class: 'bt-explain' }, items.map((it) => el('div', { class: 'bt-explain-item' }, [
+      el('div', { class: 'bt-explain-title', text: T(it.vi[0], it.en[0]) }),
+      el('div', { class: 'tiny muted', text: T(it.vi[1], it.en[1]) }),
+    ]))),
+  ]);
+}
+
+function sensitivityCard(title, note, rows, columns) {
+  return el('div', { class: 'card' }, [
+    el('div', { class: 'card-title' }, [el('h3', { text: title })]),
+    table({ compact: true, rows, columns, empty: T('Không có dữ liệu', 'No data') }),
+    note ? el('div', { class: 'tiny muted', style: 'margin-top:6px', text: note }) : null,
+  ]);
 }
 
 function costLine(config) {

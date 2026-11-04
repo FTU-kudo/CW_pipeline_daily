@@ -76,11 +76,16 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 
 `build_snapshot(asof, tolerance_days=14)`:
 
+0. **Lọc theo vòng đời** (xem §2.6): chỉ giữ CW còn hiệu lực tại `asof`
+   (`maturity > asof`, đã bắt đầu giao dịch). CW đã đáo hạn / chờ niêm yết
+   không bao giờ vào snapshot nên không bị chấm điểm hay khuyến nghị.
 1. Lấy dòng cuối cùng ≤ `asof` cho mỗi CW (dung sai 14 ngày để không rơi nửa vũ trụ).
 2. Ghép metadata TCPH, tỷ trọng giá trị giao dịch của TCPH.
 3. `add_peer_metrics()` — fit **smile IV** theo `ln(K/S)/√T` cho từng cổ phiếu cơ sở (tuyến tính nếu R² ≥ 0,15, kernel Gaussian nếu không), tính `iv_resid`, premium trung vị nhóm, `fv_smile`.
-4. `score_universe()` — 6 thành phần, mỗi thành phần trả `(score, confidence, detail)`; tổng hợp có trọng số × confidence.
-5. `classify_frame()` — áp ngưỡng **tăng dần** rồi các cổng chất lượng; trả `(recommendation, rec_reason)`.
+4. **DTE/T tính lại tại `asof`** (`maturity − asof`), không kế thừa DTE của phiên
+   khớp lệnh cuối — nhờ vậy DTE không thể âm dù giá đã cũ.
+5. `score_universe()` — 6 thành phần, mỗi thành phần trả `(score, confidence, detail)`; tổng hợp có trọng số × confidence.
+6. `classify_frame()` — áp ngưỡng **tăng dần** rồi các cổng chất lượng; trả `(recommendation, rec_reason)`.
 
 ### 2.5 Phát hành (build)
 
@@ -90,16 +95,54 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 |---|---|---|
 | `meta.json` | phiên bản, as-of, nguồn, lãi suất, danh sách series, kích thước tệp, thời gian build | ~10 KB |
 | `market.json` | KPI, phân bố TCPH/cơ sở, top lists, breadth 250 phiên | ~100 KB |
-| `screener.json` | 348 CW active + CW đã đáo hạn, 40+ trường | ~730 KB |
-| `recommendations.json` | card đầy đủ cho mọi CW active | ~1,1 MB |
+| `screener.json` | CW còn hiệu lực + CW đã đáo hạn/ngừng giao dịch, 40+ trường | ~730 KB |
+| `recommendations.json` | card đầy đủ cho mọi CW còn hiệu lực | ~1,1 MB |
+| `lifecycle.json` | trạng thái vòng đời, sự kiện niêm yết/đáo hạn, lịch 12+12 tháng | ~24 KB |
 | `underlyings.json` | tổng hợp 22 cổ phiếu cơ sở | ~6 KB |
-| `backtest.json` | summary, curve, trades, buckets, độ nhạy, caveats | ~100 KB |
-| `quality.json` | 16 kiểm tra + headline | ~5 KB |
+| `backtest.json` | summary, curve theo phiên, trades, buckets, regime, độ nhạy, caveats VI/EN | ~212 KB |
+| `quality.json` | 20 kiểm tra + headline | ~6 KB |
 | `methodology.json` | công thức, trọng số, cổng, giới hạn | ~9 KB |
 | `series/cw/<ticker>.json` | ~759 tệp, chỉ CW active hoặc giao dịch trong 365 ngày | ~11 MB |
 | `series/und/<sym>.json` | 22 tệp, 500 phiên gần nhất | ~2 MB |
 
 **Quy ước làm tròn**: giá 1 chữ số thập phân, % 1–2, điểm 1, confidence 3. `NaN` → `null` để JSON hợp lệ.
+
+
+### 2.6 Vòng đời CW: niêm yết liên tục, đáo hạn liên tục
+
+CW không phải vũ trụ tĩnh: mỗi tuần có mã mới niêm yết, mỗi tháng có mã đáo hạn.
+Vì vậy mọi mặt cắt phải phân loại lại **mỗi lần build** — `cwintel/lifecycle.py`
+là nguồn duy nhất cho việc này.
+
+**Năm trạng thái** (mỗi CW thuộc đúng một trạng thái):
+
+| Trạng thái | Điều kiện | Xử lý |
+|---|---|---|
+| `listed` | `maturity > asof` và đã bắt đầu giao dịch | vào snapshot, được chấm điểm/khuyến nghị |
+| `matured` | `maturity <= asof` | sang `screener.expired`, không chấm điểm |
+| `delisted_early` | còn hạn nhưng im lặng > `LIFECYCLE_EARLY_STOP_DAYS` (45 ngày) | như trên, kèm cờ ngừng sớm |
+| `pending` | `first_trade > asof` | chưa vào snapshot |
+| `unknown` | thiếu `maturity` | loại khỏi snapshot, bị quality cảnh báo |
+
+**Bất biến được kiểm tra tự động**: `total = listed + matured + delisted_early +
+pending + unknown`; `screener.active ∩ screener.expired = ∅`; mọi CW trong
+`recommendations.json` đều thuộc `screener.active`; `DTE ≥ 0` trong snapshot.
+Vi phạm → check `universe_identity` / `snapshot_lifecycle` / `recs_listed_only`
+chuyển sang `error` và build bị coi là hỏng.
+
+**Phát hiện sự kiện** (cửa sổ 10 phiên, tính trên lịch phiên thật từ panel):
+`newListings` (`first_trade` trong cửa sổ), `recentMaturities` (`maturity` trong
+cửa sổ), `upcoming` 30/60/90 ngày, `earlyDelistings`. Mỗi sự kiện kèm danh sách
+mã để dashboard hiển thị trực tiếp — không cần người dùng mở app mới biết.
+
+**Lưu ý về `last_trade` của Vietstock**: trường này là *phiên giao dịch cuối theo
+kế hoạch* (thường trước ngày đáo hạn 2 ngày), nằm ở **tương lai** so với `asof`,
+nên **không dùng** để phát hiện "đã ngừng giao dịch". Việc đó dựa trên giá quan
+sát được trong panel (`days_since_print`).
+
+Dashboard: khối **Vòng đời chứng quyền** ở trang Tổng quan (4 thẻ sự kiện + lịch
+niêm yết/đáo hạn theo tháng + dòng đối soát tổng vũ trụ), cột **Trạng thái** và
+chip lọc "Bao gồm CW đã đáo hạn (N)" ở Screener.
 
 ## 3. Frontend
 
@@ -158,9 +201,9 @@ Cách sửa, giữ được cả hai theme:
 | Nạp + chuẩn hoá 273k dòng OHLCV | ~8 s |
 | Panel 158k dòng, 148k quan sát IV | ~30 s |
 | Snapshot + scoring 348 CW | ~5 s |
-| Backtest walk-forward 43 kỳ, 215 lệnh | ~90 s |
+| Backtest walk-forward 43 kỳ, 215 lệnh, 854 phiên MTM | ~85 s |
 | Xuất 780 tệp JSON | ~25 s |
-| **Tổng** | **~250 s** |
+| **Tổng** | **~123 s** |
 
 RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 
@@ -171,8 +214,15 @@ RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 3. **Momentum percentile trên các underlying duy nhất**, tránh underlying có 30 CW làm méo phân bố.
 4. **Confidence-weighted score**: CW thiếu dữ liệu bị giảm trọng số thay vì bị điểm 0 oan.
 5. **Cổng chất lượng tách khỏi điểm**: điểm cao vẫn có thể bị hạ hạng; lý do được ghi vào `rec_reason`.
-6. **Backtest tách khỏi build demo**: báo cáo cả chiến lược thua lỗ, kèm độ nhạy và caveats.
+6. **Backtest mark-to-market theo phiên**: đường vốn/drawdown/lợi nhuận tháng tính lại
+   từng phiên cho từng vị thế (không compounding các kỳ chồng lấn); báo cáo **gross và net
+   riêng** để chi phí không bị trộn với chất lượng tín hiệu; công bố cả chiến lược thua lỗ.
 7. **Artifact tĩnh**: đơn giản, miễn phí, không cần server; đổi lại không có realtime và không có order routing.
+8. **Vòng đời là hạng nhất, không phải bộ lọc phụ.** CW đáo hạn liên tục, nên
+   trạng thái (`listed/matured/pending/...`) được tính ở engine và xuất bản thành
+   `lifecycle.json`; UI chỉ hiển thị lại. Trước đây snapshot không lọc theo ngày
+   đáo hạn nên 13 mã đã hết hạn vẫn bị chấm điểm, nằm trong cả `active` lẫn
+   `expired`, và KPI in "13 đã đáo hạn" trong khi vũ trụ có 980 mã đã đáo hạn.
 
 ## 6. Bảo mật & vận hành
 

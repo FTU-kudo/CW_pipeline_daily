@@ -139,7 +139,8 @@ def build_cw_panel(market: MarketData, und_feat: pd.DataFrame | None = None,
         f["maturity"] = m["maturity"]
         f["first_trade"] = m["first_trade"]
         f["last_trade"] = m["last_trade"]
-        f["is_active"] = m["is_active"]
+        # Cờ theo TỪNG dòng: hợp đồng còn hiệu lực tại ngày đó (không phải cờ asof)
+        f["is_active"] = (f["date"] <= m["maturity"]) if pd.notna(m["maturity"]) else False
         f["days_to_maturity"] = (m["maturity"] - f["date"]).dt.days
         f["T"] = f["days_to_maturity"] / config.DAYS_PER_YEAR
         # CW chỉ được giao dịch trong khoảng first_trade → last_trade

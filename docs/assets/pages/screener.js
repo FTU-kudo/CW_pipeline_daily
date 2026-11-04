@@ -37,6 +37,8 @@ const FIELDS = [
   { key: 'issName', label: 'Tổ chức phát hành', type: 'cat', options: () => uniq('issName') },
   { key: 'money', label: 'Moneyness ITM/ATM/OTM', type: 'cat', options: () => ['ITM', 'ATM', 'OTM'] },
   { key: 'rec', label: 'Khuyến nghị', type: 'cat', options: () => ['STRONG_BUY', 'BUY', 'HOLD', 'AVOID', 'HIGH_RISK'] },
+  { key: 'state', label: 'Trạng thái vòng đời', type: 'cat', options: () => ['listed', 'matured', 'delisted_early', 'pending'] },
+  { key: 'daysSince', label: 'Số ngày từ lần khớp lệnh cuối', type: 'num', unit: 'ngày', step: 5 },
   { key: 't', label: 'Mã CW', type: 'text' },
   { key: 'iss', label: 'Mã TCPH', type: 'cat', options: () => uniq('iss') },
 ];
@@ -122,9 +124,53 @@ const PRESETS = {
   },
 };
 
+const STATE_LABEL = {
+  listed: 'Còn hiệu lực',
+  pending: 'Chờ niêm yết',
+  matured: 'Đã đáo hạn',
+  delisted_early: 'Ngừng giao dịch sớm',
+};
+
+function stateBadge(r) {
+  const st = r.state || (r.active === false ? 'matured' : 'listed');
+  if (st === 'listed') {
+    if (r.tradedOn === false) {
+      const d = r.daysSince;
+      return el('span', {
+        class: 'badge st-warn',
+        text: d === null || d === undefined ? 'KHÔNG GD' : `KHÔNG GD ${d}N`,
+        title: 'Còn hiệu lực nhưng không khớp lệnh phiên dữ liệu',
+      });
+    }
+    return el('span', { class: 'badge st-ok', text: 'GIAO DỊCH', title: 'Khớp lệnh đúng phiên dữ liệu' });
+  }
+  if (st === 'matured') {
+    const d = r.daysSince;
+    return el('span', {
+      class: 'badge st-off',
+      text: d === null || d === undefined ? 'ĐÁO HẠN' : `ĐÁO HẠN ${d}N`,
+      title: 'Hợp đồng đã hết hiệu lực — không được chấm điểm hay khuyến nghị',
+    });
+  }
+  if (st === 'delisted_early') {
+    return el('span', { class: 'badge st-stop', text: 'NGỪNG GD', title: 'Còn hạn nhưng đã ngừng giao dịch sớm' });
+  }
+  if (st === 'pending') {
+    return el('span', { class: 'badge st-off', text: 'CHỜ NIÊM YẾT' });
+  }
+  return el('span', { class: 'badge tag', text: '—' });
+}
+
 const ALL_COLUMNS = [
   { key: 't', title: 'Mã', render: (r) => el('span', { class: 'tbl-ticker', text: r.t }), fixed: true, width: 96 },
   { key: 'u', title: 'Cơ sở', fixed: true, width: 60 },
+  {
+    key: 'state',
+    title: 'Trạng thái',
+    width: 116,
+    render: (r) => stateBadge(r),
+    sortValue: (r) => ({ listed: 3, pending: 2, delisted_early: 1, matured: 0 }[r.state || 'listed'] ?? 0),
+  },
   { key: 'issName', title: 'TCPH', width: 90 },
   { key: 'price', title: 'Giá', align: 'right', render: (r) => fmt.px(r.price) },
   { key: 'chg1', title: '%1P', align: 'right', render: (r) => el('span', { class: fmt.cls(r.chg1), text: fmt.pct(r.chg1, 2) }) },
@@ -177,7 +223,7 @@ const ALL_COLUMNS = [
   },
 ];
 
-const DEFAULT_COLS = ['t', 'u', 'price', 'chg1', 'ret5', 'premium', 'dte', 'iv', 'ivVsHv', 'adv20', 'covList', 'score', 'rec'];
+const DEFAULT_COLS = ['t', 'u', 'state', 'price', 'chg1', 'ret5', 'premium', 'dte', 'iv', 'ivVsHv', 'adv20', 'covList', 'score', 'rec'];
 
 let state = {
   logic: 'AND',
@@ -375,10 +421,17 @@ function render() {
   ]));
 
   fcard.appendChild(el('div', { class: 'hr' }));
-  const expiredChip = el('span', { class: 'chip' + (state.showExpired ? ' on' : ''), text: 'Bao gồm CW đã đáo hạn' });
+  const lc = data.lifeCounts ? data.lifeCounts() : {};
+  const expiredChip = el('span', {
+    class: 'chip' + (state.showExpired ? ' on' : ''),
+    text: `Bao gồm CW đã đáo hạn (${fmt.n(lc.matured || 0, 0)})`,
+  });
   expiredChip.onclick = () => { state.showExpired = !state.showExpired; render(); };
   fcard.appendChild(el('div', { class: 'flex flex-wrap' }, [expiredChip]));
-  fcard.appendChild(el('div', { class: 'tiny muted', style: 'margin-top:8px', html: 'Lưu ý: bộ lọc chạy trên <b>toàn bộ</b> CW trong snapshot, không chỉ các mã hiển thị.' }));
+  fcard.appendChild(el('div', { class: 'tiny muted', style: 'margin-top:8px', text:
+    `Còn hiệu lực ${fmt.n(lc.listed || data.activeRows().length, 0)}`
+    + ` (${fmt.n(lc.traded || 0, 0)} giao dịch phiên này) · đã đáo hạn ${fmt.n(lc.matured || 0, 0)}`
+    + ` · tổng ${fmt.n(lc.total || 0, 0)} hợp đồng. Bộ lọc chạy trên toàn bộ tập đang chọn.` }));
 
   panel.appendChild(fcard);
 
@@ -394,7 +447,8 @@ function render() {
     const summary = el('div', { class: 'result-summary' }, [
       el('div', {}, [
         el('div', { class: 'result-count', text: fmt.n(filteredAll.length, 0) }),
-        el('div', { class: 'tiny muted', text: `mã thoả điều kiện / ${fmt.n(state.showExpired ? data.allRows().length : data.activeRows().length)}` }),
+        el('div', { class: 'tiny muted', text: `mã thoả điều kiện / ${fmt.n(state.showExpired ? data.allRows().length : data.activeRows().length)} `
+          + (state.showExpired ? 'trong toàn vũ trụ' : 'còn hiệu lực') }),
       ]),
       el('div', { class: 'legend-inline' }, recCounts.map(([r, n]) => el('span', { html: `${badge(r).outerHTML} <b class="mono">${n}</b>` }))),
       el('div', { class: 'spacer' }),
@@ -428,7 +482,7 @@ function render() {
 
 function exportCsv(rows) {
   const cols = [
-    ['t', 'Mã'], ['u', 'Cơ sở'], ['issName', 'TCPH'], ['price', 'Giá'], ['chg1', '%1P'], ['ret5', '%5P'], ['ret21', '%21P'],
+    ['t', 'Mã'], ['u', 'Cơ sở'], ['state', 'Trạng thái'], ['daysSince', 'Ngày từ lần khớp cuối'], ['issName', 'TCPH'], ['price', 'Giá'], ['chg1', '%1P'], ['ret5', '%5P'], ['ret21', '%21P'],
     ['S', 'Giá cơ sở'], ['K', 'Strike'], ['ratio', 'Tỷ lệ'], ['money', 'Moneyness'], ['moneyPct', '%Money'],
     ['premium', 'Premium (%)'], ['dte', 'DTE'], ['iv', 'IV'], ['ivVsHv', 'IV-HV (%)'], ['ivRank', 'IV rank'],
     ['delta', 'Delta'], ['gamma', 'Gamma'], ['theta', 'Theta'], ['vega', 'Vega'], ['fvSmile', 'FV smile'],

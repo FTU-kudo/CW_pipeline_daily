@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import config
+from . import config, lifecycle
 from .data import MarketData
 
 
@@ -16,7 +16,7 @@ def _check(cid: str, title: str, status: str, value=None, detail: str = "",
 
 
 def run_quality_checks(market: MarketData, panel: pd.DataFrame,
-                       snap: pd.DataFrame) -> dict:
+                       snap: pd.DataFrame, life: dict | None = None) -> dict:
     checks: list[dict] = []
     asof = market.asof
     oh = market.ohlcv
@@ -157,13 +157,33 @@ def run_quality_checks(market: MarketData, panel: pd.DataFrame,
          "underlyings": int(market.underlying["ticker"].nunique())},
         "Thiếu dữ liệu underlying sẽ làm HV và momentum sai.", severity="high"))
 
-    # 14. Survivorship (thông tin, không phải lỗi)
-    expired = int((~master["is_active"]).sum())
-    checks.append(_check(
-        "universe_history", "Vũ trụ dữ liệu có bao gồm CW đã đáo hạn",
-        "ok", {"expired": expired, "active": int(master["is_active"].sum())},
-        "Panel giữ cả CW đã đáo hạn để backtest không bị survivorship bias.",
-        severity="info"))
+    # 14. Vòng đời: phân loại & tổng vũ trụ
+    lc = (life or {}).get("counts") if life else None
+    ident = (life or {}).get("identity") if life else None
+    if lc:
+        checks.append(_check(
+            "universe_history", "Vũ trụ dữ liệu có bao gồm CW đã đáo hạn",
+            "ok", {"expired": lc["expired"], "listed": lc["listed"], "traded": lc["traded"],
+                   "notTraded": lc["notTraded"], "pending": lc["pending"],
+                   "matured": lc["matured"], "delistedEarly": lc["delistedEarly"]},
+            "Panel giữ cả CW đã đáo hạn để backtest không bị survivorship bias. "
+            "Screener tách rõ: còn hiệu lực / đã đáo hạn / ngừng giao dịch sớm / chờ niêm yết.",
+            severity="info"))
+        checks.append(_check(
+            "universe_identity", "Tổng vũ trụ khớp tổng các trạng thái vòng đời",
+            "ok" if ident and ident.get("ok") else "error",
+            {"total": lc["total"], "sumStates": ident["sumStates"] if ident else None,
+             "gap": ident["gap"] if ident else None},
+            "Mỗi CW phải thuộc đúng một trạng thái: còn hiệu lực, chờ niêm yết, đã đáo hạn, "
+            "ngừng giao dịch sớm hoặc thiếu ngày đáo hạn. Lệch nghĩa là có mã bị đếm trùng/bỏ sót.",
+            severity="high"))
+    else:
+        expired = int((~master["is_active"]).sum())
+        checks.append(_check(
+            "universe_history", "Vũ trụ dữ liệu có bao gồm CW đã đáo hạn",
+            "ok", {"expired": expired, "active": int(master["is_active"].sum())},
+            "Panel giữ cả CW đã đáo hạn để backtest không bị survivorship bias.",
+            severity="info"))
 
     # 15. Lợi suất phi rủi ro
     checks.append(_check(
@@ -189,6 +209,56 @@ def run_quality_checks(market: MarketData, panel: pd.DataFrame,
             "Tỷ lệ CW có ADV20 < 5 triệu VND/phiên. Thanh khoản thấp là đặc điểm thị trường, "
             "không phải lỗi dữ liệu — nhưng làm giảm khả năng thoát vị thế (xem RESEARCH_LIQUIDITY.md).",
             severity="low"))
+
+    # 17. Snapshot chỉ chứa CW còn hiệu lực, DTE không âm
+    if len(snap):
+        if "lifecycle_state" in snap.columns:
+            bad_state = int((snap["lifecycle_state"] != "listed").sum())
+        else:
+            bad_state = 0
+        mats = pd.to_datetime(snap["maturity"], errors="coerce") if "maturity" in snap else pd.Series(dtype="datetime64[ns]")
+        matured_in_snap = int((mats <= asof).sum())
+        dte = pd.to_numeric(snap.get("days_to_maturity"), errors="coerce")
+        neg_dte = int((dte < 0).sum())
+        bad = bad_state + matured_in_snap + neg_dte
+        checks.append(_check(
+            "snapshot_lifecycle", "Snapshot chỉ chứa CW còn hiệu lực (không lẫn mã đã đáo hạn)",
+            "error" if bad else "ok",
+            {"rows": int(len(snap)), "maturedInSnapshot": matured_in_snap,
+             "negativeDte": neg_dte, "badState": bad_state,
+             "minDte": int(dte.min()) if dte.notna().any() else None},
+            "CW đã đáo hạn phải nằm trong danh sách đã đáo hạn của screener, không được chấm "
+            "điểm/khuyến nghị. DTE luôn tính lại tại phiên dữ liệu nên không thể âm.",
+            severity="high"))
+
+        # 18. Khuyến nghị chỉ dành cho CW còn hiệu lực
+        recs = snap.get("recommendation")
+        if recs is not None and "maturity" in snap.columns:
+            bad_rec = int(((mats <= asof) & recs.notna() & (recs != "NO_DATA")).sum())
+            checks.append(_check(
+                "recs_listed_only", "Khuyến nghị chỉ phát hành cho CW còn hiệu lực",
+                "error" if bad_rec else "ok", {"violations": bad_rec},
+                "Mã đã đáo hạn không thể giao dịch được nữa nên không được khuyến nghị.",
+                severity="high"))
+
+    # 19. Sự kiện vòng đời (niêm yết mới / vừa đáo hạn / sắp đáo hạn)
+    if life:
+        up = life.get("upcoming") or {}
+        checks.append(_check(
+            "lifecycle_events", "Phát hiện niêm yết mới & đáo hạn theo phiên",
+            "ok",
+            {"recentSessions": life.get("recentSessions"),
+             "recentSince": life.get("recentSince"),
+             "newListings": (life.get("newListings") or {}).get("count"),
+             "recentMaturities": (life.get("recentMaturities") or {}).get("count"),
+             "upcoming30": (up.get("d30") or {}).get("count"),
+             "upcoming60": (up.get("d60") or {}).get("count"),
+             "upcoming90": (up.get("d90") or {}).get("count"),
+             "earlyDelistings": (life.get("earlyDelistings") or {}).get("count")},
+            "CW liên tục niêm yết và đáo hạn: mỗi lần build đều so sánh ngày giao dịch đầu tiên "
+            "và ngày đáo hạn với cửa sổ phiên gần nhất, nên mã mới/ mã hết hạn được nhận diện "
+            "ngay trong phiên, không phụ thuộc việc có ai mở dashboard hay không.",
+            severity="info"))
 
     counts = {"ok": 0, "warn": 0, "error": 0}
     for c in checks:
