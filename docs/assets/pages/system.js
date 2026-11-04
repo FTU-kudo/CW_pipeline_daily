@@ -73,9 +73,12 @@ export function dataPage(view) {
   ]));
   view.appendChild(prov);
 
-  view.appendChild(el('div', { class: 'notice warn', html:
-    '<b>Nguyên tắc công bố:</b> mọi trang đều hiển thị ngày dữ liệu. Không có dữ liệu realtime. '
-    + 'Nếu phiên dữ liệu cũ hơn 4 ngày, banner cảnh báo xuất hiện trên tất cả các trang và khuyến nghị mới không được phát hành.' }));
+  view.appendChild(el('div', { class: 'notice warn' }, [
+    el('div', { text: 'Nguyên tắc công bố: mọi trang đều hiển thị ngày dữ liệu. Không có dữ liệu realtime.' }),
+    el('div', { text: 'Bản build luôn so asof với phiên đã đóng gần nhất (giờ Việt Nam, sau 15:10). '
+      + 'Lệch 1 phiên → banner vàng; lệch từ 2 phiên → banner đỏ và cổng "session_lag" báo động '
+      + 'trong danh sách kiểm tra ở trên.' }),
+  ]));
 }
 
 /* ===================== PHƯƠNG PHÁP ===================== */

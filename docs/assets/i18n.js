@@ -40,6 +40,11 @@ export const STRINGS = {
   "Dashboard cũ": "Legacy dashboard",
   "Đang tải dữ liệu thị trường…": "Loading market data…",
   "Không phải khuyến nghị đầu tư. Dữ liệu có thể chậm 1 phiên.": "Not investment advice. Data may lag one session.",
+  "Không phải khuyến nghị đầu tư. Dữ liệu là snapshot cuối phiên, không phải realtime.":
+    "Not investment advice. Data is an end-of-session snapshot, not realtime.",
+  "Phiên dữ liệu cuối": "Latest data session",
+  "Chưa có": "Missing",
+  "Trễ": "Behind",
   "Không có dữ liệu": "No data",
   "Không": "No",
   "Có": "Yes",
@@ -476,7 +481,10 @@ export const STRINGS = {
   "→ GitHub Pages phục vụ SPA này.": "→ GitHub Pages serves this SPA.",
   ", có test; build in ra metadata phiên bản và thời điểm sinh. Không có số liệu nào được nhập tay.": ", with tests; the build prints version metadata and generation time. No figure is typed by hand.",
   "không có API key trong repo; workflow dùng GitHub Secrets khi cần.": "no API keys live in the repository; the workflow uses GitHub Secrets when needed.",
-  "mọi trang đều hiển thị ngày dữ liệu. Không có dữ liệu realtime. Nếu phiên dữ liệu cũ hơn 4 ngày, banner cảnh báo xuất hiện trên tất cả các trang và khuyến nghị mới không được phát hành.": "every page shows the data date. Nothing is realtime. When the data session is older than 4 days a warning banner appears on every page and new recommendations are not published.",
+  "Nguyên tắc công bố: mọi trang đều hiển thị ngày dữ liệu. Không có dữ liệu realtime.":
+    "Publication rule: every page shows the data date. Nothing is realtime.",
+  "Bản build luôn so asof với phiên đã đóng gần nhất (giờ Việt Nam, sau 15:10). Lệch 1 phiên → banner vàng; lệch từ 2 phiên → banner đỏ và cổng \"session_lag\" báo động trong danh sách kiểm tra ở trên.":
+    "Every build compares as-of with the latest closed session (Vietnam time, after 15:10). One session behind → amber banner; two or more → red banner plus the \"session_lag\" gate flagged in the checklist above.",
   "Percentile return 21/63 phiên + vị thế so MA20/MA50 + RSI cổ phiếu cơ sở": "21/63-session return percentiles + position vs MA20/MA50 + underlying RSI",
   "log giá trị giao dịch TB 20 phiên, tỷ lệ phiên có giao dịch, tăng tốc khối lượng": "log of 20-session average traded value, session coverage, volume acceleration",
   "RSI, MACD histogram & độ dốc, trên MA20/MA50, breakout 20 phiên (giảm độ tin cậy nếu <30 phiên)": "RSI, MACD histogram & slope, above MA20/MA50, 20-session breakout (lower confidence under 30 sessions)",
@@ -929,6 +937,7 @@ const PHRASE_RULES = [
   W('GT/phiên', 'value/session'),
   W('GT giao dịch TB', 'avg traded value'),
   W('Phiên trắng', 'No-trade sessions'),
+  W('Phiên dữ liệu cuối', 'Latest data session'),
   W('Phiên dữ liệu', 'Data session'),
   W('Biên độ HL', 'High-low range'),
   W('Tác động giá', 'Price impact'),

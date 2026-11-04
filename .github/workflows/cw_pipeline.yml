@@ -2,9 +2,10 @@ name: CW Pipeline Daily
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   # Chạy lúc 09:00 UTC = 16:00 ICT, Thứ 2 - Thứ 6
-  #   - cron: "0 9 * * 1-5"
+  schedule:
+    # Chạy lúc 09:00 UTC = 16:00 ICT, Thứ 2 - Thứ 6.
+    # Ingest xong sẽ kích hoạt workflow_run cho "CW Intelligence — build & publish".
+    - cron: "0 9 * * 1-5"
 
 jobs:
   run-pipeline:

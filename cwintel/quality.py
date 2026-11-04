@@ -16,7 +16,8 @@ def _check(cid: str, title: str, status: str, value=None, detail: str = "",
 
 
 def run_quality_checks(market: MarketData, panel: pd.DataFrame,
-                       snap: pd.DataFrame, life: dict | None = None) -> dict:
+                       snap: pd.DataFrame, life: dict | None = None,
+                       session: dict | None = None) -> dict:
     checks: list[dict] = []
     asof = market.asof
     oh = market.ohlcv
@@ -44,6 +45,38 @@ def run_quality_checks(market: MarketData, panel: pd.DataFrame,
         {"count": unparsed},
         "Số dòng có ngày không parse được (bị loại khỏi phân tích).",
         severity="high" if unparsed > 100 else "low"))
+
+    # 2b. Dữ liệu đã tới phiên đã đóng gần nhất chưa?
+    if session is not None:
+        lag = int(session.get("lagSessions") or 0)
+        missing = session.get("missingLabels") or []
+        if lag == 0:
+            status, detail = "ok", (
+                f"Dữ liệu đã cập nhật tới phiên {session.get('asofLabel')} — "
+                f"phiên đã đóng gần nhất là {session.get('expectedLabel')}.")
+        elif lag == 1:
+            status = "warn"
+            detail = (
+                f"Dữ liệu dừng ở {session.get('asofLabel')} nhưng phiên đã đóng gần nhất là "
+                f"{session.get('expectedLabel')}: thiếu {', '.join(missing)}. Nguyên nhân thường gặp: "
+                "pipeline nguồn chưa cập nhật xong, hoặc hôm đó là ngày nghỉ lễ âm lịch chưa có trong "
+                "config.MARKET_HOLIDAYS. Dashboard hiển thị cảnh báo cho tới khi dữ liệu về.")
+        else:
+            status = "warn"
+            detail = (
+                f"Dữ liệu dừng ở {session.get('asofLabel')}, thiếu {lag} phiên tới "
+                f"{session.get('expectedLabel')} ({', '.join(missing[:5])}"
+                f"{'…' if len(missing) > 5 else ''}). Kiểm tra workflow 'CW Pipeline Daily' — "
+                "có thể lần chạy gần nhất đã lỗi hoặc chưa chạy.")
+        checks.append(_check(
+            "session_lag",
+            "Dữ liệu có phiên đã đóng gần nhất",
+            status,
+            {"asof": session.get("asof"), "expected": session.get("expected"),
+             "lagSessions": lag, "missing": session.get("missing") or [],
+             "checkedAt": session.get("checkedAt")},
+            detail,
+            severity="high" if lag >= 2 else ("medium" if lag == 1 else "info")))
 
     # 3. Giá nằm ngoài [low, high]
     if {"close", "high", "low"}.issubset(oh.columns):

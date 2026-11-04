@@ -93,14 +93,14 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 
 | Tệp | Nội dung | Kích thước điển hình |
 |---|---|---|
-| `meta.json` | phiên bản, as-of, nguồn, lãi suất, danh sách series, kích thước tệp, thời gian build | ~10 KB |
+| `meta.json` | phiên bản, as-of, **`session`** (phiên đã đóng gần nhất, số phiên bị thiếu), nguồn, lãi suất, danh sách series, kích thước tệp, thời gian build | ~11 KB |
 | `market.json` | KPI, phân bố TCPH/cơ sở, top lists, breadth 250 phiên | ~100 KB |
 | `screener.json` | CW còn hiệu lực + CW đã đáo hạn/ngừng giao dịch, 40+ trường | ~730 KB |
 | `recommendations.json` | card đầy đủ cho mọi CW còn hiệu lực | ~1,1 MB |
 | `lifecycle.json` | trạng thái vòng đời, sự kiện niêm yết/đáo hạn, lịch 12+12 tháng | ~24 KB |
 | `underlyings.json` | tổng hợp 22 cổ phiếu cơ sở | ~6 KB |
 | `backtest.json` | summary, curve theo phiên, trades, buckets, regime, độ nhạy, caveats VI/EN | ~212 KB |
-| `quality.json` | 20 kiểm tra + headline | ~6 KB |
+| `quality.json` | 21 kiểm tra + headline | ~6 KB |
 | `methodology.json` | công thức, trọng số, cổng, giới hạn | ~9 KB |
 | `series/cw/<ticker>.json` | ~759 tệp, chỉ CW active hoặc giao dịch trong 365 ngày | ~11 MB |
 | `series/und/<sym>.json` | 22 tệp, 500 phiên gần nhất | ~2 MB |
@@ -109,6 +109,29 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 
 
 ### 2.6 Vòng đời CW: niêm yết liên tục, đáo hạn liên tục
+
+### 2.7 Độ mới dữ liệu: phiên đã đóng gần nhất (`cwintel/sessions.py`)
+
+`asof` chỉ nói dữ liệu *dừng ở đâu*, không nói dữ liệu *có nên dừng ở đó không*. Ngày 03/11/2026
+build đã chạy "thành công" trên cache chưa có phiên 04/11 và phát hành nguyên trạng: dashboard
+ghi "Phiên dữ liệu 03/11" trong khi phiên 04/11 đã đóng cửa, và ngưỡng cũ (`dataAgeDays > 4`,
+đếm **ngày lịch**) không hề kêu. Từ bản này build luôn đối chiếu thêm một mốc thứ hai:
+
+- **Phiên đã đóng gần nhất** (`last_closed_session`) tính theo giờ Việt Nam: Thứ Hai–Thứ Sáu,
+  trừ `config.MARKET_HOLIDAYS`, và chỉ tính phiên hôm nay sau **15:10 ICT** (`CLOSE_READY`) để
+  chờ dữ liệu ATC về.
+- `session_status(asof)` trả `lagSessions` (số **phiên** thiếu, không phải ngày), `missing[]`,
+  `expected/expectedLabel`, `checkedAt` và `status` = `ok` (0) · `warn` (1) · `stale` (≥ 2).
+- Kết quả được ghi vào `meta.session`, `meta.dataAgeSessions`, `meta.expectedAsOf*`; `meta.stale`
+  bật khi lệch ≥ 2 phiên **hoặc** cũ hơn `STALE_DATA_DAYS_WARNING` ngày.
+- `quality.json` có thêm cổng `session_lag` (tổng 21 cổng) để build không thể im lặng.
+- UI đọc `meta.session`: sidebar đổi nhãn thành **"Phiên dữ liệu cuối"** kèm dòng "Trễ N phiên";
+  pill đầu trang đếm phiên thật ("Thiếu 1 phiên" thay cho "cách 3 ngày"); lệch 1 phiên hiện banner
+  vàng, lệch ≥ 2 phiên hiện banner đỏ.
+
+Lễ âm lịch (Tết, Giỗ Tổ) chưa tự suy ra được — thiếu một ngày trong `MARKET_HOLIDAYS` chỉ làm
+cảnh báo sớm hơn, không làm sai số liệu. Bổ sung mỗi năm một lần.
+
 
 CW không phải vũ trụ tĩnh: mỗi tuần có mã mới niêm yết, mỗi tháng có mã đáo hạn.
 Vì vậy mọi mặt cắt phải phân loại lại **mỗi lần build** — `cwintel/lifecycle.py`
@@ -207,6 +230,9 @@ Cách sửa, giữ được cả hai theme:
   gạch nhấn ở `section-head`, KPI có `tone` (`up/down/warn/accent/muted`) lấy từ `kpiCard({tone})`,
   chip lọc có số đếm, `.rec-card` tô viền trái theo khuyến nghị, bảng cổng chất lượng có thanh
   "đang chặn" theo từng cổng.
+- Trạng thái độ mới dữ liệu dùng ba mức màu: `.pill.warn` + `.banner-warn` (lệch 1 phiên) và
+  `.banner-danger` (lệch ≥ 2 phiên). Chuỗi do JS sinh dùng `tx(vi, en)` — ở chế độ VI+EN ghép
+  "VI · EN" và gắn `data-no-i18n` để bộ dịch DOM không dịch chồng.
 
 ## 4. Hiệu năng
 
@@ -246,3 +272,8 @@ RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 - Dashboard chỉ đọc tệp tĩnh cùng origin; không có CORS, không có endpoint ghi.
 - Dữ liệu cá nhân (watchlist/danh mục) không rời khỏi trình duyệt.
 - Log build in ra stdout, có `buildSeconds`, `warnings`, số bản ghi từng bước.
+- Chuỗi publish: `cw_pipeline.yml` (ingest, cron 16:00 ICT T2–T6) → `workflow_run`
+  "CW Pipeline Daily" (completed, chỉ khi `success`) → `cw_intelligence.yml` (build + publish,
+  cron dự phòng 17:30 ICT). Nhờ vậy build không còn chạy độc lập trước khi ingest xong.
+- Bước "Báo cáo độ mới dữ liệu (phiên)" trong `cw_intelligence.yml` in `asof` / phiên đã đóng /
+  số phiên lệch vào Summary và phát `::warning` khi lệch, để sự cố hiện ngay trên trang Actions.

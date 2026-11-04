@@ -190,6 +190,18 @@ STALE_DATA_DAYS_WARNING = 4      # dữ liệu cũ hơn 4 ngày lịch → cản
 MIN_SESSIONS_FOR_TECH = 30       # dưới ngưỡng này RSI/MACD không đáng tin
 
 # ──────────────────────────────────────────────────────────────────
+# LỊCH PHIÊN (dùng để phát hiện dữ liệu chậm phiên — xem cwintel/sessions.py)
+# ──────────────────────────────────────────────────────────────────
+# Chỉ liệt kê ngày lễ **cố định** của HOSE/HNX. Các lễ âm lịch (Tết Nguyên Đán,
+# Giỗ Tổ Hùng Vương) phải bổ sung thủ công mỗi năm: thiếu một ngày trong danh sách
+# này chỉ làm dashboard cảnh báo sớm hơn (an toàn), không làm sai số liệu.
+MARKET_HOLIDAYS = (
+    "2025-01-01", "2025-04-30", "2025-05-01", "2025-09-02",
+    "2026-01-01", "2026-04-30", "2026-05-01", "2026-09-02",
+    "2027-01-01", "2027-04-30", "2027-05-01", "2027-09-02",
+)
+
+# ──────────────────────────────────────────────────────────────────
 # VÒNG ĐỜI CW (niêm yết / đáo hạn / ngừng giao dịch)
 # ──────────────────────────────────────────────────────────────────
 # CW được niêm yết và đáo hạn liên tục, nên mọi mặt cắt phải phân loại theo vòng
