@@ -3,6 +3,8 @@
    Không phụ thuộc thư viện ngoài (chart tự vẽ bằng canvas).
    ========================================================= */
 
+import { getLang, applyI18n } from './i18n.js';
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -29,11 +31,21 @@ export function esc(s) {
 }
 
 /* -------------------------- FORMAT -------------------------- */
-const NF = new Intl.NumberFormat('vi-VN');
+const locale = () => (getLang() === 'en' ? 'en-US' : 'vi-VN');
 export const fmt = {
   n(v, d = 0) {
     if (v === null || v === undefined || Number.isNaN(v)) return '—';
-    return new Intl.NumberFormat('vi-VN', { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+    return new Intl.NumberFormat(locale(), { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+  },
+  /** Số + đơn vị đã bản địa hoá (dùng cho nhãn trục, tooltip). */
+  unit(v, d = 1) {
+    if (v === null || v === undefined || Number.isNaN(v)) return '—';
+    const en = getLang() === 'en';
+    const a = Math.abs(v);
+    if (a >= 1e9) return fmt.n(v / 1e9, d) + (en ? 'bn' : ' tỷ');
+    if (a >= 1e6) return fmt.n(v / 1e6, d) + (en ? 'm' : ' tr');
+    if (a >= 1e3) return fmt.n(v / 1e3, 0) + (en ? 'k' : ' ng');
+    return fmt.n(v, 0);
   },
   px(v) {
     if (v === null || v === undefined || Number.isNaN(v)) return '—';
@@ -48,10 +60,11 @@ export const fmt = {
   vnd(v) {
     if (v === null || v === undefined || Number.isNaN(v)) return '—';
     const a = Math.abs(v);
-    if (a >= 1e12) return fmt.n(v / 1e12, 2) + ' nghìn tỷ';
-    if (a >= 1e9) return fmt.n(v / 1e9, 2) + ' tỷ';
-    if (a >= 1e6) return fmt.n(v / 1e6, 1) + ' tr';
-    if (a >= 1e3) return fmt.n(v / 1e3, 0) + ' ng';
+    const en = getLang() === 'en';
+    if (a >= 1e12) return fmt.n(v / 1e12, 2) + (en ? ' tn' : ' nghìn tỷ');
+    if (a >= 1e9) return fmt.n(v / 1e9, 2) + (en ? ' bn' : ' tỷ');
+    if (a >= 1e6) return fmt.n(v / 1e6, 1) + (en ? ' m' : ' tr');
+    if (a >= 1e3) return fmt.n(v / 1e3, 0) + (en ? ' k' : ' ng');
     return fmt.n(v, 0);
   },
   compact(v) {
@@ -71,8 +84,8 @@ export const fmt = {
   },
   dte(v) {
     if (v === null || v === undefined || Number.isNaN(v)) return '—';
-    if (v < 0) return 'đáo hạn';
-    return v + ' ngày';
+    if (v < 0) return getLang() === 'en' ? 'expired' : 'đáo hạn';
+    return v + (getLang() === 'en' ? ' days' : ' ngày');
   },
   cls(v, invert = false) {
     if (v === null || v === undefined || Number.isNaN(v) || v === 0) return 'dim';
@@ -80,10 +93,10 @@ export const fmt = {
     return positive ? 'up' : 'down';
   },
   rec(rec) {
-    const map = {
-      STRONG_BUY: 'MUA MẠNH', BUY: 'MUA', HOLD: 'THEO DÕI', AVOID: 'TRÁNH',
-      HIGH_RISK: 'RỦI RO CAO', NO_DATA: 'CHƯA ĐỦ DL',
-    };
+    const en = getLang() === 'en';
+    const map = en
+      ? { STRONG_BUY: 'STRONG BUY', BUY: 'BUY', HOLD: 'WATCH', AVOID: 'AVOID', HIGH_RISK: 'HIGH RISK', NO_DATA: 'NO DATA' }
+      : { STRONG_BUY: 'MUA MẠNH', BUY: 'MUA', HOLD: 'THEO DÕI', AVOID: 'TRÁNH', HIGH_RISK: 'RỦI RO CAO', NO_DATA: 'CHƯA ĐỦ DL' };
     return map[rec] || rec || '—';
   },
   issuer(code, name) {
@@ -174,25 +187,73 @@ export const data = {
 };
 
 /* -------------------------- THEME -------------------------- */
-export function initTheme() {
-  const saved = store.get('theme', null);
-  const prefersDark = !window.matchMedia('(prefers-color-scheme: light)').matches;
-  const theme = saved || (prefersDark ? 'dark' : 'light');
+const THEME_ORDER = ['light', 'dark', 'auto'];
+const THEME_LABEL = {
+  vi: { light: 'Sáng', dark: 'Tối', auto: 'Theo hệ thống' },
+  en: { light: 'Light', dark: 'Dark', auto: 'System' },
+};
+const THEME_ICON = { light: '☀', dark: '◐', auto: '◑' };
+
+export function currentThemeMode() {
+  return store.get('themeMode', null) || (store.get('theme', null) === 'light' ? 'light' : 'dark');
+}
+
+function resolvedTheme(mode) {
+  if (mode === 'auto') {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  return mode === 'light' ? 'light' : 'dark';
+}
+
+function paintTheme() {
+  const mode = currentThemeMode();
+  const theme = resolvedTheme(mode);
   document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.themeMode = mode;
   const btn = $('#btn-theme');
   if (btn) {
+    const lang = getLang() === 'en' ? 'en' : 'vi';
+    btn.textContent = THEME_ICON[mode];
+    btn.title = lang === 'en'
+      ? `Theme: ${THEME_LABEL.en[mode]} (click to change)`
+      : `Giao diện: ${THEME_LABEL.vi[mode]} (bấm để đổi)`;
+    btn.setAttribute('aria-label', btn.title);
+    btn.dataset.mode = mode;
+  }
+  redrawAllCharts();
+}
+
+export function initTheme() {
+  paintTheme();
+  const btn = $('#btn-theme');
+  if (btn && !btn.dataset.bound) {
+    btn.dataset.bound = '1';
     btn.addEventListener('click', () => {
-      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      document.documentElement.dataset.theme = next;
-      store.set('theme', next);
-      redrawAllCharts();
+      const mode = currentThemeMode();
+      const next = THEME_ORDER[(THEME_ORDER.indexOf(mode) + 1) % THEME_ORDER.length];
+      store.set('themeMode', next);
+      store.set('theme', resolvedTheme(next));
+      paintTheme();
     });
   }
+  if (window.matchMedia && !initTheme._bound) {
+    initTheme._bound = true;
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => {
+      if (currentThemeMode() === 'auto') paintTheme();
+    });
+  }
+  window.addEventListener('cwintel:lang', paintTheme);
 }
 
 const redrawHooks = new Set();
 export function onThemeChange(fn) { redrawHooks.add(fn); }
-export function redrawAllCharts() { redrawHooks.forEach((fn) => { try { fn(); } catch { /* noop */ } }); }
+export function redrawAllCharts() {
+  redrawHooks.forEach((fn) => { try { fn(); } catch { /* noop */ } });
+  for (const canvas of chartRegistry) {
+    if (!canvas.isConnected) { chartRegistry.delete(canvas); continue; }
+    try { canvas._redraw?.(); } catch { /* noop */ }
+  }
+}
 
 /* -------------------------- UI HELPERS -------------------------- */
 let toastTimer = null;
@@ -230,7 +291,7 @@ export function openDrawer(node) {
 }
 export function closeDrawer() { $('#drawer')?.classList.add('hidden'); }
 
-export function table({ columns, rows, onRowClick, compact = false, empty = 'Không có dữ liệu' }) {
+export function table({ columns, rows, onRowClick, compact = false, stickyFirst = false, empty = 'Không có dữ liệu' }) {
   const wrap = el('div', { class: 'table-wrap' });
   if (!rows || !rows.length) {
     wrap.appendChild(el('div', { class: 'empty', text: empty }));
@@ -238,7 +299,7 @@ export function table({ columns, rows, onRowClick, compact = false, empty = 'Kh�
   }
   let sortKey = null;
   let sortDir = -1;
-  const tbl = el('table', { class: 'tbl' + (compact ? ' compact' : '') });
+  const tbl = el('table', { class: 'tbl' + (compact ? ' compact' : '') + (stickyFirst ? ' sticky-first' : '') });
   const thead = el('thead');
   const headRow = el('tr');
   const tbody = el('tbody');
@@ -353,18 +414,106 @@ function tooltipFor(canvas) {
   }
   return tip;
 }
+/* ---- registry: mọi chart tự vẽ lại khi đổi theme / đổi kích thước ---- */
+const chartRegistry = new Set();
+let resizeBound = false;
+
+function registerChart(canvas, draw) {
+  canvas._redraw = draw;
+  chartRegistry.add(canvas);
+  if (!resizeBound && typeof ResizeObserver !== 'undefined') {
+    resizeBound = true;
+    const ro = new ResizeObserver(() => {
+      window.clearTimeout(registerChart._t);
+      registerChart._t = window.setTimeout(() => {
+        for (const c of chartRegistry) {
+          if (!c.isConnected) { chartRegistry.delete(c); continue; }
+          if (c.offsetParent === null) continue;
+          try { c._redraw?.(); } catch { /* noop */ }
+        }
+      }, 80);
+    });
+    const watch = () => {
+      for (const c of chartRegistry) {
+        if (!c._watched) { ro.observe(c.parentElement || c); c._watched = true; }
+      }
+    };
+    registerChart._watch = watch;
+    window.addEventListener('resize', () => registerChart._t2 = window.clearTimeout(registerChart._t2) || window.setTimeout(() => {
+      for (const c of chartRegistry) if (c.isConnected && c._redraw) { try { c._redraw(); } catch { /* noop */ } }
+    }, 120));
+  }
+  if (typeof ResizeObserver !== 'undefined' && registerChart._watch) registerChart._watch();
+}
+
+/* ---- legend: hiển thị tên series + màu, đọc được cả khi in ---- */
+function ensureLegend(canvas, series) {
+  const parent = canvas.parentElement;
+  if (!parent) return;
+  let box = parent.querySelector(':scope > .chart-legend');
+  if (!series.length) { box?.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'chart-legend';
+    parent.insertBefore(box, canvas);
+  }
+  const sig = series.map((s) => `${s.name || ''}|${s.color || ''}`).join(';');
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = '';
+  for (const s of series) {
+    const item = document.createElement('span');
+    item.className = 'chart-legend-item';
+    const sw = document.createElement('i');
+    sw.style.background = s.color || css('--accent');
+    item.appendChild(sw);
+    item.appendChild(document.createTextNode(s.name || ''));
+    box.appendChild(item);
+  }
+}
+
+/* ---- crosshair: canvas phủ trong suốt, vẽ đường dóng + điểm ---- */
+function ensureOverlay(canvas) {
+  const parent = canvas.parentElement;
+  if (!parent) return null;
+  let ov = parent.querySelector(':scope > canvas.chart-overlay');
+  if (!ov) {
+    ov = document.createElement('canvas');
+    ov.className = 'chart-overlay';
+    ov.style.position = 'absolute';
+    ov.style.left = '0';
+    ov.style.top = '0';
+    ov.style.pointerEvents = 'none';
+    parent.appendChild(ov);
+    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+  }
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  ov.width = Math.round(rect.width * dpr);
+  ov.height = Math.round(canvas.getBoundingClientRect().height * dpr);
+  ov.style.width = rect.width + 'px';
+  ov.style.height = canvas.getBoundingClientRect().height + 'px';
+  const ctx = ov.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: canvas.getBoundingClientRect().height };
+}
 
 export function drawLine(canvas, opts) {
   const height = opts.height || 200;
   const { ctx, w, h } = setupCanvas(canvas, height);
-  const padL = opts.padL ?? 44; const padR = 8; const padT = 10; const padB = 22;
-  const iw = w - padL - padR; const ih = h - padT - padB;
+  registerChart(canvas, () => drawLine(canvas, opts));
   const series = (opts.series || []).filter((s) => s.values && s.values.length);
+  ensureLegend(canvas, series);
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', opts.title
+    || (series.map((s) => s.name).filter(Boolean).join(', ') || 'chart'));
+  const padR = 10; const padT = 12; const padB = 24;
   const all = series.flatMap((s) => s.values).filter((v) => Number.isFinite(v));
   if (!all.length) {
+    ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = css('--text-3');
-    ctx.font = '11px sans-serif';
-    ctx.fillText('Không đủ dữ liệu', padL, h / 2);
+    ctx.font = '11px ' + css('--font-mono', 'monospace');
+    ctx.fillText('—', 12, h / 2);
     return;
   }
   const zero = opts.zeroLine ? 0 : null;
@@ -375,26 +524,29 @@ export function drawLine(canvas, opts) {
   const padY = (max - min) * 0.08 || 1;
   min -= padY; max += padY;
   const n = Math.max(...series.map((s) => s.values.length));
+  const ticks = niceTicks(min, max, 4);
+  const yFmt = (v) => (opts.yFormat ? opts.yFormat(v) : fmt.n(v, 0));
+  ctx.font = '10px ' + css('--font-mono', 'monospace');
+  const labelW = Math.max(...ticks.map((t) => ctx.measureText(yFmt(t)).width), 18);
+  const padL = Math.max(opts.padL ?? 0, labelW + 12);
+  const iw = w - padL - padR; const ih = h - padT - padB;
   const x = (i) => padL + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (v) => padT + ih - ((v - min) / (max - min)) * ih;
 
   ctx.clearRect(0, 0, w, h);
-  // grid
   ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
-  ctx.font = '10px var(--font-mono, monospace)';
   ctx.fillStyle = css('--text-3');
-  for (const t of niceTicks(min, max, 4)) {
-    const yy = y(t);
+  for (const t of ticks) {
+    const yy = Math.round(y(t)) + 0.5;
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
-    const label = opts.yFormat ? opts.yFormat(t) : fmt.n(t, 0);
-    ctx.fillText(label, 4, yy + 3);
+    ctx.fillText(yFmt(t), 4, yy + 3);
   }
   if (zero !== null) {
-    ctx.strokeStyle = css('--border-2'); ctx.beginPath(); ctx.moveTo(padL, y(0)); ctx.lineTo(w - padR, y(0)); ctx.stroke();
+    ctx.strokeStyle = css('--border-2');
+    ctx.beginPath(); ctx.moveTo(padL, y(0)); ctx.lineTo(w - padR, y(0)); ctx.stroke();
   }
-  // x labels
   const labels = opts.labels || [];
-  const steps = Math.min(6, n);
+  const steps = Math.min(w < 420 ? 3 : 6, n);
   for (let k = 0; k < steps; k++) {
     const i = Math.round((k / Math.max(1, steps - 1)) * (n - 1));
     ctx.fillStyle = css('--text-3');
@@ -402,7 +554,6 @@ export function drawLine(canvas, opts) {
     const tw = ctx.measureText(txt).width;
     ctx.fillText(txt, Math.min(w - padR - tw, Math.max(padL, x(i) - tw / 2)), h - 6);
   }
-  // series
   for (const s of series) {
     if (s.fill) {
       const grad = ctx.createLinearGradient(0, padT, 0, padT + ih);
@@ -415,7 +566,8 @@ export function drawLine(canvas, opts) {
     }
     ctx.beginPath();
     ctx.strokeStyle = s.color || css('--accent');
-    ctx.lineWidth = s.width || 1.6;
+    ctx.lineWidth = s.width || 1.7;
+    ctx.lineJoin = 'round';
     let started = false;
     s.values.forEach((v, i) => {
       if (!Number.isFinite(v)) { started = false; return; }
@@ -424,24 +576,62 @@ export function drawLine(canvas, opts) {
     });
     ctx.stroke();
   }
-  // hover
+  if (opts.marker) {
+    const { index, color } = opts.marker;
+    if (index >= 0 && index < n) {
+      ctx.strokeStyle = color || css('--warn');
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x(index), padT); ctx.lineTo(x(index), padT + ih); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
   const tip = tooltipFor(canvas);
   canvas.onmousemove = (ev) => {
     const rect = canvas.getBoundingClientRect();
     const mx = ev.clientX - rect.left;
-    if (mx < padL || mx > w - padR) { tip.style.display = 'none'; return; }
-    const i = Math.round(((mx - padL) / iw) * (n - 1));
-    const rows = series.map((s) => `${s.name || ''}: ${s.values[i] === undefined || s.values[i] === null ? '—' : (opts.yFormat ? opts.yFormat(s.values[i]) : fmt.n(s.values[i], 2))}`);
-    tip.innerHTML = `<b>${esc(labels[i] || '')}</b><br>${rows.join('<br>')}`;
+    if (mx < padL || mx > w - padR) { tip.style.display = 'none'; ensureOverlay(canvas)?.ctx.clearRect(0, 0, w, h); return; }
+    const i = Math.max(0, Math.min(n - 1, Math.round(((mx - padL) / iw) * (n - 1))));
+    const rows = series.map((s) => {
+      const v = s.values[i];
+      const val = v === undefined || v === null || !Number.isFinite(v) ? '—' : (opts.yFormat ? opts.yFormat(v) : fmt.n(v, 2));
+      return `<span class="tip-row"><i style="background:${s.color || css('--accent')}"></i>${esc(s.name || '')}<b>${esc(val)}</b></span>`;
+    });
+    tip.innerHTML = `<b class="tip-head">${esc(labels[i] || '')}</b>${rows.join('')}`;
     tip.style.display = 'block';
-    tip.style.left = Math.min(w - 140, Math.max(0, mx + 10)) + 'px';
-    tip.style.top = '8px';
+    const left = Math.min(w - tip.offsetWidth - 6, Math.max(6, mx + 12));
+    tip.style.left = left + 'px';
+    tip.style.top = '6px';
+    // crosshair
+    const ov = ensureOverlay(canvas);
+    if (ov) {
+      ov.ctx.clearRect(0, 0, ov.w, ov.h);
+      ov.ctx.strokeStyle = css('--border-2');
+      ov.ctx.lineWidth = 1;
+      const px = Math.round(x(i)) + 0.5;
+      ov.ctx.beginPath(); ov.ctx.moveTo(px, padT); ov.ctx.lineTo(px, padT + ih); ov.ctx.stroke();
+      for (const s of series) {
+        const v = s.values[i];
+        if (!Number.isFinite(v)) continue;
+        ov.ctx.beginPath();
+        ov.ctx.arc(x(i), y(v), 3, 0, Math.PI * 2);
+        ov.ctx.fillStyle = s.color || css('--accent');
+        ov.ctx.fill();
+        ov.ctx.strokeStyle = css('--surface');
+        ov.ctx.lineWidth = 1.5;
+        ov.ctx.stroke();
+      }
+    }
   };
-  canvas.onmouseleave = () => { tip.style.display = 'none'; };
+  canvas.onmouseleave = () => {
+    tip.style.display = 'none';
+    const ov = ensureOverlay(canvas);
+    if (ov) ov.ctx.clearRect(0, 0, ov.w, ov.h);
+  };
 }
-
 export function drawBars(canvas, opts) {
   const { ctx, w, h } = setupCanvas(canvas, opts.height || 180);
+  registerChart(canvas, () => drawBars(canvas, opts));
   const padL = opts.padL ?? 40; const padR = 8; const padT = 10; const padB = 26;
   const iw = w - padL - padR; const ih = h - padT - padB;
   const values = opts.values || [];
@@ -485,6 +675,7 @@ export function drawBars(canvas, opts) {
 }
 
 export function drawCandles(canvas, payload, opts = {}) {
+  registerChart(canvas, () => drawCandles(canvas, payload, opts));
   const height = opts.height || 320;
   const { ctx, w, h } = setupCanvas(canvas, height);
   const { o, h: hi, l, c, v, dates, ma20, ma50 } = payload;
@@ -567,6 +758,7 @@ export function drawCandles(canvas, payload, opts = {}) {
 }
 
 export function drawSpark(canvas, values, color) {
+  registerChart(canvas, () => drawSpark(canvas, values, color));
   const { ctx, w, h } = setupCanvas(canvas, canvas.clientHeight || 26);
   const vals = (values || []).filter(Number.isFinite);
   if (vals.length < 2) return;
@@ -642,6 +834,13 @@ export async function render() {
   $('#sidebar')?.classList.remove('open');
   try {
     await handler(view, param);
+    applyI18n(view);
+    applyI18n(document.querySelector('.topbar') || document.body);
+    // Nội dung render trễ (dữ liệu lazily load, legend của chart) được phủ nốt.
+    const routeAt = currentRoute;
+    window.setTimeout(() => {
+      if (currentRoute === routeAt) applyI18n(view);
+    }, 260);
   } catch (err) {
     console.error(err);
     view.appendChild(el('div', { class: 'empty', html: `<b>Không hiển thị được trang</b><br>${esc(err.message)}` }));

@@ -10,6 +10,7 @@ import { recommendationsPage, backtestPage } from './pages/advice.js';
 import { watchlistPage, portfolioPage, alertsPage } from './pages/tools.js';
 import { dataPage, methodPage } from './pages/system.js';
 import liquidityPage from './pages/liquidity.js';
+import { initI18n, getLang } from './i18n.js';
 
 function setBoot(pct, msg) {
   const bar = $('#boot-bar');
@@ -62,6 +63,7 @@ function applyMeta() {
 }
 
 async function boot() {
+  initI18n();
   initTheme();
   try {
     await data.init((pct, key) => setBoot(pct * 0.95, BOOT_MSG[key] || 'Đang tải…'));
@@ -113,6 +115,14 @@ async function boot() {
 
   startRouter();
 
+  // Đổi ngôn ngữ: dựng lại trang để số liệu, ngày tháng và chart dùng đúng locale
+  window.addEventListener('cwintel:lang', () => {
+    applyMeta();
+    render();
+    const navCountEl = $('#nav-screener-count');
+    if (navCountEl) navCountEl.textContent = fmt.n((data.screener?.active || []).length, 0);
+  });
+
   // cảnh báo định kỳ nhẹ: nếu watchlist có mã đáo hạn < 7 ngày, nhắc một lần / phiên
   const wl = store.get('watchlist', []);
   const soon = wl.map((t) => data.row(t)).filter((r) => r && (r.dte ?? 999) < 7);
@@ -120,7 +130,10 @@ async function boot() {
     const key = `notified:${data.meta?.asof}`;
     if (!store.get(key, false)) {
       setTimeout(() => {
-        toast(`${soon.length} CW trong watchlist sắp đáo hạn (<7 ngày): ${soon.map((r) => r.t).join(', ')}`, 6000);
+        const label = getLang() === 'en'
+        ? `${soon.length} watchlist warrants expire soon (<7 days): ${soon.map((r) => r.t).join(', ')}`
+        : `${soon.length} CW trong watchlist sắp đáo hạn (<7 ngày): ${soon.map((r) => r.t).join(', ')}`;
+      toast(label, 6000);
         store.set(key, true);
       }, 1200);
     }

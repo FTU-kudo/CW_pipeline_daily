@@ -409,6 +409,7 @@ function render() {
       onRowClick: (r) => navigate(`#/cw/${r.t}`),
       empty: 'Không có CW nào thoả điều kiện. Thử nới lỏng bộ lọc.',
       compact: true,
+      stickyFirst: true,
     });
     results.appendChild(tbl);
     results.appendChild(el('div', { class: 'tiny muted', style: 'margin-top:8px', text: 'Nhấp vào dòng để mở trang phân tích chi tiết. Điểm và khuyến nghị là thang tương đối trong vũ trụ CW hiện tại — xem tab Phương pháp.' }));

@@ -20,6 +20,7 @@ Nền tảng phân tích **covered warrant (chứng quyền)** cho thị trườ
 | Backtest | Walk-forward, không nhìn trước, có chi phí bid-ask/phí/trượt giá, xử lý đáo hạn, benchmark, độ nhạy (holding, ngưỡng điểm, chi phí, bộ lọc), báo cáo cả kết quả xấu |
 | Thanh khoản | ADV20/độ phủ/Amihud/biên độ theo TCPH và cổ phiếu cơ sở, danh sách cảnh báo, máy tính days-to-liquidate, bằng chứng thực nghiệm từ backtest |
 | Công cụ | Watchlist, danh mục mô phỏng (P/L, tỷ trọng, DTE), cảnh báo theo quy tắc (client-side) |
+| Giao diện | **Song ngữ Việt/Anh** (VI · EN · VI+EN, đổi ngay, nhớ lựa chọn), **sáng/tối/theo hệ thống**, chart có legend + crosshair + tooltip nhiều series, bảng dính header |
 | Dữ liệu | Kiểm tra chất lượng 16 hạng mục, metadata nguồn, phát hiện dữ liệu cũ, không che giấu cảnh báo |
 
 ---
@@ -119,6 +120,12 @@ Kết luận không tô hồng: **mua CW nắm giữ ngắn hạn có kỳ vọn
 **Thanh khoản** được nghiên cứu riêng trong [`docs/RESEARCH_LIQUIDITY.md`](docs/RESEARCH_LIQUIDITY.md): trên 7.134 quan sát 20 phiên, nhóm ADV20 thấp nhất lỗ −18,3% và 14,1% lệnh không thoát được đúng hạn, nhóm cao nhất −3,9% và 8,0%; nhưng thêm bộ lọc ADV vào top-5 **không** tạo alpha. Vì vậy thanh khoản là **cổng rủi ro thực thi**, không phải tín hiệu mua — và điều này được ghi rõ trên dashboard.
 
 ---
+
+## 5.1 Song ngữ & giao diện
+
+Dashboard chạy được ở ba chế độ ngôn ngữ — **VI** (mặc định), **EN**, **VI+EN** hiển thị song song — chuyển bằng công tắc trên topbar, lưu ở `localStorage`. Bản dịch nằm trong `docs/assets/i18n.js` (~600 nhãn + ~40 mẫu câu động cho nội dung do engine sinh), không cần backend, không thêm request mạng, không phát sinh artifact mới. Số liệu, ngày tháng và đơn vị đổi theo locale (`vi-VN` ↔ `en-US`). Giao diện có ba chế độ **Sáng / Tối / Theo hệ thống**, chart tự vẽ lại khi đổi theme hay đổi kích thước cửa sổ. Cơ chế chi tiết: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#31-song-ngữ-việt-anh-docsassetsi18njs).
+
+Kiểm thử: `python -m pytest tests -q` (80 test) + kiểm thử DOM chạy 12 route ở cả VI/EN/VI+EN và dark/light, yêu cầu 0 lỗi console và không còn chuỗi chưa dịch ở chế độ EN.
 
 ## 6. Triển khai
 

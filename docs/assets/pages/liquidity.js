@@ -181,7 +181,7 @@ function renderFlags(host) {
     class: 'btn sm ghost', text: '⇩ CSV',
     onclick: () => {
       const rows = all.filter(matches).map((r) => ({
-        Ma: r.t, CoSo: r.u, TCPH: r.iss, ADV20: r.adv20, DoPhu20: r.cov20, PhuTuNiemYet: r.covList,
+        Ma: r.t, CoSo: r.u, TCPH: r.iss, ADV20: r.adv20, DoPhu20: r.cov20,
         PhienTrang: r.zero20, Amihud: r.amihud, BienDoHL: r.range20, PhuTuNiemYet: r.covList,
         DTL50tr: r.dtl, Nhom: r.bucket, Diem: r.score, KhuyenNghi: r.rec,
       }));

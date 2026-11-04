@@ -62,7 +62,12 @@
       <div class="topbar-right">
         <span class="pill" id="data-age-pill">—</span>
         <span class="pill ghost" id="universe-pill">—</span>
-        <button class="icon-btn" id="btn-theme" title="Đổi giao diện sáng/tối">◐</button>
+        <div class="lang-switch" role="group" aria-label="Ngôn ngữ / Language" title="Ngôn ngữ / Language">
+          <button type="button" data-lang-set="vi" aria-pressed="true">VI</button>
+          <button type="button" data-lang-set="en" aria-pressed="false">EN</button>
+          <button type="button" data-lang-set="both" aria-pressed="false" title="Hiển thị song song Việt + Anh">VI+EN</button>
+        </div>
+        <button class="icon-btn" id="btn-theme" title="Đổi giao diện" aria-label="Đổi giao diện">◐</button>
       </div>
     </header>
 

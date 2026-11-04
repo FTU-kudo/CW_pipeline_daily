@@ -3,6 +3,7 @@ import {
   el, fmt, data, pageHead, sectionHead, badge, scoreCell, table, kpiCard, navigate,
   drawLine, drawBars, onThemeChange, openDrawer, closeDrawer, downloadCsv, toast,
 } from '../core.js';
+import { bi } from '../i18n.js';
 
 /* ===================== KHUYẾN NGHỊ ===================== */
 const recState = { rec: '', q: '', sort: 'score', limit: 60 };
@@ -570,9 +571,19 @@ export async function backtestPage(view) {
   view.appendChild(el('div', { class: 'card' }, [
     el('div', { class: 'card-title' }, [el('h3', { text: 'Giả định, giới hạn và chống thiên lệch' })]),
     el('ul', { class: 'factor-list warn', style: 'padding-left:0' }, (bt.caveats || []).map((c) => el('li', { text: c }))),
-    el('div', { class: 'formula', style: 'margin-top:8px', text: `start=${bt.config?.start} · end=${bt.config?.end} · rebalance=${bt.config?.rebalance} phiên · top_n=${bt.config?.top_n} · chi phí=${(bt.config?.cost_per_side_bps / 100).toFixed(2)}%/chiều · r=${bt.config?.risk_free}` }),
-    el('div', { class: 'tiny muted', style: 'margin-top:6px', text: 'Chi phí: ' + (bt.config?.cost_breakdown || 'n/a') }),
+    el('div', { class: 'formula', style: 'margin-top:8px', text: `start=${bt.config?.start} · end=${bt.config?.end} · rebalance=${bt.config?.rebalance} · top_n=${bt.config?.top_n} · cost=${(bt.config?.cost_per_side_bps / 100).toFixed(2)}%${bi('/side', '/side')} · r=${bt.config?.risk_free}` }),
+    el('div', { class: 'tiny muted', style: 'margin-top:6px', text: costLine(bt.config) }),
   ]));
+}
+
+function costLine(config) {
+  const cb = config?.cost_breakdown;
+  if (!cb) return bi('Chi phí: n/a', 'Costs: n/a');
+  const total = (config.cost_per_side_bps / 100).toFixed(2);
+  return bi(
+    `Chi phí mỗi chiều: hoa hồng ${fmt.n(cb.commission_pct, 2)}% + trượt giá ${fmt.n(cb.slippage_pct, 2)}% + nửa spread ${fmt.n(cb.half_spread_pct, 2)}% = ${total}%`,
+    `Cost per side: commission ${fmt.n(cb.commission_pct, 2)}% + slippage ${fmt.n(cb.slippage_pct, 2)}% + half-spread ${fmt.n(cb.half_spread_pct, 2)}% = ${total}%`,
+  );
 }
 
 function exportTrades(bt) {

@@ -110,6 +110,33 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 - **Suy giảm hợp lý**: nếu thiếu tệp (CW đáo hạn, chưa build series), hiển thị thông báo thay vì lỗi.
 - **Cảnh báo dữ liệu cũ**: `meta.dataAgeDays > 3` → banner trên toàn bộ trang.
 
+### 3.1 Song ngữ Việt/Anh (`docs/assets/i18n.js`)
+
+Ba chế độ, chuyển ngay trong topbar, lưu ở `localStorage` (`cwintel:lang`): **VI** (mặc định) · **EN** · **VI+EN**.
+
+Cơ chế dịch không cần backend và không sinh thêm artifact JSON:
+
+| Lớp | Dùng cho | Ghi chú |
+|---|---|---|
+| `STRINGS` (~600 mục) | nhãn, tiêu đề, cột, nút, tab, ghi chú tĩnh | khoá = chuỗi tiếng Việt đã render, nên không phải sửa 776 literal trong các page |
+| `TEMPLATES` (~40 regex) | câu do engine sinh (yếu tố +/−, cảnh báo, vô hiệu hoá, rec_reason) | bắt phần số rồi ghép lại theo trật tự tiếng Anh |
+| `PHRASES` | nhãn số ngắn chưa có trong từ điển | chỉ nhận kết quả đã "sạch" tiếng Việt, tránh câu nửa Việt nửa Anh |
+
+Chi tiết triển khai:
+
+- `applyI18n(root)` đi qua text node + thuộc tính `placeholder/title/aria-label`; router gọi lại sau mỗi lần render, thêm `MutationObserver` (debounce 60 ms) cho nội dung render muộn.
+- Chế độ **VI+EN** giữ nguyên tiếng Việt và chèn bản dịch nghiêng ngay sau (`<span class="i18n-en">`), chỉ với nhãn ngắn (≤ 48 ký tự) và bỏ qua ô bảng `<td>` để bảng không rối.
+- Đổi ngôn ngữ: khôi phục text gốc từ `Map` → áp dụng lại → `render()` lại route, nên `Intl.NumberFormat` chuyển `vi-VN` ↔ `en-US` và chart vẽ lại nhãn.
+- Số liệu, ngày tháng và đơn vị (`triệu`/`tỷ` ↔ `m`/`bn`) đổi theo locale trong `core.js` (`fmt.n`, `fmt.vnd`, `fmt.unit`, `fmt.dte`, `fmt.rec`).
+- Kiểm thử tĩnh: `tests/test_dashboard_i18n.py` (khoá trùng, bản dịch rỗng/sót tiếng Việt, có công tắc, có hook i18n); kiểm thử DOM chạy cả 4 tổ hợp VI/EN/VI+EN × dark/light, yêu cầu 0 lỗi console và 0 chuỗi chưa dịch ở chế độ EN.
+
+### 3.2 Giao diện sáng/tối
+
+- Hai bảng token đầy đủ trong `app.css` (`html[data-theme="dark"|"light"]`), không hardcode màu trong page.
+- Nút topbar xoay vòng **Sáng → Tối → Theo hệ thống** (`cwintel:themeMode`), có lắng nghe `prefers-color-scheme`; `data-theme` trên `<html>` để CSS và chart dùng cùng nguồn.
+- Chart tự vẽ lại khi đổi theme hoặc đổi kích thước: `registerChart()` gắn `_redraw` cho từng canvas, `ResizeObserver` (debounce 80 ms) + `redrawAllCharts()`.
+- Thêm cho khả năng đọc: legend theo màu phía trên chart, crosshair + tooltip nhiều series (không cần hover chính xác), nhãn trục tự nới `padL`, header bảng dính, kẻ sọc, cột mã dính, `text-wrap: pretty`, `focus-visible`, tôn trọng `prefers-reduced-motion`.
+
 ## 4. Hiệu năng
 
 Đo trên máy 4 vCPU với cache sẵn:
