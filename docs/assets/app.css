@@ -653,3 +653,5 @@ html[data-theme="dark"] .mh-cell { color: var(--text); }
   .bt-filter-row { grid-template-columns: 1fr auto; row-gap: 4px; }
   .bt-filter-name { grid-column: 1 / -1; }
 }
+
+.mh-cell.mh-partial { outline: 1px dashed color-mix(in srgb, var(--text-3) 70%, transparent); outline-offset: -2px; }

@@ -322,6 +322,7 @@ export async function backtestPage(view) {
     .filter((r) => Number.isFinite(r.total_return_pct))
     .reduce((a, b) => (!a || b.total_return_pct > a.total_return_pct ? b : a), null);
   const bestFilterLabel = bestFilter ? T(bestFilter.filter, bestFilter.filter_en || bestFilter.filter) : '';
+  const dragPp = Math.abs(bt.cost_drag_pct || 0);          // độ lớn chi phí, tính bằng điểm %
 
   view.appendChild(pageHead(
     'Backtest walk-forward',
@@ -348,11 +349,11 @@ export async function backtestPage(view) {
       el('div', { class: 'bt-verdict-text', text: T(
         `Top-5 theo CW Score đạt ${fmt.pct(net.total_return_pct, 1)} sau phí và `
           + `${fmt.pct(gross.total_return_pct, 1)} trước phí — chi phí giao dịch ăn `
-          + `${fmt.pct(bt.cost_drag_pct, 1)}. Cùng kỳ, rổ cổ phiếu cơ sở equal-weight đạt `
+          + `${fmt.n(dragPp, 1)} điểm %. Cùng kỳ, rổ cổ phiếu cơ sở equal-weight đạt `
           + `${fmt.pct(bench.total_return_pct, 1)}.`,
         `The top-5 by CW Score returned ${fmt.pct(net.total_return_pct, 1)} after costs and `
           + `${fmt.pct(gross.total_return_pct, 1)} before costs — trading costs consumed `
-          + `${fmt.pct(bt.cost_drag_pct, 1)}. Over the same period the equal-weight underlying `
+          + `${fmt.n(dragPp, 1)} pp. Over the same period the equal-weight underlying `
           + `basket returned ${fmt.pct(bench.total_return_pct, 1)}.`,
       ) }),
     ]),
@@ -382,7 +383,7 @@ export async function backtestPage(view) {
         `final equity ${fmt.n(net.final_equity, 0)} per 100`),
       (net.total_return_pct || 0) >= 0 ? 'up' : 'down'),
     kpi('Trước phí giao dịch', 'Before trading costs', fmt.pct(gross.total_return_pct, 1),
-      T(`chi phí ăn ${fmt.pct(bt.cost_drag_pct, 1)}`, `costs ate ${fmt.pct(bt.cost_drag_pct, 1)}`),
+      T(`chi phí ăn ${fmt.n(dragPp, 1)} điểm %`, `costs ate ${fmt.n(dragPp, 1)} pp`),
       (gross.total_return_pct || 0) >= 0 ? 'up' : 'down'),
     kpi('CAGR (sau phí)', 'CAGR (net)', fmt.pct(net.cagr_pct, 1),
       `Sharpe ${fmt.n(net.sharpe, 2)} · Sortino ${fmt.n(net.sortino, 2)}`,
@@ -481,12 +482,14 @@ export async function backtestPage(view) {
         'Monthly returns — top-5 by score (net)') }),
       heatSummary(monthly),
     ]),
-    monthlyHeatmap(monthly),
+    monthlyHeatmap(monthly, cfg.end),
     el('div', { class: 'tiny muted', style: 'margin-top:8px', text: T(
       'Mỗi ô là lợi nhuận của tháng đó tính từ đường vốn theo phiên (không phải trung bình các kỳ). '
-        + 'Ô “·” = tháng không có phiên giao dịch.',
+        + 'Ô “·” = tháng không có phiên giao dịch; ô viền nét đứt = tháng dở dang (dữ liệu tới '
+        + `${fmt.date(cfg.end)}).`,
       'Each cell is that month’s return from the daily equity path (not an average of periods). '
-        + 'A “·” cell means no trading session that month.') }),
+        + 'A “·” cell means no trading session that month; a dashed cell is an incomplete month '
+        + `(data through ${fmt.date(cfg.end)}).`) }),
   ]));
 
   /* ---------- 6. Thang điểm có dự báo được? ---------- */
@@ -741,7 +744,8 @@ function positiveFilterNotes(bt) {
   });
 }
 
-function monthlyHeatmap(monthly) {
+function monthlyHeatmap(monthly, endDate) {
+  const partial = endDate ? String(endDate).slice(0, 7) : null;
   const map = new Map(monthly.map((m) => [m.month, m.score_top_pct]));
   const years = [...new Set(monthly.map((m) => Number(String(m.month).slice(0, 4))))].sort();
   const rows = years.map((y) => {
@@ -757,15 +761,23 @@ function monthlyHeatmap(monthly) {
     row.total = has ? (prod - 1) * 100 : null;
     return row;
   });
-  const cell = (v) => {
+  const cell = (v, monthKey) => {
     if (!Number.isFinite(v)) return el('span', { class: 'mh-na', text: '·' });
     const lvl = Math.min(4, Math.max(1, Math.ceil(Math.abs(v) / 4)));
-    return el('span', { class: `mh-cell ${v >= 0 ? 'mh-pos' : 'mh-neg'}-${lvl}`, text: fmt.pct(v, 1) });
+    const isPartial = partial && monthKey === partial;
+    return el('span', {
+      class: `mh-cell ${v >= 0 ? 'mh-pos' : 'mh-neg'}-${lvl}${isPartial ? ' mh-partial' : ''}`,
+      title: isPartial ? T('tháng dở dang', 'incomplete month') : null,
+      text: fmt.pct(v, 1),
+    });
   };
   const columns = [
     { key: 'year', title: T('Năm', 'Year'), render: (r) => el('span', { class: 'mono strong', text: r.year }) },
     ...['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
-      .map((mm, i) => ({ key: 'm' + (i + 1), title: mm, align: 'right', render: (r) => cell(r['m' + (i + 1)]) })),
+      .map((mm, i) => ({
+        key: 'm' + (i + 1), title: mm, align: 'right',
+        render: (r) => cell(r['m' + (i + 1)], `${r.year}-${String(i + 1).padStart(2, '0')}`),
+      })),
     {
       key: 'total', title: T('Cả năm', 'Year'), align: 'right',
       render: (r) => (Number.isFinite(r.total)
@@ -791,6 +803,7 @@ function heatSummary(monthly) {
 
 function explainerCard(bt, cfg) {
   const s = bt.summary || {};
+  const dragPp = Math.abs(bt.cost_drag_pct || 0);
   const net = s.score_top || {};
   const gross = s.score_top_gross || {};
   const ew = s.ew_universe || {};
@@ -811,11 +824,11 @@ function explainerCard(bt, cfg) {
     {
       vi: ['2. Chi phí giao dịch',
         `${fmt.n(cfg.cost_per_side_pct, 2)}%/chiều (${fmt.n(cfg.round_trip_pct, 1)}%/vòng) × `
-        + `${fmt.n(cfg.n_signal_dates, 0)} vòng tái cân bằng: riêng chi phí đã lấy đi ${fmt.pct(bt.cost_drag_pct, 1)}. `
+        + `${fmt.n(cfg.n_signal_dates, 0)} vòng tái cân bằng: riêng chi phí đã lấy đi ${fmt.n(dragPp, 1)} điểm %. `
         + 'Nếu chỉ phải trả hoa hồng + trượt giá thực tế (khoảng 0,45%/chiều), kết quả vẫn âm nhưng nhẹ hơn nhiều.'],
       en: ['2. Trading costs',
         `${fmt.n(cfg.cost_per_side_pct, 2)}%/side (${fmt.n(cfg.round_trip_pct, 1)}%/round trip) × `
-        + `${fmt.n(cfg.n_signal_dates, 0)} rebalances: costs alone took ${fmt.pct(bt.cost_drag_pct, 1)}. `
+        + `${fmt.n(cfg.n_signal_dates, 0)} rebalances: costs alone took ${fmt.n(dragPp, 1)} pp. `
         + 'At a realistic commission-plus-slippage level (~0.45%/side) the result stays negative but far milder.'],
     },
     {
