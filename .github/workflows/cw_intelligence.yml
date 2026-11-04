@@ -1,0 +1,74 @@
+name: CW Intelligence — build & publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "cwintel/**"
+      - "docs/assets/**"
+      - "docs/index.html"
+      - "tests/**"
+      - "output/cache/**"
+      - ".github/workflows/cw_intelligence.yml"
+  # Bật schedule sau khi pipeline nguồn (cw_pipeline.yml) đã chạy xong trong ngày.
+  # schedule:
+  #   - cron: "30 10 * * 1-5"   # 17:30 ICT, T2–T6
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cw-intelligence
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install --no-cache-dir pandas numpy pyarrow openpyxl pytest pytz
+
+      - name: Run test suite
+        run: pytest -q
+
+      - name: Build artifacts
+        env:
+          PYTHONIOENCODING: "utf-8"
+          PYTHONUTF8: "1"
+        run: python -m cwintel.build
+
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cw-data-${{ github.run_id }}
+          path: docs/data
+          retention-days: 14
+          compression-level: 6
+
+      - name: Commit published data
+        run: |
+          git config user.name "cw-intelligence-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "Không có thay đổi dữ liệu — bỏ qua commit."
+            exit 0
+          fi
+          ASOF=$(python -c "import json;print(json.load(open('docs/data/meta.json'))['asofLabel'])")
+          git commit -m "data: cập nhật artifact CW Intelligence (phiên ${ASOF})"
+          git push origin HEAD:${GITHUB_REF_NAME}

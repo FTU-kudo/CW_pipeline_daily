@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CW Dashboard – Black‑Scholes</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    /* ----- RESET & VARIABLES ----- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f7f7f5; --surface: #fff; --surface2: #f2f2ef;
+      --text: #0b0b0b; --text2: #52514e; --text3: #898781;
+      --border: rgba(11,11,11,0.1); --border2: rgba(11,11,11,0.18);
+      --green: #1baf7a; --red: #e34948; --amber: #eda100; --blue: #2a78d6;
+      --violet: #4a3aa7; --coral: #eb6834; --pink: #e87ba4;
+      --bg-green: #eaf3de; --text-green: #3b6d11;
+      --bg-red: #fcebeb; --text-red: #a32d2d;
+      --bg-amber: #faeeda; --text-amber: #854f0b;
+      --bg-blue: #deeaf8; --text-blue: #1a4f8a;
+      --gold: #f5b700;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110; --surface: #1a1a19; --surface2: #222221;
+        --text: #fff; --text2: #c3c2b7; --text3: #898781;
+        --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+        --bg-green: #173404; --text-green: #c0dd97;
+        --bg-red: #501313; --text-red: #f09595;
+        --bg-amber: #412402; --text-amber: #fac775;
+        --bg-blue: #0d2340; --text-blue: #7eb8f7;
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* ----- HEADER & TOP BAR ----- */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1.5rem; background: var(--surface);
+      border-bottom: 0.5px solid var(--border); position: sticky; top: 0; z-index: 100;
+    }
+    .topbar h1 {
+      font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px;
+    }
+    .topbar h1 svg { width: 18px; height: 18px; opacity: 0.7; }
+    .meta-container {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface2); padding: 5px 14px;
+      border-radius: 20px; border: 0.5px solid var(--border2);
+    }
+    .meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+    .meta-label { color: var(--text3); }
+    .meta-value { color: var(--text); font-weight: 500; }
+    .meta-value.highlight { color: var(--blue); font-weight: 600; }
+    .meta-divider { width: 3px; height: 3px; background: var(--text3); border-radius: 50%; opacity: 0.5; }
+    .real-time-clock { color: var(--text2); margin-right: 2px; }
+
+    /* ----- TABS ----- */
+    .tabs {
+      display: flex; gap: 0; padding: 0 1.5rem; background: var(--surface);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .tab {
+      padding: 0.6rem 1.1rem; font-size: 13px; cursor: pointer; background: transparent;
+      border: none; color: var(--text2); border-bottom: 2px solid transparent;
+      font-weight: 400; font-family: inherit;
+    }
+    .tab.on { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
+
+    /* ----- FILTERS ----- */
+    .filters {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      padding: 0.6rem 1.5rem; background: var(--surface2);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .filters label { font-size: 12px; color: var(--text3); }
+    .filters select {
+      font-size: 12px; padding: 4px 8px; border-radius: 6px;
+      border: 0.5px solid var(--border2); background: var(--surface); color: var(--text);
+      height: 28px; cursor: pointer;
+    }
+
+    /* ----- KPI ROW ----- */
+    .kpi-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+      padding: 1rem 1.5rem;
+    }
+    .kpi {
+      background: var(--surface2); border-radius: 8px; padding: 0.75rem 1rem;
+    }
+    .kpi-lbl { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+    .kpi-val { font-size: 22px; font-weight: 500; }
+    .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+    /* ----- SECTIONS & CARDS ----- */
+    .sec { padding: 0 1.5rem 1.25rem; }
+    .sec-title {
+      font-size: 12px; font-weight: 500; color: var(--text2);
+      padding-top: 0.75rem; margin-bottom: 0.5rem;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .card {
+      background: var(--surface); border: 0.5px solid var(--border);
+      border-radius: 10px; padding: 0.75rem 1rem;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ----- LEGEND ----- */
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;
+      font-size: 12px; color: var(--text2);
+    }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .ld { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ----- TABLE ----- */
+    .tbl-wrap { overflow-x: auto; border: 0.5px solid var(--border); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+      background: var(--surface2); padding: 6px 10px; text-align: left;
+      font-weight: 500; color: var(--text2); border-bottom: 0.5px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody td { padding: 6px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--surface2); }
+
+    /* ----- BADGES / PILLS ----- */
+    .pill {
+      display: inline-block; font-size: 10px; padding: 2px 7px;
+      border-radius: 99px; font-weight: 500;
+    }
+    .itm { background: var(--bg-green); color: var(--text-green); }
+    .otm { background: var(--bg-red); color: var(--text-red); }
+    .atm { background: var(--bg-amber); color: var(--text-amber); }
+    .active-badge { background: var(--bg-green); color: var(--text-green); }
+    .expired-badge { background: var(--surface2); color: var(--text3); }
+
+    /* ----- DRILL-DOWN HEADER ----- */
+    .drill-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 1rem 1.5rem 0.5rem;
+    }
+    .drill-header label { font-size: 13px; color: var(--text2); }
+    .drill-header select {
+      font-size: 13px; padding: 5px 10px; border-radius: 6px;
+      border: 0.5px solid var(--border2); background: var(--surface); color: var(--text);
+      min-width: 200px; cursor: pointer;
+    }
+    .info-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; margin-bottom: 10px;
+    }
+    .info-item {
+      background: var(--surface2); border-radius: 6px; padding: 0.5rem 0.75rem;
+    }
+    .info-item .lbl { font-size: 10px; color: var(--text3); }
+    .info-item .val { font-size: 13px; font-weight: 500; }
+
+    /* ----- LOADING ----- */
+    #loading {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 12px; z-index: 999;
+    }
+    #loading p { color: var(--text2); font-size: 13px; }
+    .spinner {
+      width: 28px; height: 28px; border: 2px solid var(--border2);
+      border-top-color: var(--blue); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+
+    /* ----- SORTABLE HEADERS ----- */
+    thead th.sortable { cursor: pointer; user-select: none; }
+    thead th.sortable:hover { color: var(--text); }
+
+    /* ----- SCORING / OPPORTUNITY ----- */
+    .score-bar-wrap {
+      display: flex; align-items: center; gap: 8px; min-width: 120px;
+    }
+    .score-bar {
+      height: 6px; border-radius: 3px; background: var(--border2);
+      flex: 1; overflow: hidden;
+    }
+    .score-fill {
+      height: 100%; border-radius: 3px; transition: width 0.3s;
+    }
+    .score-num {
+      font-size: 12px; font-weight: 600; min-width: 28px; text-align: right;
+    }
+    .rank-badge {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+    }
+    .rank-1 { background: #f5b700; color: #000; }
+    .rank-2 { background: #adb5bd; color: #000; }
+    .rank-3 { background: #cd7f32; color: #fff; }
+    .rank-n { background: var(--surface2); color: var(--text3); }
+
+    .opportunity-filters {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      padding: 0.75rem 1.5rem; background: var(--surface2);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .opportunity-filters label { font-size: 12px; color: var(--text3); }
+    .opportunity-filters select,
+    .opportunity-filters input {
+      font-size: 12px; padding: 4px 8px; border-radius: 6px;
+      border: 0.5px solid var(--border2); background: var(--surface); color: var(--text);
+      height: 28px;
+    }
+    .weight-row {
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+      padding: 0.5rem 1.5rem; background: var(--surface);
+      border-bottom: 0.5px solid var(--border); font-size: 12px; color: var(--text3);
+    }
+    .weight-row label { display: flex; align-items: center; gap: 6px; color: var(--text2); }
+    .weight-row input[type="range"] { width: 80px; cursor: pointer; }
+    .weight-row span { font-weight: 600; color: var(--text); min-width: 28px; }
+
+    .top10-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+      margin-bottom: 12px;
+    }
+    .top-card {
+      background: var(--surface); border: 0.5px solid var(--border);
+      border-radius: 10px; padding: 0.75rem 1rem;
+      display: flex; gap: 10px; align-items: flex-start;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .top-card:hover { border-color: var(--blue); }
+    .top-card .tc-rank { flex-shrink: 0; margin-top: 2px; }
+    .top-card .tc-body { flex: 1; min-width: 0; }
+    .top-card .tc-ticker { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .top-card .tc-sub { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+    .top-card .tc-metrics { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tc-metric {
+      background: var(--surface2); border-radius: 4px;
+      padding: 2px 6px; font-size: 11px;
+    }
+    .tc-metric span { color: var(--text3); margin-right: 3px; }
+
+    .signal {
+      display: inline-block; font-size: 10px; padding: 2px 7px;
+      border-radius: 99px; font-weight: 600;
+    }
+    .signal-strong { background: #deeaf8; color: #1a4f8a; }
+    .signal-good   { background: var(--bg-green); color: var(--text-green); }
+    .signal-neutral{ background: var(--bg-amber); color: var(--text-amber); }
+
+    /* ----- CW COMBO (searchable) ----- */
+    .cw-combo-wrap {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .cw-combo-input {
+      font-size: 13px; padding: 5px 28px 5px 10px;
+      border-radius: 6px; border: 0.5px solid var(--border2);
+      background: var(--surface); color: var(--text);
+      min-width: 220px; height: 32px; cursor: text;
+      outline: none; font-family: inherit;
+    }
+    .cw-combo-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(42,120,214,0.15); }
+    .cw-combo-arrow {
+      position: absolute; right: 8px; pointer-events: none;
+      color: var(--text3); font-size: 10px;
+    }
+    .cw-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--surface); border: 0.5px solid var(--border2);
+      border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      max-height: 280px; overflow-y: auto; min-width: 240px;
+      display: none;
+    }
+    .cw-dropdown.open { display: block; }
+    .cw-opt {
+      padding: 7px 12px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; color: var(--text);
+    }
+    .cw-opt:hover, .cw-opt.active { background: var(--surface2); }
+    .cw-opt .opt-ticker { font-weight: 600; min-width: 90px; }
+    .cw-opt .opt-under  { font-size: 11px; color: var(--text3); }
+    .cw-opt mark { background: rgba(42,120,214,0.2); border-radius: 2px; padding: 0 1px; font-style: normal; color: inherit; }
+    .cw-empty { padding: 10px 12px; font-size: 12px; color: var(--text3); text-align: center; }
+
+    /* ----- GUIDE TABLE ----- */
+    .guide-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .guide-table thead tr {
+      background: var(--surface2);
+    }
+    .guide-table th {
+      padding: 9px 14px; font-size: 11px; font-weight: 600;
+      color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em;
+      text-align: left; border-bottom: 0.5px solid var(--border2);
+    }
+    .guide-table td {
+      padding: 10px 14px; vertical-align: top;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--text); line-height: 1.6;
+    }
+    .guide-table tr:last-child td { border-bottom: none; }
+    .guide-table tr:hover td { background: var(--surface2); transition: background 0.1s; }
+    .guide-highlight td { background: rgba(227,73,72,0.04); }
+    .guide-highlight td:first-child { border-left: 3px solid var(--red); padding-left: 11px; }
+    .guide-table code {
+      font-size: 11.5px; background: var(--surface2);
+      padding: 1px 6px; border-radius: 4px;
+      border: 0.5px solid var(--border2); font-family: monospace;
+    }
+    .gtag {
+      display: inline-block; font-size: 11.5px; font-weight: 600;
+      padding: 2px 8px; border-radius: 5px; white-space: nowrap;
+    }
+    .gtag-blue   { background: rgba(42,120,214,0.12);  color: #2a78d6; }
+    .gtag-green  { background: rgba(27,175,122,0.12);  color: #1baf7a; }
+    .gtag-red    { background: rgba(227,73,72,0.12);   color: #e34948; }
+    .gtag-amber  { background: rgba(237,161,0,0.12);   color: #b37800; }
+    .gtag-purple { background: rgba(74,58,167,0.12);   color: #4a3aa7; }
+
+    /* ----- RESPONSIVE ----- */
+    @media (max-width: 800px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .grid2 { grid-template-columns: 1fr; }
+      .top10-grid { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: repeat(2, 1fr); }
+      .topbar { flex-wrap: wrap; gap: 8px; }
+    }
+    @media (max-width: 500px) {
+      .kpi-row { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Đang tải dữ liệu CW...</p>
+</div>
+
+<div id="app" class="hidden">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <h1>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 3v18h18M7 16l4-4 4 4 4-4"/>
+      </svg>
+      CW Dashboard – Black‑Scholes
+    </h1>
+    <div class="meta-container" id="meta-container" style="display: none;">
+      <div class="meta-item">
+        <span class="meta-label">Cập nhật:</span>
+        <span class="meta-value" id="meta-updated">—</span>
+      </div>
+      <div class="meta-divider"></div>
+      <div class="meta-item">
+        <span class="meta-value highlight" id="meta-cw-count">—</span>
+        <span class="meta-label">mã CW</span>
+      </div>
+      <div class="meta-divider"></div>
+      <div class="meta-item">
+        <svg class="real-time-clock" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <g id="clock-hour" style="transform-origin: 12px 12px; transition: transform 0.2s linear;">
+            <line x1="12" y1="12" x2="12" y2="7"></line>
+          </g>
+          <g id="clock-minute" style="transform-origin: 12px 12px; transition: transform 0.2s linear;">
+            <line x1="12" y1="12" x2="12" y2="4"></line>
+          </g>
+        </svg>
+        <span class="meta-label">Giờ hiện tại:</span>
+        <span class="meta-value" id="meta-view-time">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab on"  onclick="switchTab('overview',this)">🌐 Tổng quan</button>
+    <button class="tab"     onclick="switchTab('opportunity',this)">🎯 Cơ hội đầu tư</button>
+    <button class="tab"     onclick="switchTab('drilldown',this)">🔎 Drill‑down</button>
+    <button class="tab"     onclick="switchTab('blackscholes',this)">📐 Black‑Scholes</button>
+    <button class="tab"     onclick="switchTab('guide',this)">📖 Hướng dẫn</button>
+  </div>
+
+  <!-- DISCLAIMER BANNER -->
+  <div id="disclaimer-banner" style="
+    display:flex; align-items:flex-start; gap:10px;
+    padding: 8px 1.5rem; font-size: 12px; line-height: 1.6;
+    background: var(--bg-amber); color: var(--text-amber);
+    border-bottom: 0.5px solid rgba(237,161,0,0.3);
+  ">
+    <span style="font-size:15px;flex-shrink:0;margin-top:1px">⚠️</span>
+    <span>
+      <strong>Tuyên bố miễn trừ trách nhiệm:</strong>
+      Toàn bộ thông tin, số liệu và phân tích trên Dashboard này — bao gồm giá lý thuyết Black-Scholes,
+      chỉ số Greeks, điểm xếp hạng cơ hội — chỉ mang tính chất <strong>tham khảo và nghiên cứu</strong>,
+      không phải khuyến nghị hay lời kêu gọi đầu tư.
+      Chứng quyền có bảo đảm (CW) là công cụ tài chính có đòn bẩy cao, tiềm ẩn rủi ro mất toàn bộ vốn.
+      Nhà đầu tư cần tự đánh giá rủi ro, tham khảo chuyên gia tài chính có chuyên môn và chịu trách nhiệm
+      hoàn toàn với quyết định đầu tư của mình.
+    </span>
+  </div>
+
+  <!-- GLOBAL FILTERS (Overview + Table) -->
+  <div class="filters" id="global-filters">
+    <label>Underlying</label>
+    <select id="f-under"><option value="">Tất cả</option></select>
+    <label>Nhà phát hành</label>
+    <select id="f-issuer"><option value="">Tất cả</option></select>
+    <label>Moneyness</label>
+    <select id="f-money"><option value="">Tất cả</option><option>ITM</option><option>OTM</option><option>ATM</option></select>
+    <label>Trạng thái</label>
+    <select id="f-status"><option value="">Tất cả</option><option value="active">Active</option><option value="expired">Expired</option></select>
+  </div>
+
+  <!-- ═══ PANE: OVERVIEW ═══ -->
+  <div id="pane-overview">
+    <!-- KPI -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-lbl">Tổng CW</div><div class="kpi-val" id="k-total">—</div><div class="kpi-sub">active + expired</div></div>
+      <div class="kpi"><div class="kpi-lbl">CW active</div><div class="kpi-val" id="k-active" style="color:var(--green)">—</div><div class="kpi-sub">còn giao dịch</div></div>
+      <div class="kpi"><div class="kpi-lbl">Premium TB</div><div class="kpi-val" id="k-prem">—</div><div class="kpi-sub">CW active ITM+ATM</div></div>
+      <div class="kpi"><div class="kpi-lbl">Đòn bẩy TB</div><div class="kpi-val" id="k-lev">—</div><div class="kpi-sub">hiệu quả × Delta</div></div>
+    </div>
+    <!-- Premium TB theo underlying -->
+    <div class="sec">
+      <div class="sec-title">Premium (%) trung bình theo Underlying</div>
+      <div class="card">
+        <div class="legend" id="leg-prem"></div>
+        <div style="position:relative;height:220px"><canvas id="c-prem"></canvas></div>
+      </div>
+    </div>
+    <!-- Moneyness + Lev by issuer -->
+    <div class="sec">
+      <div class="grid2">
+        <div><div class="sec-title">Phân bố Moneyness</div><div class="card"><div style="position:relative;height:200px"><canvas id="c-money"></canvas></div></div></div>
+        <div><div class="sec-title">Đòn bẩy hiệu quả theo nhà phát hành</div><div class="card"><div style="position:relative;height:200px"><canvas id="c-lev"></canvas></div></div></div>
+      </div>
+    </div>
+    <!-- Bảng so sánh -->
+    <div class="sec">
+      <div class="sec-title">Bảng so sánh CW</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" data-col="ticker" title="Mã chứng quyền">Mã CW</th>
+              <th class="sortable" data-col="underlying" title="Cổ phiếu cơ sở">Underlying</th>
+              <th class="sortable" data-col="issuer" title="Nhà phát hành chứng quyền">Nhà PH</th>
+              <th class="sortable" data-col="price" title="Giá giao dịch hiện tại của chứng quyền trên thị trường">Giá CW</th>
+              <th class="sortable" data-col="strike" title="Giá thực hiện: Mức giá mà nhà đầu tư có quyền mua cổ phiếu khi chứng quyền đáo hạn (Strike price)">Giá TH</th>
+              <th class="sortable" data-col="ratio" title="Tỷ lệ chuyển đổi: Số lượng chứng quyền cần thiết để đổi lấy 1 cổ phiếu cơ sở. VD: ratio = 4 nghĩa là 4 CW = 1 cổ phiếu.">Tỷ lệ CD</th>
+              <th class="sortable" data-col="premium" title="Phí bảo hiểm (Premium %): CW có premium thấp hơn được ưu tiên. Premium càng gần 0% → điểm càng cao.">Premium %</th>
+              <th class="sortable" data-col="eff_lev" title="Đòn bẩy hiệu dụng (Effective Gearing): Cho biết khi cổ phiếu tăng 1%, CW tăng bao nhiêu %. Đã điều chỉnh theo xác suất Delta.">Đòn bẩy</th>
+              <th class="sortable" data-col="breakeven" title="Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi">Hòa vốn *</th>
+              <th class="sortable" data-col="maturity" title="Thời gian tính từ hiện tại đến ngày đáo hạn (Time to maturity). Trong tính toán nội bộ, quy đổi ra tỷ lệ năm (T/365 hoặc T/252).">Đáo hạn</th>
+              <th class="sortable" data-col="moneyness" title="Trạng thái của quyền chọn: ITM (In-The-Money / Có lãi) khi S > K, ATM (At-The-Money / Ngang giá) khi S = K, OTM (Out-of-The-Money / Chịu lỗ) khi S < K.">Moneyness</th>
+              <th class="sortable" data-col="delta" title="Delta: Mức độ thay đổi giá CW khi giá cổ phiếu cơ sở thay đổi 1 đơn vị. Call Delta nằm trong [0,1]: ATM ≈ 0.5, Deep ITM ≈ 1, Deep OTM → 0.">Delta</th>
+              <th class="sortable" data-col="sigma" title="Sigma (HV): Độ biến động lịch sử (Historical Volatility), tính bằng HV 252 phiên.">Sigma (HV)</th>
+              <th class="sortable" data-col="iv" title="IV (Implied Volatility): Độ biến động ngầm định từ giá thị trường CW, tính ngược từ công thức Black-Scholes. IV < HV → CW rẻ tương đối; IV > HV → CW đắt tương đối.">IV</th>
+              <th class="sortable" data-col="ivr" title="IV Rank: Vị trí của IV hôm nay trong khoảng [IV_min, IV_max] của 52 tuần qua. IVR = (IV - IV_min)/(IV_max - IV_min)×100. IVR < 30 → CW rẻ; IVR > 70 → CW đắt.">IVR</th>
+              <th class="sortable" data-col="status" title="Trạng thái hiện tại của chứng quyền (Ví dụ: đang giao dịch, sắp đáo hạn, ...)">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+        <div style="font-size:11px;color:var(--text3);padding:6px 4px 2px">
+          (*) Hòa vốn = Giá thực hiện + Giá CW × Tỷ lệ chuyển đổi &nbsp;|&nbsp;
+          <span style="color:var(--green)">●</span> dưới giá cơ sở &nbsp;
+          <span style="color:var(--red)">●</span> trên giá cơ sở (cần underlying tăng thêm để có lãi)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: OPPORTUNITY ═══ -->
+  <div id="pane-opportunity" class="hidden">
+    <div class="opportunity-filters">
+      <label>Underlying</label><select id="op-under"><option value="">Tất cả</option></select>
+      <label>Moneyness</label><select id="op-money"><option value="">Tất cả</option><option>ITM</option><option>ATM</option><option>OTM</option></select>
+      <label>Premium tối đa</label><select id="op-prem-max"><option value="999">Không giới hạn</option><option value="5">≤5%</option><option value="10">≤10%</option><option value="20">≤20%</option><option value="30">≤30%</option></select>
+      <label>Hiện Top</label><select id="op-topn"><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option></select>
+    </div>
+
+    <!-- Weight sliders -->
+    <div class="weight-row">
+      <span style="color:var(--text3)">Trọng số:</span>
+      <label>Premium thấp <input type="range" id="w-prem" min="0" max="100" value="25"> <span id="wv-prem">25%</span></label>
+      <label>Đòn bẩy <input type="range" id="w-lev" min="0" max="100" value="20"> <span id="wv-lev">20%</span></label>
+      <label>Thanh khoản <input type="range" id="w-vol" min="0" max="100" value="15"> <span id="wv-vol">15%</span></label>
+      <label>Delta <input type="range" id="w-delta" min="0" max="100" value="25"> <span id="wv-delta">25%</span></label>
+      <label>IV Rank thấp <input type="range" id="w-sigma" min="0" max="100" value="15"> <span id="wv-sigma">15%</span></label>
+      <button onclick="resetWeights()" style="font-size:11px;padding:3px 8px;border-radius:4px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer">Reset</button>
+    </div>
+
+    <div style="padding:1rem 1.5rem 0">
+      <!-- KPI cơ hội -->
+      <div class="kpi-row" style="padding:0 0 1rem">
+        <div class="kpi"><div class="kpi-lbl">CW đủ điều kiện</div><div class="kpi-val" id="op-k-count" style="color:var(--blue)">—</div><div class="kpi-sub">active, ≥60 ngày, an toàn</div></div>
+        <div class="kpi"><div class="kpi-lbl">Premium thấp nhất</div><div class="kpi-val" id="op-k-minprem" style="color:var(--green)">—</div></div>
+        <div class="kpi"><div class="kpi-lbl">Điểm cao nhất</div><div class="kpi-val" id="op-k-topscore" style="color:var(--amber)">—</div><div class="kpi-sub">/ 100 điểm</div></div>
+        <div class="kpi"><div class="kpi-lbl">⚠️ Bị loại</div><div class="kpi-val" id="op-k-rejected" style="color:var(--red)">—</div></div>
+      </div>
+
+      <!-- Top 10 cards -->
+      <div class="sec-title" style="padding-top:0;margin-bottom:.75rem">🏆 Bảng xếp hạng CW tốt nhất</div>
+      <div class="top10-grid" id="top10-grid"></div>
+
+      <!-- Scatter plot -->
+      <div class="sec-title">Bản đồ cơ hội — Premium vs Đòn bẩy</div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="position:relative;height:300px"><canvas id="c-scatter"></canvas></div>
+      </div>
+
+      <!-- Bảng scoring -->
+      <div class="sec-title">Bảng scoring toàn bộ</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Hạng</th><th>Mã CW</th><th>Underlying</th><th>Nhà PH</th><th>Giá CW</th>
+            <th>Premium %</th><th>Đòn bẩy</th><th>Ngày còn</th><th>Moneyness</th>
+            <th>Delta</th><th>Sigma</th>
+            <th>P</th><th>L</th><th>V</th><th>Δ</th><th title="IV Rank thấp = CW đang rẻ so với lịch sử biến động">IVR</th>
+            <th style="background:var(--bg-blue);color:var(--text-blue)">Tổng</th>
+          </tr></thead>
+          <tbody id="op-tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: DRILL-DOWN ═══ -->
+  <div id="pane-drilldown" class="hidden">
+    <div class="drill-header">
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="drill-combo-wrap">
+        <input class="cw-combo-input" id="drill-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="drill-combo-drop"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="info-grid" id="drill-info"></div>
+
+      <!-- Biểu đồ giá (line + vùng high-low) và volume -->
+      <div class="sec-title">Giá đóng cửa — lịch sử OHLCV</div>
+      <div class="card">
+        <div class="legend">
+          <span><span class="ld" style="background:var(--blue)"></span>Close</span>
+          <span><span class="ld" style="background:none;border-bottom:2px dashed rgba(42,120,214,0.55);display:inline-block;width:14px;height:0;vertical-align:middle;margin-bottom:2px"></span> Open</span>
+          <span><span class="ld" style="background:rgba(42,120,214,0.12);border:1px solid rgba(42,120,214,0.25)"></span>High–Low</span>
+          <span><span class="ld" style="background:rgba(42,120,214,0.3)"></span>Khối lượng</span>
+        </div>
+        <div style="position:relative;height:240px"><canvas id="c-drill-price"></canvas></div>
+      </div>
+
+      <!-- Premium history -->
+      <div class="sec-title" style="margin-top:10px">Premium (%) theo ngày</div>
+      <div class="card">
+        <div style="position:relative;height:150px"><canvas id="c-prem-hist"></canvas></div>
+      </div>
+
+      <!-- Effective Gearing theo ngày -->
+      <div class="sec-title" style="margin-top:10px">Effective Gearing theo ngày</div>
+      <div class="card">
+        <div class="legend">
+          <span><span class="ld" style="background:var(--violet)"></span>Effective Gearing (×)</span>
+          <span id="drill-eg-avg" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+        <div style="position:relative;height:160px"><canvas id="c-drill-greeks"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: BLACK-SCHOLES VISUALIZER ═══ -->
+  <div id="pane-blackscholes" class="hidden">
+    <div class="drill-header" style="gap:16px;flex-wrap:wrap">
+      <label style="font-weight:500">📐 Black‑Scholes Visualizer</label>
+      <label style="font-size:13px;color:var(--text2)">Chọn mã CW:</label>
+      <div class="cw-combo-wrap" id="bs-combo-wrap">
+        <input class="cw-combo-input" id="bs-combo-input" type="text"
+               placeholder="Gõ mã hoặc tên CW..." autocomplete="off" spellcheck="false">
+        <span class="cw-combo-arrow">▾</span>
+        <div class="cw-dropdown" id="bs-combo-drop"></div>
+      </div>
+    </div>
+
+    <!-- Thông số đầu vào BS (có thể chỉnh) -->
+    <div style="padding:0.5rem 1.5rem">
+      <div class="card" style="margin-bottom:10px">
+        <div class="sec-title" style="padding-top:0.5rem">Thông số Black‑Scholes (chỉnh thủ công)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding-bottom:0.5rem">
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">S – Giá cơ sở (VND)</div><input id="bs-S" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="21000"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">K – Giá thực hiện (VND)</div><input id="bs-K" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="22000"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">T – Ngày còn lại</div><input id="bs-T" type="number" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="180"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">σ – Sigma (độ biến động)</div><input id="bs-sigma" type="number" step="0.001" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="0.290"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">r – Lãi suất phi rủi ro</div><input id="bs-r" type="number" step="0.0001" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="0.0465"></div>
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Ratio – Tỷ lệ chuyển đổi</div><input id="bs-ratio" type="number" step="0.1" style="width:100%;padding:5px 8px;border:0.5px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px" placeholder="4"></div>
+        </div>
+        <button onclick="runBSCalc()" style="margin-top:4px;padding:6px 18px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:13px;cursor:pointer;font-weight:500">Tính lại</button>
+      </div>
+
+      <!-- Kết quả BS -->
+      <div class="info-grid" id="bs-results" style="margin-bottom:10px"></div>
+
+      <!-- Biểu đồ: Giá option vs S (sensitivity) -->
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <div class="sec-title">Giá quyền chọn vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:220px"><canvas id="c-bs-price-vs-s"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec-title">Delta vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:220px"><canvas id="c-bs-delta-vs-s"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Biểu đồ: Greeks vs Thời gian -->
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <div class="sec-title">Giá option vs Thời gian T (ngày còn lại)</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-bs-price-vs-t"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec-title">Gamma & Vega vs Giá cơ sở S</div>
+          <div class="card"><div style="position:relative;height:200px"><canvas id="c-bs-gamma-vega"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Volatility Smile Simulator -->
+      <div class="sec-title">Bề mặt Premium — Sigma × Moneyness (S/K)</div>
+      <div class="card" style="margin-bottom:10px">
+        <div style="position:relative;height:220px"><canvas id="c-bs-vol-surface"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: HƯỚNG DẪN / GLOSSARY ═══ -->
+  <div id="pane-guide" class="hidden">
+    <div style="padding: 1rem 1.5rem 2rem">
+
+      <!-- Header -->
+      <div style="margin-bottom: 1.25rem">
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">📖 Hướng dẫn sử dụng & Thuật ngữ</div>
+        <div style="font-size:12px;color:var(--text3)">Tài liệu tham chiếu cho mô hình định giá Black-Scholes và hệ thống phân tích Chứng quyền có bảo đảm (CW)</div>
+      </div>
+
+      <!-- SECTION 1: Thông số đầu vào -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">1. THÔNG SỐ ĐẦU VÀO (INPUTS)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:140px">Yếu tố</th><th>Ý nghĩa cốt lõi</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-blue">S – Giá cơ sở</span></td>
+                <td>Giá giao dịch hiện tại của cổ phiếu cơ sở trên thị trường ngay (Spot price).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">K – Giá thực hiện</span></td>
+                <td>Mức giá mà nhà đầu tư có quyền mua cổ phiếu khi chứng quyền đáo hạn (Strike price).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">T – Ngày còn lại</span></td>
+                <td>Thời gian tính từ hiện tại đến ngày đáo hạn (Time to maturity). Trong tính toán nội bộ, con số này sẽ được quy đổi ra tỷ lệ năm (T/365 hoặc T/252).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">σ – Sigma</span></td>
+                <td>Độ biến động lịch sử (Historical Volatility) hoặc độ biến động ngầm định (Implied Volatility) của cổ phiếu cơ sở. Pipeline tính bằng HV 252 phiên.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">r – Lãi suất phi rủi ro</span></td>
+                <td>Lãi suất tham chiếu, thường sử dụng lợi suất Trái phiếu Chính phủ kỳ hạn 10 năm (lấy từ HNX).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Ratio – Tỷ lệ chuyển đổi</span></td>
+                <td>Số lượng chứng quyền cần thiết để đổi lấy 1 cổ phiếu cơ sở. VD: ratio = 4 nghĩa là 4 CW = 1 cổ phiếu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: Chỉ số đầu ra -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">2. CHỈ SỐ ĐẦU RA (OUTPUTS & GREEKS)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:140px">Chỉ số</th><th>Ý nghĩa cốt lõi</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-purple">Moneyness (S/K)</span></td>
+                <td>Trạng thái của quyền chọn. Gồm 3 trạng thái: <strong>ITM</strong> (In-The-Money / Có lãi) khi S &gt; K, <strong>ATM</strong> (At-The-Money / Ngang giá) khi S ≈ K, <strong>OTM</strong> (Out-of-The-Money / Chịu lỗ) khi S &lt; K.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-purple">d₁ &amp; d₂</span></td>
+                <td>Các biến số trung gian trong phương trình phân phối chuẩn của Black-Scholes. <strong>N(d₁)</strong> là xác suất đút mức ký hiệu Δ (Delta). <strong>N(d₂)</strong> là xác suất CW chọn đáo hạn có lãi (ITM) trong thế giới trung lập rủi ro.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-red">Giá Call (BS)</span></td>
+                <td><strong>Giá lý thuyết của 1 chứng quyền mua</strong>, đã chia cho Tỷ lệ chuyển đổi (ratio). Đơn vị: nghìn đồng/CW. Nếu giá thị trường cao hơn giá BS → CW đang bị định giá cao (premium dương).</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-red">Giá Put (BS)</span></td>
+                <td>Giá lý thuyết của 1 chứng quyền bán. Thị trường Việt Nam hiện chưa có sản phẩm này, nhưng mô hình vẫn tính toán để tham chiếu và kiểm tra Put-Call Parity.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Delta (Δ)</span></td>
+                <td>Mức độ thay đổi giá CW khi giá cổ phiếu cơ sở thay đổi 1 đơn vị. <strong>Call Delta</strong> nằm trong [0, 1]: ATM ≈ 0.5, Deep ITM → 1, Deep OTM → 0. Dùng để đo lường mức độ phản ứng của CW với biến động giá cổ phiếu.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Gamma (Γ)</span></td>
+                <td>Đo lường tốc độ thay đổi và độ cong của đường Delta. Gamma cao → Delta thay đổi nhanh → rủi ro cao hơn, nhưng cũng là cơ hội nếu dự đoán đúng chiều. Gamma đạt đỉnh tại ATM.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Vega (ν)</span></td>
+                <td>Đo lường rủi ro CW khi độ biến động σ thay đổi 1%. Vega cao → giá CW nhạy cảm với biến động thị trường. Vega cũng đạt đỉnh tại ATM.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">Theta (Θ)</span></td>
+                <td>Sự bào mòn giá trị thời gian. Theta âm nghĩa là mỗi ngày trôi qua, giá trị CW giảm ngay cả khi giá cổ phiếu không đổi. Theta tăng tốc mạnh trong những tuần cuối trước đáo hạn.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-purple">Eff. Gearing (×)</span></td>
+                <td>Đòn bẩy hiệu dụng = <code>(S / CW_value) × |Delta|</code>. Cho biết khi cổ phiếu tăng 1%, CW tăng bao nhiêu %. Khác với đòn bẩy thô (gross gearing) vì đã điều chỉnh theo xác suất Delta.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV – Implied Volatility</span></td>
+                <td>Độ biến động <strong>ngầm định</strong> từ giá thị trường CW, tính ngược từ công thức Black-Scholes. Khác với Sigma (HV – lịch sử), IV phản ánh kỳ vọng của thị trường về biến động <em>tương lai</em>.<br>
+                  • <span style="color:var(--green);font-weight:500">IV &lt; HV</span>: thị trường định giá rủi ro thấp hơn lịch sử → CW đang <strong>rẻ</strong> tương đối<br>
+                  • <span style="color:var(--red);font-weight:500">IV &gt; HV</span>: thị trường định giá rủi ro cao hơn lịch sử → CW đang <strong>đắt</strong> tương đối
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV Rank (IVR)</span></td>
+                <td>Vị trí của IV hôm nay trong khoảng [IV_min, IV_max] của 52 tuần qua: <code>IVR = (IV − IV_min) / (IV_max − IV_min) × 100</code><br>
+                  • <span style="color:var(--green);font-weight:500">IVR &lt; 30</span>: IV đang thấp so với lịch sử → thời điểm mua tốt, CW rẻ hơn bình thường<br>
+                  • <span style="color:var(--red);font-weight:500">IVR &gt; 70</span>: IV đang cao → CW đắt hơn bình thường, thận trọng<br>
+                  Được dùng thay thế "Sigma thấp" trong scoring engine vì chính xác hơn.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-amber">IV Percentile (IVP)</span></td>
+                <td>% số ngày trong 52 tuần qua có IV thấp hơn IV hôm nay. Ít bị ảnh hưởng bởi các spike cực đoan hơn IVR. IVP = 20% nghĩa là 80% thời gian trong năm qua IV cao hơn hôm nay → CW đang rất rẻ.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 3: Phân tích trực quan -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">3. PHÂN TÍCH TRỰC QUAN (TAB BLACK-SCHOLES)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:160px">Biểu đồ</th><th>Cách đọc &amp; Ý nghĩa</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-blue">Giá Quyền chọn vs S</span></td>
+                <td>
+                  Đồ thị đường cong lợi nhuận, tách bạch giá trị nội tại và giá trị thời gian.<br>
+                  • <span style="color:var(--amber);font-weight:500">Đường nét đứt vàng (Intrinsic Call)</span>: biểu diễn giá trị nội tại (hàm max(0, S − K))<br>
+                  • <span style="color:var(--green);font-weight:500">Đường màu xanh lá (Call BS)</span>: là giá thực tế bao gồm cả giá trị thời gian<br>
+                  • Khoảng cách giữa hai đường = <strong>Time Value</strong> (giá trị thời gian). Vùng giao nhau quanh điểm Strike cho thấy tác động của giá trị thời gian là lớn nhất.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Delta vs S</span></td>
+                <td>
+                  Đồ thị hàm Sigmoid, thể hiện Delta biến từ 0 (Deep OTM) lên 1 (Deep ITM).<br>
+                  • <span style="color:var(--green);font-weight:500">Call (xanh lá)</span>: khi S rất sâu dưới K (Deep OTM), Delta tiệm cận 0; khi S vượt K (Deep ITM), Delta tiệm cận 1<br>
+                  • <span style="color:var(--red);font-weight:500">Put (đỏ)</span>: đối xứng, từ −1 đến 0<br>
+                  • Vùng quanh K (ATM) là nơi Delta thay đổi nhanh nhất → độ nhạy cảm cao nhất
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Giá Option vs T</span></td>
+                <td>
+                  Đồ thị trượt dốc, mô tả trực quan sự mất mát giá trị do yếu tố Theta.<br>
+                  • Trục X đi từ ngày còn nhiều (trái) đến gần đáo hạn (phải)<br>
+                  • Càng gần ngày đáo hạn (trục hoành tiến về 0), giá Call và Put đều suy giảm và trượt dốc<br>
+                  • Sự suy giảm này <strong>không tuyến tính</strong>: sẽ lao dốc nhanh hơn trong những tuần cuối cùng
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Gamma &amp; Vega vs S</span></td>
+                <td>
+                  Đồ thị hình quả chuông, khẳng định rủi ro tập trung cao nhất ở trạng thái ATM.<br>
+                  • Gamma và Vega đạt giá trị cực đại khi CW ở trạng thái ATM (S ≈ K)<br>
+                  • Điều này cho thấy rủi ro và giá trị thời gian tập trung cao nhất ở trạng thái ngang giá, nơi mà sự bất định về việc quyền chọn đáo hạn có lãi hay lỗ là lớn nhất
+                </td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-blue">Bề mặt Premium</span></td>
+                <td>
+                  Đồ thị phân tích độ đắt rẻ của chứng quyền (Premium %) dựa trên Moneyness và Độ biến động.<br>
+                  • Đỉnh của các đường cong luôn nằm ở mức S/K = 1.00 (ATM): đây là vùng giá trị thời gian lớn nhất, khiến nhà đầu tư phải trả mức phí (Premium) cao nhất so với giá trị thực tế<br>
+                  • Các đường màu khác nhau thể hiện các kịch bản σ<br>
+                  • <strong>σ càng lớn</strong> (tài sản càng rủi ro/biến động mạnh), đường cong càng dịch chuyển lên trên, nghĩa là thị trường sẽ định giá mức Premium càng đắt
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 4: Scoring Engine -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">4. HỆ THỐNG CHẤM ĐIỂM CƠ HỘI (SCORING ENGINE)</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="guide-table">
+            <thead>
+              <tr><th style="width:160px">Tiêu chí</th><th>Công thức &amp; Cách tính điểm (0–100)</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gtag gtag-green">Premium thấp</span></td>
+                <td>CW có premium thấp hơn được ưu tiên: <code>score = 100 × (1 − normalize(premium))</code>. Premium càng gần 0% → điểm càng cao. Trọng số mặc định: <strong>25%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Đòn bẩy cao</span></td>
+                <td>Effective Gearing cao hơn được ưu tiên: <code>score = 100 × normalize(eff_lev)</code>. Trọng số mặc định: <strong>20%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Thanh khoản</span></td>
+                <td>Dựa trên khối lượng giao dịch trung bình. CW có thanh khoản cao hơn được ưu tiên. Trọng số mặc định: <strong>15%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">Delta</span></td>
+                <td>Ưu tiên Delta trong vùng 0.3–0.7 (OTM vừa phải, tiềm năng tăng tốt): <code>score = 100 × (1 − |delta − 0.5| × 2)</code>. Trọng số mặc định: <strong>25%</strong>.</td>
+              </tr>
+              <tr>
+                <td><span class="gtag gtag-green">IV Rank thấp</span></td>
+                <td>CW có IV Rank thấp hơn được ưu tiên — IV đang rẻ so với lịch sử 52 tuần: <code>score = 100 − IV_Rank</code>. IVR = 0 → điểm 100, IVR = 100 → điểm 0. Fallback về Sigma thấp nếu chưa có đủ IV history (CW mới niêm yết). Trọng số mặc định: <strong>15%</strong>.</td>
+              </tr>
+              <tr style="background:rgba(227,73,72,0.04)">
+                <td><span class="gtag gtag-red">⛔ Loại: IV đắt hơn HV &gt;15%</span></td>
+                <td>
+                  <strong>Điều kiện loại:</strong> CW bị loại khỏi pool nếu <code>IV &gt; HV × 1.15</code> — tức thị trường đang định giá biến động tương lai cao hơn lịch sử trên 15%.<br>
+                  • Ý nghĩa: nhà đầu tư đang trả quá nhiều cho kỳ vọng biến động, rủi ro không xứng với giá trả<br>
+                  • Chỉ áp dụng khi có đủ dữ liệu IV (không phạt CW chưa có IV history)
+                </td>
+              </tr>
+              <tr style="background:rgba(227,73,72,0.04)">
+                <td><span class="gtag gtag-red">⛔ Loại: Giá &gt; BS × 1.20</span></td>
+                <td>
+                  <strong>Điều kiện loại:</strong> CW bị loại nếu giá thị trường cao hơn giá Black-Scholes trên 20%.<br>
+                  • Ý nghĩa: CW đang bị thổi phồng — nhà đầu tư đang trả quá cao so với giá trị lý thuyết<br>
+                  • Ngưỡng 20% để chừa buffer cho bid-ask spread và thanh khoản thấp bình thường
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 5: Put-Call Parity -->
+      <div style="margin-bottom:1.25rem">
+        <div class="sec-title" style="padding-top:0;margin-bottom:8px;font-size:11px">5. KIỂM TRA PUT-CALL PARITY</div>
+        <div class="card">
+          <div style="font-size:13px;line-height:1.8;color:var(--text)">
+            Mối quan hệ cơ bản giữa giá Call và Put trong mô hình Black-Scholes:
+            <div style="text-align:center;font-size:15px;font-weight:600;margin:12px 0;letter-spacing:0.02em;color:var(--blue)">
+              C − P = S − K · e<sup>−rT</sup>
+            </div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.7">
+              • <strong>C</strong>: Giá Call (BS) &nbsp;|&nbsp; <strong>P</strong>: Giá Put (BS) &nbsp;|&nbsp; <strong>S</strong>: Giá cơ sở &nbsp;|&nbsp; <strong>K</strong>: Giá thực hiện &nbsp;|&nbsp; <strong>r</strong>: Lãi suất phi rủi ro &nbsp;|&nbsp; <strong>T</strong>: Thời gian (năm)<br>
+              • Nếu đẳng thức này bị phá vỡ trong thực tế → cơ hội arbitrage tồn tại<br>
+              • Dashboard hiển thị sai số Parity để kiểm chứng tính chính xác của mô hình (mục tiêu: &lt; 0.001)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer note -->
+      <div style="font-size:11px;color:var(--text3);text-align:center;padding-top:0.5rem;border-top:0.5px solid var(--border2)">
+        ©️ Tài liệu này được tạo tự động và cập nhật cùng với hệ thống pipeline · Dữ liệu nguồn: Vietstock, vnstock, HNX · Mô hình: Black-Scholes (European Call/Put)
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG & GLOBALS
+// ═══════════════════════════════════════════════════════════════
+const CATS = ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#e87ba4','#eb6834','#008300'];
+const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+const GRID = isDark ? '#2c2c2a' : '#e1e0d9';
+const TICK = isDark ? '#898781' : '#898781';
+const charts = {};
+let allData = [], ohlcvData = {}, filtered = [], sortCol = '', sortDir = 1;
+let scored = [];
+let lastSelectedTicker = null;   // nhớ CW đang xem, dùng chung giữa Drill-down và BS tab
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── Hàm vẽ biểu đồ giá với Open, High, Low, Close ────────────────────
+function drawPriceChart(canvasId, labels, close, open, high, low, volume) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const datasets = [];
+
+  // Vùng fill giữa High và Low
+  if (high && low && high.length === labels.length && low.length === labels.length) {
+    datasets.push({
+      label: 'High',
+      data: high.map((h, i) => ({ x: labels[i], y: h })),
+      borderColor: 'rgba(42,120,214,0.25)',
+      borderWidth: 0.8,
+      pointRadius: 0,
+      fill: '+1',
+      backgroundColor: 'rgba(42,120,214,0.08)',
+      order: 4,
+      yAxisID: 'y',
+    });
+    datasets.push({
+      label: 'Low',
+      data: low.map((l, i) => ({ x: labels[i], y: l })),
+      borderColor: 'rgba(42,120,214,0.25)',
+      borderWidth: 0.8,
+      pointRadius: 0,
+      fill: false,
+      order: 5,
+      yAxisID: 'y',
+    });
+  }
+
+  if (open && open.length === labels.length) {
+    datasets.push({
+      label: 'Open',
+      data: open.map((o, i) => ({ x: labels[i], y: o })),
+      borderColor: 'rgba(42,120,214,0.55)',
+      borderWidth: 1.2,
+      pointRadius: 0,
+      fill: false,
+      order: 2,
+      yAxisID: 'y',
+      segment: { borderDash: () => [4, 3] },
+    });
+  }
+
+  if (close && close.length === labels.length) {
+    datasets.push({
+      label: 'Close',
+      data: close.map((c, i) => ({ x: labels[i], y: c })),
+      borderColor: '#2a78d6',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      order: 1,
+      yAxisID: 'y',
+    });
+  }
+
+  if (volume && volume.length === labels.length) {
+    datasets.push({
+      label: 'Khối lượng',
+      data: volume.map((v, i) => ({ x: labels[i], y: v })),
+      type: 'bar',
+      backgroundColor: 'rgba(42,120,214,0.25)',
+      yAxisID: 'y1',
+      order: 0,
+    });
+  }
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: ctx => {
+              const label = ctx.dataset.label || '';
+              const val = ctx.parsed.y;
+              if (label.includes('Khối lượng')) return `${label}: ${val.toLocaleString()}`;
+              return `${label}: ${val.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'category',
+          labels: labels,
+          grid: { display: false },
+          ticks: { color: TICK, maxTicksLimit: 10 }
+        },
+        y: {
+          grid: { color: GRID },
+          ticks: { color: TICK },
+          position: 'left',
+          beginAtZero: true,
+        },
+        y1: {
+          grid: { display: false },
+          ticks: { color: TICK },
+          position: 'right',
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LOAD DATA
+// ═══════════════════════════════════════════════════════════════
+async function loadData() {
+  try {
+    const r = await fetch('data.json?t=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const json = await r.json();
+    allData = json.cw_list || [];
+    ohlcvData = json.ohlcv || {};
+
+    let updatedDisplay = '—';
+    if (json.updated_at) {
+      const raw = json.updated_at.trim();
+      const parts = raw.split(' ');
+      if (parts.length >= 2) {
+        updatedDisplay = `${parts[0]} ${parts[1]} UTC+7`;
+      }
+    }
+    
+    document.getElementById('meta-updated').textContent = updatedDisplay;
+    document.getElementById('meta-cw-count').textContent = allData.length;
+    document.getElementById('meta-container').style.display = 'flex';
+
+    // Real-time clock update
+    function updateClock() {
+      const now = new Date();
+      const vnTime = now.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      document.getElementById('meta-view-time').textContent = vnTime;
+      
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+      const hourAngle = (h % 12) * 30 + m * 0.5;
+      const minuteAngle = m * 6 + s * 0.1;
+      
+      const hHand = document.getElementById('clock-hour');
+      const mHand = document.getElementById('clock-minute');
+      if (hHand) hHand.style.transform = `rotate(${hourAngle}deg)`;
+      if (mHand) mHand.style.transform = `rotate(${minuteAngle}deg)`;
+    }
+    updateClock(); // Initial call
+    setInterval(updateClock, 1000);
+
+    populateFilters();
+    applyFilters();
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+  } catch (e) {
+    document.querySelector('#loading p').textContent = 'Lỗi tải dữ liệu: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FILTERS
+// ═══════════════════════════════════════════════════════════════
+function populateFilters() {
+  const unders = [...new Set(allData.map(d => d.underlying))].sort();
+  const issuers = [...new Set(allData.map(d => d.issuer))].sort();
+  const fu = document.getElementById('f-under');
+  const fi = document.getElementById('f-issuer');
+  const ou = document.getElementById('op-under');
+  unders.forEach(u => {
+    [fu, ou].forEach(el => {
+      const o = document.createElement('option');
+      o.value = o.textContent = u;
+      el.appendChild(o);
+    });
+  });
+  issuers.forEach(i => {
+    const o = document.createElement('option');
+    o.value = o.textContent = i;
+    fi.appendChild(o);
+  });
+}
+
+function applyFilters() {
+  const u = document.getElementById('f-under').value;
+  const is = document.getElementById('f-issuer').value;
+  const m = document.getElementById('f-money').value;
+  const st = document.getElementById('f-status').value;
+  filtered = allData.filter(d =>
+    (!u || d.underlying === u) &&
+    (!is || d.issuer === is) &&
+    (!m || d.moneyness === m) &&
+    (!st || d.status === st)
+  );
+  renderOverview();
+}
+['f-under','f-issuer','f-money','f-status'].forEach(id =>
+  document.getElementById(id).addEventListener('change', applyFilters)
+);
+
+// ═══════════════════════════════════════════════════════════════
+//  OVERVIEW RENDER
+// ═══════════════════════════════════════════════════════════════
+function updateKPI() {
+  const act = filtered.filter(d => d.status === 'active');
+  document.getElementById('k-total').textContent = filtered.length;
+  document.getElementById('k-active').textContent = act.length;
+  const pr = act.filter(d => d.moneyness !== 'OTM').map(d => d.premium);
+  document.getElementById('k-prem').textContent =
+    pr.length ? (pr.reduce((a,b)=>a+b,0)/pr.length).toFixed(1) + '%' : '—';
+  const lv = act.map(d => d.eff_lev);
+  document.getElementById('k-lev').textContent =
+    lv.length ? (lv.reduce((a,b)=>a+b,0)/lv.length).toFixed(2) + '×' : '—';
+}
+
+function drawPrem() {
+  destroyChart('prem');
+  const act = filtered.filter(d => d.status === 'active');
+  const g = {};
+  act.forEach(d => { if (!g[d.underlying]) g[d.underlying] = []; g[d.underlying].push(d.premium); });
+  const labels = Object.keys(g).sort();
+  const vals = labels.map(u => +(g[u].reduce((a,b)=>a+b,0)/g[u].length).toFixed(1));
+  const ctx = document.getElementById('c-prem').getContext('2d');
+  charts['prem'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        backgroundColor: labels.map((_,i) => CATS[i%CATS.length] + 'cc'),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: TICK } },
+        y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+      }
+    }
+  });
+  document.getElementById('leg-prem').innerHTML =
+    labels.map((l,i) => `<span><span class="ld" style="background:${CATS[i%CATS.length]}"></span>${l}: ${vals[i]}%</span>`).join('');
+}
+
+function drawMoney() {
+  destroyChart('money');
+  const act = filtered.filter(d => d.status === 'active');
+  const counts = [
+    act.filter(d => d.moneyness === 'ITM').length,
+    act.filter(d => d.moneyness === 'OTM').length,
+    act.filter(d => d.moneyness === 'ATM').length
+  ];
+  charts['money'] = new Chart(document.getElementById('c-money').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['ITM','OTM','ATM'],
+      datasets: [{
+        data: counts,
+        backgroundColor: ['#1baf7a','#e34948','#eda100'],
+        borderWidth: 2, borderColor: 'transparent'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, color: TICK, boxWidth: 12 } } }
+    }
+  });
+}
+
+function drawLev() {
+  destroyChart('lev');
+  const act = filtered.filter(d => d.status === 'active');
+  const g = {};
+  act.forEach(d => { if (!g[d.issuer]) g[d.issuer] = []; g[d.issuer].push(d.eff_lev); });
+  const labels = Object.keys(g).sort();
+  const vals = labels.map(i => +(g[i].reduce((a,b)=>a+b,0)/g[i].length).toFixed(2));
+  charts['lev'] = new Chart(document.getElementById('c-lev').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        backgroundColor: '#2a78d6cc',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x.toFixed(2)+'×' } } },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'×' } },
+        y: { grid: { display: false }, ticks: { color: TICK } }
+      }
+    }
+  });
+}
+
+function drawTable() {
+  let data = [...filtered];
+  if (sortCol) {
+    data.sort((a,b) => {
+      const va = a[sortCol], vb = b[sortCol];
+      return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * sortDir;
+    });
+  }
+  const mp = { ITM:'itm', OTM:'otm', ATM:'atm' };
+  document.getElementById('tbl-body').innerHTML = data.map(d => `
+    <tr>
+      <td><strong>${d.ticker}</strong></td>
+      <td>${d.underlying}</td>
+      <td style="font-size:11px">${d.issuer}</td>
+      <td>${d.price.toFixed(2)}</td>
+      <td>${(d.exercise/1000).toFixed(1)}k</td>
+      <td>${d.ratio}:1</td>
+      <td style="color:${d.premium > 0 ? 'var(--green)' : 'var(--red)'}">${d.premium > 0 ? '+' : ''}${d.premium}%</td>
+      <td>${d.eff_lev}×</td>
+      <td style="color:${d.breakeven && d.underlying_price && d.breakeven*1000 > d.underlying_price ? 'var(--red)' : d.breakeven ? 'var(--green)' : ''}">${d.breakeven ? d.breakeven.toFixed(1)+'k' : '—'}</td>
+      <td style="font-size:11px">${d.maturity}</td>
+      <td><span class="pill ${mp[d.moneyness] || ''}">${d.moneyness}</span></td>
+      <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
+      <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
+      <td style="color:${d.iv && d.sigma ? (d.iv < d.sigma ? 'var(--green)' : 'var(--red)') : ''}">${d.iv ? d.iv.toFixed(4) : '—'}</td>
+      <td style="font-weight:500;color:${d.iv_rank != null ? (d.iv_rank < 30 ? 'var(--green)' : d.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : ''}">${d.iv_rank != null ? d.iv_rank.toFixed(0) : '—'}</td>
+      <td><span class="pill ${d.status === 'active' ? 'active-badge' : 'expired-badge'}">${d.status === 'active' ? 'Active' : 'Expired'}</span></td>
+    </tr>
+  `).join('');
+}
+
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = 1; }
+    drawTable();
+  });
+});
+
+function renderOverview() {
+  updateKPI();
+  drawPrem();
+  drawMoney();
+  drawLev();
+  drawTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCORING ENGINE (OPPORTUNITY)
+// ═══════════════════════════════════════════════════════════════
+const MIN_DAYS_LEFT = 60;
+const SAFETY = {
+  MAX_LEV:       15,
+  MIN_PRICE:     0.20,
+  MAX_OTM_DEPTH: 0.85,
+  MAX_PREMIUM:   50,
+  MAX_IV_VS_HV:  0.15,
+  MAX_MKT_VS_BS: 0.20,
+};
+
+function safetyCheck(d) {
+  if (d.eff_lev > SAFETY.MAX_LEV)
+    return `Đòn bẩy quá cao (${d.eff_lev.toFixed(1)}× > ${SAFETY.MAX_LEV}×)`;
+
+  if (d.price < SAFETY.MIN_PRICE)
+    return `Giá quá thấp (${d.price.toFixed(2)} < ${SAFETY.MIN_PRICE})`;
+
+  if (d.premium > SAFETY.MAX_PREMIUM)
+    return `Premium quá cao (${d.premium.toFixed(1)}% > ${SAFETY.MAX_PREMIUM}%)`;
+
+  if (d.underlying_price > 0 && d.exercise > 0) {
+    const sk = d.underlying_price / d.exercise;
+    if (sk < SAFETY.MAX_OTM_DEPTH)
+      return `OTM quá sâu (S/K=${sk.toFixed(2)} < ${SAFETY.MAX_OTM_DEPTH})`;
+  }
+
+  if (d.iv != null && d.sigma > 0) {
+    const iv_vs_hv_ratio = (d.iv - d.sigma) / d.sigma;
+    if (iv_vs_hv_ratio > SAFETY.MAX_IV_VS_HV)
+      return `IV đắt hơn HV ${(iv_vs_hv_ratio * 100).toFixed(1)}% (ngưỡng: +${SAFETY.MAX_IV_VS_HV * 100}%)`;
+  }
+
+  const bs_ref = d.option_type === 'call' ? d.bs_price_call : d.bs_price_put;
+  if (bs_ref && bs_ref > 0 && d.price > 0) {
+    const mkt_vs_bs = (d.price - bs_ref) / bs_ref;
+    if (mkt_vs_bs > SAFETY.MAX_MKT_VS_BS)
+      return `Giá thị trường đắt hơn BS ${(mkt_vs_bs * 100).toFixed(1)}% (ngưỡng: +${SAFETY.MAX_MKT_VS_BS * 100}%)`;
+  }
+
+  return null;
+}
+
+function daysLeft(maturityStr) {
+  if (!maturityStr || maturityStr === 'nan') return 0;
+  const parts = maturityStr.split('/');
+  if (parts.length !== 3) return 0;
+  const d = new Date(+parts[2], +parts[1] - 1, +parts[0]);
+  return Math.round((d - Date.now()) / 86400000);
+}
+
+function avgVolume(ticker) {
+  const o = ohlcvData[ticker];
+  if (!o || !o.close || o.close.length === 0) return 0;
+  if (o.volume) {
+    const v = o.volume.slice(-20);
+    return v.reduce((a,b) => a + b, 0) / v.length;
+  }
+  return o.close.length;
+}
+
+function normalize(val, min, max, invert = false) {
+  if (max === min) return 50;
+  let s = (val - min) / (max - min) * 100;
+  s = Math.max(0, Math.min(100, s));
+  return invert ? 100 - s : s;
+}
+
+function getWeights() {
+  const wp = +document.getElementById('w-prem').value;
+  const wl = +document.getElementById('w-lev').value;
+  const wv = +document.getElementById('w-vol').value;
+  const wd = +document.getElementById('w-delta').value;
+  const ws = +document.getElementById('w-sigma').value;
+  const total = wp + wl + wv + wd + ws || 1;
+  return { wp: wp/total, wl: wl/total, wv: wv/total, wd: wd/total, ws: ws/total };
+}
+
+function scoreBar(score, color = '#2a78d6') {
+  return `<div class="score-bar-wrap">
+    <div class="score-bar"><div class="score-fill" style="width:${score}%;background:${color}"></div></div>
+    <div class="score-num" style="color:${color}">${score}</div>
+  </div>`;
+}
+
+function rankBadge(i) {
+  const cls = i===0 ? 'rank-1' : i===1 ? 'rank-2' : i===2 ? 'rank-3' : 'rank-n';
+  return `<span class="rank-badge ${cls}">${i+1}</span>`;
+}
+
+function drawTop10(data) {
+  const mp = { ITM:'itm', OTM:'otm', ATM:'atm' };
+  document.getElementById('top10-grid').innerHTML = data.map((d,i) => `
+    <div class="top-card" onclick="jumpToDrill('${d.ticker}')">
+      <div class="tc-rank">${rankBadge(i)}</div>
+      <div class="tc-body">
+        <div class="tc-ticker">${d.ticker} <span class="pill ${mp[d.moneyness]||''}" style="font-size:9px">${d.moneyness}</span></div>
+        <div class="tc-sub">${d.underlying} • ${d.issuer} • Còn ${d.days_left} ngày</div>
+        <div class="tc-metrics">
+          <div class="tc-metric"><span>Premium</span>${d.premium.toFixed(1)}%</div>
+          <div class="tc-metric"><span>Đòn bẩy</span>${d.eff_lev.toFixed(1)}×</div>
+          <div class="tc-metric"><span>Delta</span>${d.delta != null ? d.delta.toFixed(3) : '—'}</div>
+          <div class="tc-metric"><span>Sigma</span>${d.sigma ? d.sigma.toFixed(3) : '—'}</div>
+          <div class="tc-metric" style="color:${d.iv_rank != null ? (d.iv_rank < 30 ? 'var(--green)' : d.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : ''}"><span style="color:var(--text3)">IVR</span>${d.iv_rank != null ? d.iv_rank.toFixed(0) : (d.iv ? d.iv.toFixed(3) : '—')}</div>
+          <div class="tc-metric" style="color:${d.breakeven && d.underlying_price && d.breakeven*1000 > d.underlying_price ? 'var(--red)' : 'var(--green)'}"><span style="color:var(--text3)">Hòa vốn</span>${d.breakeven ? d.breakeven.toFixed(1)+'k' : '—'}</div>
+        </div>
+        <div style="margin-top:6px">${scoreBar(d.score, i<3 ? '#eda100' : '#2a78d6')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function drawScatter(data) {
+  destroyChart('scatter');
+  const mp = { ITM:'#1baf7a', OTM:'#e34948', ATM:'#eda100' };
+  const datasets = [{
+    label: 'CW',
+    data: data.map(d => ({ x: d.premium, y: d.eff_lev, label: d.ticker, moneyness: d.moneyness, score: d.score })),
+    backgroundColor: data.map(d => (mp[d.moneyness] || '#2a78d6') + '99'),
+    pointRadius: data.map(d => Math.max(5, d.score / 12)),
+    pointHoverRadius: 8
+  }];
+  charts['scatter'] = new Chart(document.getElementById('c-scatter').getContext('2d'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const p = ctx.raw;
+              return [`${p.label}`, `Premium: ${p.x.toFixed(1)}%`, `Đòn bẩy: ${p.y.toFixed(2)}×`, `Điểm: ${p.score}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' }, title: { display: true, text: 'Premium % (thấp = tốt)', color: TICK, font: { size: 11 } } },
+        y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'×' }, title: { display: true, text: 'Đòn bẩy hiệu quả (cao = tốt)', color: TICK, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function drawOpTable(data) {
+  const mp = { ITM:'itm', OTM:'otm', ATM:'atm' };
+  document.getElementById('op-tbl-body').innerHTML = data.map((d,i) => {
+    const sk = d.underlying_price > 0 && d.exercise > 0 ? (d.underlying_price / d.exercise).toFixed(2) : '—';
+    const skColor = parseFloat(sk) < 0.9 ? 'var(--red)' : parseFloat(sk) < 1.0 ? 'var(--amber)' : 'var(--green)';
+    return `
+      <tr style="${i<3 ? 'font-weight:500' : ''};cursor:pointer" onclick="jumpToDrill('${d.ticker}')">
+        <td>${rankBadge(i)}</td>
+        <td><strong>${d.ticker}</strong></td>
+        <td>${d.underlying}</td>
+        <td style="font-size:11px">${d.issuer}</td>
+        <td>${d.price.toFixed(2)}</td>
+        <td style="color:var(--green)">${d.premium.toFixed(1)}%</td>
+        <td>${d.eff_lev.toFixed(2)}×</td>
+        <td>${d.days_left}</td>
+        <td><span class="pill ${mp[d.moneyness]||''}">${d.moneyness}</span></td>
+        <td>${d.delta != null ? d.delta.toFixed(3) : '—'}</td>
+        <td>${d.sigma ? d.sigma.toFixed(4) : '—'}</td>
+        <td>${scoreBar(d.s_prem, '#1baf7a')}</td>
+        <td>${scoreBar(d.s_lev, '#2a78d6')}</td>
+        <td>${scoreBar(d.s_vol, '#4a3aa7')}</td>
+        <td>${scoreBar(d.s_delta, '#e87ba4')}</td>
+        <td>${scoreBar(d.s_sigma, '#eb6834')}</td>
+        <td style="background:var(--bg-blue)">${scoreBar(d.score, '#eda100')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateOpKPI(data, rejectedCount) {
+  document.getElementById('op-k-count').textContent = data.length;
+  document.getElementById('op-k-minprem').textContent =
+    data.length ? data.reduce((a,b) => a.premium < b.premium ? a : b).premium.toFixed(1) + '%' : '—';
+  document.getElementById('op-k-topscore').textContent = data.length ? data[0].score : '—';
+  document.getElementById('op-k-rejected').textContent = rejectedCount !== undefined ? rejectedCount : '—';
+}
+
+function runScoring() {
+  const opUnder = document.getElementById('op-under').value;
+  const opMoney = document.getElementById('op-money').value;
+  const opPremMax = +document.getElementById('op-prem-max').value;
+  const topN = +document.getElementById('op-topn').value;
+
+  let rejected = [];
+  let pool = allData.filter(d => {
+    if (d.status !== 'active') return false;
+    if (daysLeft(d.maturity) < MIN_DAYS_LEFT) return false;
+    if (d.premium <= 0 || d.premium > opPremMax) return false;
+    if (d.price <= 0 || d.eff_lev <= 0) return false;
+    if (opUnder && d.underlying !== opUnder) return false;
+    if (opMoney && d.moneyness !== opMoney) return false;
+    const reason = safetyCheck(d);
+    if (reason) { rejected.push({ ...d, reason }); return false; }
+    return true;
+  });
+
+  if (pool.length === 0) {
+    document.getElementById('top10-grid').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:.5rem">Không có CW nào đáp ứng tiêu chí.</p>';
+    document.getElementById('op-tbl-body').innerHTML = '';
+    updateOpKPI([], 0);
+    return;
+  }
+
+  const prems = pool.map(d => d.premium);
+  const levs  = pool.map(d => d.eff_lev);
+  const vols  = pool.map(d => avgVolume(d.ticker));
+  const days  = pool.map(d => daysLeft(d.maturity));
+  const deltas = pool.map(d => (d.delta != null && d.delta > 0) ? d.delta : 0.5);
+
+  const ivScores = pool.map(d => {
+    if (d.iv_rank != null) return 100 - d.iv_rank;
+    if (d.sigma) {
+      const allSigmas = pool.map(x => x.sigma || 0);
+      const mn = Math.min(...allSigmas), mx = Math.max(...allSigmas);
+      return mx > mn ? (1 - (d.sigma - mn) / (mx - mn)) * 100 : 50;
+    }
+    return 50;
+  });
+
+  const minP = Math.min(...prems), maxP = Math.max(...prems);
+  const minL = Math.min(...levs),  maxL = Math.max(...levs);
+  const minV = Math.min(...vols),  maxV = Math.max(...vols);
+  const minDel = Math.min(...deltas), maxDel = Math.max(...deltas);
+
+  const { wp, wl, wv, wd, ws } = getWeights();
+
+  scored = pool.map((d,i) => {
+    const sp = normalize(prems[i], minP, maxP, true);
+    const sl = normalize(levs[i],  minL, maxL, false);
+    const sv = normalize(vols[i],  minV, maxV, false);
+    const sd = normalize(deltas[i], minDel, maxDel, false);
+    const ss = ivScores[i];
+    const total = sp*wp + sl*wl + sv*wv + sd*wd + ss*ws;
+    return {
+      ...d,
+      days_left: days[i],
+      avg_vol: Math.round(vols[i]),
+      s_prem:  Math.round(sp),
+      s_lev:   Math.round(sl),
+      s_vol:   Math.round(sv),
+      s_delta: Math.round(sd),
+      s_sigma: Math.round(ss),
+      score:   Math.round(total)
+    };
+  }).sort((a,b) => b.score - a.score);
+
+  updateOpKPI(scored, rejected.length);
+  drawTop10(scored.slice(0, topN));
+  drawScatter(scored.slice(0, Math.min(topN * 2, scored.length)));
+  drawOpTable(scored.slice(0, topN));
+}
+
+['op-under','op-money','op-prem-max','op-topn'].forEach(id =>
+  document.getElementById(id).addEventListener('change', runScoring)
+);
+['prem','lev','vol','delta','sigma'].forEach(k => {
+  document.getElementById('w-'+k).addEventListener('input', function() {
+    document.getElementById('wv-'+k).textContent = this.value + '%';
+    runScoring();
+  });
+});
+function resetWeights() {
+  [['prem',25],['lev',20],['vol',15],['delta',25],['sigma',15]].forEach(([k,v]) => {
+    document.getElementById('w-'+k).value = v;
+    document.getElementById('wv-'+k).textContent = v + '%';
+  });
+  runScoring();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DRILL-DOWN (sử dụng hàm drawPriceChart mới)
+// ═══════════════════════════════════════════════════════════════
+function jumpToDrill(ticker) {
+  lastSelectedTicker = ticker;
+  sessionStorage.setItem('selectedCW', ticker);
+  // chuyển tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.tab')[2].classList.add('on');
+  document.getElementById('pane-overview').classList.add('hidden');
+  document.getElementById('pane-opportunity').classList.add('hidden');
+  document.getElementById('pane-drilldown').classList.remove('hidden');
+  document.getElementById('global-filters').classList.remove('hidden');
+  // Khởi tạo drill với ticker đã chọn
+  initDrill(ticker);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SHARED: Searchable CW combo-box factory
+// ═══════════════════════════════════════════════════════════════
+function makeCWCombo({ inputId, dropId, pool, onSelect, initialTicker }) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById(dropId);
+  let activeIdx = -1;
+  let currentTicker = initialTicker || null;
+
+  function highlight(text, query) {
+    if (!query) return text;
+    const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return text.replace(re, '<mark>$1</mark>');
+  }
+
+  function renderDrop(query) {
+    const q = (query || '').trim().toUpperCase();
+    const matches = q
+      ? pool.filter(d => d.ticker.includes(q) || d.underlying.toUpperCase().includes(q) || (d.issuer||'').toUpperCase().includes(q))
+      : pool;
+
+    if (matches.length === 0) {
+      drop.innerHTML = '<div class="cw-empty">Không tìm thấy mã CW nào</div>';
+    } else {
+      drop.innerHTML = matches.slice(0, 80).map((d, i) => `
+        <div class="cw-opt" data-ticker="${d.ticker}" data-idx="${i}">
+          <span class="opt-ticker">${highlight(d.ticker, q)}</span>
+          <span class="opt-under">${d.underlying} · ${d.issuer || ''}</span>
+        </div>`).join('');
+    }
+    activeIdx = -1;
+    drop.classList.add('open');
+
+    drop.querySelectorAll('.cw-opt').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectTicker(el.dataset.ticker);
+      });
+    });
+  }
+
+  function selectTicker(ticker) {
+    const cw = pool.find(d => d.ticker === ticker);
+    if (!cw) return;
+    currentTicker = ticker;
+    input.value = `${cw.ticker} (${cw.underlying})`;
+    drop.classList.remove('open');
+    activeIdx = -1;
+    // Gọi callback và cập nhật lastSelectedTicker
+    lastSelectedTicker = ticker;
+    sessionStorage.setItem('selectedCW', ticker);
+    onSelect(ticker);
+  }
+
+  function moveActive(dir) {
+    const opts = drop.querySelectorAll('.cw-opt');
+    if (!opts.length) return;
+    opts[activeIdx]?.classList.remove('active');
+    activeIdx = Math.max(0, Math.min(opts.length - 1, activeIdx + dir));
+    const el = opts[activeIdx];
+    el.classList.add('active');
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('focus', () => renderDrop(input.value));
+  input.addEventListener('input', () => { activeIdx = -1; renderDrop(input.value); });
+  input.addEventListener('blur',  () => {
+    setTimeout(() => {
+      drop.classList.remove('open');
+      if (currentTicker) {
+        const cw = pool.find(d => d.ticker === currentTicker);
+        if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+      }
+    }, 150);
+  });
+  input.addEventListener('keydown', e => {
+    if (!drop.classList.contains('open')) { renderDrop(input.value); return; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); moveActive(+1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const opts = drop.querySelectorAll('.cw-opt');
+      if (activeIdx >= 0 && opts[activeIdx]) {
+        selectTicker(opts[activeIdx].dataset.ticker);
+      } else if (opts.length > 0) {
+        selectTicker(opts[0].dataset.ticker);
+      }
+    }
+    else if (e.key === 'Escape') { drop.classList.remove('open'); input.blur(); }
+  });
+
+  // init display
+  if (initialTicker) {
+    const cw = pool.find(d => d.ticker === initialTicker);
+    if (cw) input.value = `${cw.ticker} (${cw.underlying})`;
+  }
+
+  return { selectTicker };
+}
+
+function initDrill(preselect) {
+  const pool = allData;
+  // Nếu không có preselect, dùng lastSelectedTicker nếu tồn tại và hợp lệ
+  let target = preselect || lastSelectedTicker;
+  if (!target || !pool.some(d => d.ticker === target)) {
+    // fallback: lấy CW đầu tiên trong pool (active ưu tiên)
+    const activePool = pool.filter(d => d.status === 'active');
+    target = activePool.length ? activePool[0].ticker : pool[0]?.ticker;
+  }
+  if (!target) return;
+
+  // Gán lại lastSelectedTicker để đồng bộ
+  lastSelectedTicker = target;
+  sessionStorage.setItem('selectedCW', target);
+
+  const combo = makeCWCombo({
+    inputId: 'drill-combo-input',
+    dropId:  'drill-combo-drop',
+    pool,
+    onSelect: renderDrill,
+    initialTicker: target,
+  });
+  renderDrill(target);
+}
+
+function renderDrill(ticker) {
+  const cw = allData.find(d => d.ticker === ticker);
+  if (!cw) return;
+  lastSelectedTicker = ticker;
+  sessionStorage.setItem('selectedCW', ticker);
+  const o = ohlcvData[ticker] || {
+    dates: [], open: [], high: [], low: [], close: [],
+    volume: [], underlying_close: []
+  };
+
+  // Info grid
+  document.getElementById('drill-info').innerHTML = [
+    { lbl: 'Giá CW (nghìn đ)', val: cw.price ? cw.price.toFixed(3) : '—' },
+    { lbl: 'Giá thực hiện', val: (cw.exercise/1000).toFixed(1)+'k' },
+    { lbl: 'Giá cơ sở', val: cw.underlying_price ? (cw.underlying_price/1000).toFixed(2)+'k' : '—' },
+    { lbl: 'Hòa vốn', val: cw.breakeven ? cw.breakeven.toFixed(1)+'k' : '—', color: cw.breakeven && cw.underlying_price && cw.breakeven*1000 > cw.underlying_price ? 'var(--red)' : 'var(--green)' },
+    { lbl: 'Underlying', val: cw.underlying },
+    { lbl: 'Nhà phát hành', val: cw.issuer },
+    { lbl: 'Tỷ lệ CD', val: cw.ratio+':1' },
+    { lbl: 'Đáo hạn', val: cw.maturity },
+    { lbl: 'Moneyness', val: cw.moneyness },
+    { lbl: 'Premium', val: cw.premium+'%' },
+    { lbl: 'Đòn bẩy HQ', val: cw.eff_lev+'×' },
+    { lbl: 'Delta', val: cw.delta != null ? cw.delta.toFixed(3) : '—' },
+    { lbl: 'Sigma (HV)', val: cw.sigma ? cw.sigma.toFixed(4) : '—' },
+    { lbl: 'IV (Implied)', val: cw.iv ? cw.iv.toFixed(4) : '—',
+      color: cw.iv && cw.sigma ? (cw.iv < cw.sigma ? 'var(--green)' : 'var(--red)') : undefined },
+    { lbl: 'IV vs HV', val: cw.iv_vs_hv != null ? (cw.iv_vs_hv > 0 ? '+' : '') + cw.iv_vs_hv + '%' : '—',
+      color: cw.iv_vs_hv != null ? (cw.iv_vs_hv < 0 ? 'var(--green)' : 'var(--red)') : undefined },
+    { lbl: 'IV Rank', val: cw.iv_rank != null ? cw.iv_rank.toFixed(0) : '—',
+      color: cw.iv_rank != null ? (cw.iv_rank < 30 ? 'var(--green)' : cw.iv_rank > 70 ? 'var(--red)' : 'var(--amber)') : undefined },
+    { lbl: 'IV Percentile', val: cw.iv_pct != null ? cw.iv_pct.toFixed(0) + '%' : '—' },
+    { lbl: 'Giá BS (Call)', val: cw.bs_price_call ? cw.bs_price_call.toFixed(3)+' k' : '—' },
+    { lbl: 'Giá BS (Put)', val: cw.bs_price_put ? cw.bs_price_put.toFixed(3)+' k' : '—' },
+    { lbl: 'Gamma', val: cw.gamma ? cw.gamma.toFixed(6) : '—' },
+    { lbl: 'Vega', val: cw.vega ? cw.vega.toFixed(2) : '—' },
+    { lbl: 'Theta/ngày', val: cw.theta ? cw.theta.toFixed(4) : '—' },
+    { lbl: 'Lãi suất RF', val: cw.risk_free ? (cw.risk_free*100).toFixed(2)+'%' : '—' }
+  ].map(i => `<div class="info-item"><div class="lbl">${i.lbl}</div><div class="val" style="${i.color ? 'color:'+i.color : ''}">${i.val}</div></div>`).join('');
+
+  destroyChart('drill-price');
+  destroyChart('prem-hist');
+  destroyChart('drill-greeks');
+
+  if (o.dates && o.dates.length > 0) {
+    const labels = o.dates;
+    const close = o.close || [];
+    const openPrices = o.open || [];
+    const high = o.high || [];
+    const low = o.low || [];
+    const volume = o.volume || [];
+    charts['drill-price'] = drawPriceChart('c-drill-price', labels, close, openPrices, high, low, volume);
+  } else {
+    document.getElementById('c-drill-price').parentNode.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--text3);font-size:13px;background:var(--surface);border-radius:8px;">
+        Không có dữ liệu giá
+      </div>
+    `;
+  }
+
+  // Premium history
+  const premHist = o.close.map((p, i) => {
+    const S = (o.underlying_close && o.underlying_close[i]) ? o.underlying_close[i] : 0;
+    if (S <= 0) return null;
+    const cwVnd      = p * 1000;
+    const intrinsic  = Math.max(S - cw.exercise, 0);
+    const cwEquiv    = cwVnd * cw.ratio;
+    return +((cwEquiv - intrinsic) / S * 100).toFixed(2);
+  });
+  if (o.dates && o.dates.length > 0) {
+    charts['prem-hist'] = new Chart(document.getElementById('c-prem-hist').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: o.dates,
+        datasets: [{
+          label: 'Premium %',
+          data: premHist,
+          borderColor: '#eda100',
+          borderWidth: 1.5,
+          pointRadius: premHist.length > 60 ? 0 : 2,
+          tension: 0.2,
+          fill: true,
+          backgroundColor: '#eda10018',
+          spanGaps: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(1)+'%' } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+          y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => v+'%' } }
+        }
+      }
+    });
+  }
+
+  // Effective Gearing
+  const ROLL = 5;
+  const hasUnderlying = o.underlying_close && o.underlying_close.some(v => v > 0);
+
+  const egRaw = !hasUnderlying ? [] : o.close.map((p, i) => {
+    if (i === 0) return null;
+    const S0 = o.underlying_close[i - 1], S1 = o.underlying_close[i];
+    const C0 = o.close[i - 1],            C1 = p;
+    if (!S0 || !S1 || S0 <= 0 || C0 <= 0) return null;
+    const rS = (S1 - S0) / S0;
+    const rC = (C1 - C0) / C0;
+    if (Math.abs(rS) < 0.0005) return null;
+    const eg = rC / rS;
+    return (eg > 50 || eg < -20) ? null : +eg.toFixed(2);
+  });
+
+  const egSmooth = egRaw.map((_, i) => {
+    const window = egRaw.slice(Math.max(0, i - ROLL + 1), i + 1).filter(v => v !== null);
+    return window.length >= 2 ? +(window.reduce((a, b) => a + b, 0) / window.length).toFixed(2) : null;
+  });
+
+  const egRecent = egSmooth.filter(v => v !== null).slice(-20);
+  const egAvg    = egRecent.length
+    ? (egRecent.reduce((a, b) => a + b, 0) / egRecent.length).toFixed(1)
+    : null;
+  const egEl = document.getElementById('drill-eg-avg');
+  if (egEl) egEl.textContent = egAvg ? `TB 20 phiên: ${egAvg}×` : '';
+
+  const hasEG = egSmooth.some(v => v !== null);
+  if (hasEG && o.dates && o.dates.length > 1) {
+    charts['drill-greeks'] = new Chart(document.getElementById('c-drill-greeks').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: o.dates,
+        datasets: [{
+          label: 'Effective Gearing',
+          data: egSmooth,
+          borderColor: 'var(--violet)',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: {
+            target: { value: 0 },
+            above: 'rgba(98,80,196,0.12)',
+            below: 'rgba(220,60,60,0.10)'
+          },
+          spanGaps: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index', intersect: false,
+            callbacks: { label: c => c.parsed.y !== null ? `EG: ${c.parsed.y.toFixed(1)}×` : 'N/A' }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+          y: {
+            grid: { color: GRID },
+            ticks: { color: TICK, callback: v => v + '×' },
+            afterDataLimits: axis => {
+              axis.min = Math.min(axis.min, 0);
+              axis.max = Math.max(axis.max, 2);
+            }
+          }
+        }
+      },
+      plugins: [{
+        id: 'eg-baseline',
+        afterDraw(chart) {
+          const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+          const y1 = y.getPixelForValue(1);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(150,150,150,0.5)';
+          ctx.lineWidth   = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.moveTo(left, y1); ctx.lineTo(right, y1); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle   = 'rgba(150,150,150,0.7)';
+          ctx.font        = '10px sans-serif';
+          ctx.fillText('EG=1', right - 34, y1 - 3);
+          ctx.restore();
+        }
+      }]
+    });
+  } else {
+    const msg = !hasUnderlying
+      ? 'Chưa có dữ liệu giá cổ phiếu cơ sở để tính Effective Gearing'
+      : o.dates && o.dates.length <= 1
+        ? 'Cần ≥ 2 phiên giao dịch để tính Effective Gearing'
+        : 'Chưa đủ dữ liệu để tính Effective Gearing';
+    document.getElementById('c-drill-greeks').parentNode.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:160px;
+                  color:var(--text3);font-size:13px;background:var(--surface2);border-radius:8px;">
+        ${msg}
+      </div>
+    `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB SWITCH
+// ═══════════════════════════════════════════════════════════════
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('pane-overview').classList.toggle('hidden', tab !== 'overview');
+  document.getElementById('pane-opportunity').classList.toggle('hidden', tab !== 'opportunity');
+  document.getElementById('pane-drilldown').classList.toggle('hidden', tab !== 'drilldown');
+  document.getElementById('pane-blackscholes').classList.toggle('hidden', tab !== 'blackscholes');
+  document.getElementById('pane-guide').classList.toggle('hidden', tab !== 'guide');
+  const showFilters = tab === 'overview' || tab === 'drilldown';
+  document.getElementById('global-filters').classList.toggle('hidden', !showFilters);
+
+  if (tab === 'drilldown') {
+    initDrill(lastSelectedTicker);
+  }
+  if (tab === 'opportunity') {
+    runScoring();
+  }
+  if (tab === 'blackscholes') {
+    initBSTab();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BLACK-SCHOLES JS ENGINE
+// ═══════════════════════════════════════════════════════════════
+function normCDF(x) {
+  const a1 =  0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t * Math.exp(-x*x);
+  return 0.5 * (1.0 + sign * y);
+}
+function normPDF(x) { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+
+function bsCalc(S, K, T_days, r, sigma, ratio, type) {
+  const T = T_days / 365.0;
+  if (S <= 0 || K <= 0 || T <= 0 || sigma <= 0) return null;
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  let price, delta, theta;
+  if (type === 'call') {
+    price = S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2);
+    delta = normCDF(d1);
+    theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) - r*K*Math.exp(-r*T)*normCDF(d2)) / 365.0;
+  } else {
+    price = K*Math.exp(-r*T)*normCDF(-d2) - S*normCDF(-d1);
+    delta = normCDF(d1) - 1;
+    theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) + r*K*Math.exp(-r*T)*normCDF(-d2)) / 365.0;
+  }
+  const bs_price_cw = price / 1000.0 / ratio;
+  const gamma = normPDF(d1) / (S * sigma * Math.sqrt(T)) / ratio;
+  const vega  = S * normPDF(d1) * Math.sqrt(T) / 100.0 / ratio;
+  return { d1, d2, price_option: price, bs_price_cw, delta, gamma, vega, theta };
+}
+
+function bsGetInputs() {
+  return {
+    S:     parseFloat(document.getElementById('bs-S').value)     || 21000,
+    K:     parseFloat(document.getElementById('bs-K').value)     || 22000,
+    T:     parseFloat(document.getElementById('bs-T').value)     || 180,
+    sigma: parseFloat(document.getElementById('bs-sigma').value) || 0.29,
+    r:     parseFloat(document.getElementById('bs-r').value)     || 0.0465,
+    ratio: parseFloat(document.getElementById('bs-ratio').value) || 4,
+  };
+}
+
+function renderBSResults(S, K, T, r, sigma, ratio) {
+  const call = bsCalc(S, K, T, r, sigma, ratio, 'call');
+  const put  = bsCalc(S, K, T, r, sigma, ratio, 'put');
+  if (!call || !put) return;
+  const moneyness = S > K*1.02 ? 'ITM' : S < K*0.98 ? 'OTM' : 'ATM';
+  const sk = (S/K).toFixed(3);
+  const items = [
+    { lbl: 'Moneyness (S/K)', val: `${sk} – ${moneyness}` },
+    { lbl: 'd₁', val: call.d1.toFixed(4) },
+    { lbl: 'd₂', val: call.d2.toFixed(4) },
+    { lbl: 'Giá Call (BS) nghìn đ', val: call.bs_price_cw.toFixed(3), color: 'var(--green)' },
+    { lbl: 'Giá Put (BS) nghìn đ',  val: put.bs_price_cw.toFixed(3),  color: 'var(--red)' },
+    { lbl: 'Delta Call', val: call.delta.toFixed(4), color: 'var(--blue)' },
+    { lbl: 'Delta Put',  val: put.delta.toFixed(4),  color: 'var(--coral)' },
+    { lbl: 'Gamma', val: call.gamma.toFixed(6) },
+    { lbl: 'Vega',  val: call.vega.toFixed(4) },
+    { lbl: 'Theta Call / ngày', val: call.theta.toFixed(4), color: 'var(--amber)' },
+    { lbl: 'Theta Put / ngày',  val: put.theta.toFixed(4) },
+    { lbl: 'Put-Call Parity Δ', val: Math.abs(call.bs_price_cw - put.bs_price_cw - (S - K*Math.exp(-r*T/365.0))/1000/ratio).toFixed(6) },
+  ];
+  document.getElementById('bs-results').innerHTML = items.map(it =>
+    `<div class="info-item"><div class="lbl">${it.lbl}</div>
+     <div class="val" style="${it.color ? 'color:'+it.color : ''}">${it.val}</div></div>`
+  ).join('');
+}
+
+function drawBSCharts(S, K, T, r, sigma, ratio) {
+  // Price vs S
+  const sRange = Array.from({length: 80}, (_, i) => Math.round(K * (0.5 + i * 0.015)));
+  const callPrices = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const putPrices  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const intrinsicCall = sRange.map(s => Math.max(s - K, 0) / 1000 / ratio);
+  destroyChart('bs-price-vs-s');
+  charts['bs-price-vs-s'] = new Chart(document.getElementById('c-bs-price-vs-s').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Call (BS)', data: callPrices, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Put (BS)',  data: putPrices,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Intrinsic Call', data: intrinsicCall, borderColor: '#eda100', borderWidth: 1, borderDash: [4,3], pointRadius: 0, tension: 0 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK,maxTicksLimit:10} }, y: { grid:{color:GRID}, ticks:{color:TICK}, beginAtZero:true } }
+    }
+  });
+
+  // Delta vs S
+  const callDeltas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.delta.toFixed(4) : 0; });
+  const putDeltas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'put');  return c ? +c.delta.toFixed(4) : 0; });
+  destroyChart('bs-delta-vs-s');
+  charts['bs-delta-vs-s'] = new Chart(document.getElementById('c-bs-delta-vs-s').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Δ Call', data: callDeltas, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: { target: 'origin', above: 'rgba(27,175,122,0.08)' } },
+        { label: 'Δ Put',  data: putDeltas,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: { target: 'origin', below: 'rgba(227,73,72,0.08)' } },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK,maxTicksLimit:10} }, y: { grid:{color:GRID}, ticks:{color:TICK}, min:-1, max:1 } }
+    }
+  });
+
+  // Price vs Time
+  const tRange = Array.from({length:60}, (_,i) => Math.round(T * (1 - i/60))).filter(t => t >= 1);
+  const callPT = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'call'); return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  const putPT  = tRange.map(t => { const c = bsCalc(S, K, t, r, sigma, ratio, 'put');  return c ? +c.bs_price_cw.toFixed(3) : 0; });
+  destroyChart('bs-price-vs-t');
+  charts['bs-price-vs-t'] = new Chart(document.getElementById('c-bs-price-vs-t').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: tRange.map(t => t+'d'),
+      datasets: [
+        { label: 'Call', data: callPT, borderColor: '#1baf7a', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: 'Put',  data: putPT,  borderColor: '#e34948', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:TICK, maxTicksLimit:8}, reverse: true },
+        y: { grid:{color:GRID}, ticks:{color:TICK}, beginAtZero:true }
+      }
+    }
+  });
+
+  // Gamma & Vega vs S
+  const gammas = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +c.gamma.toFixed(6) : 0; });
+  const vegas  = sRange.map(s => { const c = bsCalc(s, K, T, r, sigma, ratio, 'call'); return c ? +(c.vega/100).toFixed(4) : 0; });
+  destroyChart('bs-gamma-vega');
+  charts['bs-gamma-vega'] = new Chart(document.getElementById('c-bs-gamma-vega').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: sRange.map(s => (s/1000).toFixed(1)+'k'),
+      datasets: [
+        { label: 'Gamma', data: gammas, borderColor: '#4a3aa7', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y' },
+        { label: 'Vega/100', data: vegas, borderColor: '#eb6834', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1' },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{color:TICK, maxTicksLimit:10} },
+        y:  { grid:{color:GRID}, ticks:{color:TICK}, position:'left' },
+        y1: { grid:{display:false}, ticks:{color:TICK}, position:'right' }
+      }
+    }
+  });
+
+  // Vol Surface
+  const sigmaArr = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40];
+  const skArr    = [0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30];
+  const volColors = ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#eb6834'];
+  const volDatasets = sigmaArr.map((sig, si) => ({
+    label: `σ=${(sig*100).toFixed(0)}%`,
+    data: skArr.map(sk => {
+      const sv = K * sk;
+      const c = bsCalc(sv, K, T, r, sig, ratio, 'call');
+      if (!c) return 0;
+      const intrinsic = Math.max(sv - K, 0);
+      const cw_equiv  = c.bs_price_cw * 1000 * ratio;
+      return sv > 0 ? +((cw_equiv - intrinsic) / sv * 100).toFixed(2) : 0;
+    }),
+    borderColor: volColors[si],
+    borderWidth: 2,
+    pointRadius: 3,
+    tension: 0.3,
+    fill: false,
+  }));
+  destroyChart('bs-vol-surface');
+  charts['bs-vol-surface'] = new Chart(document.getElementById('c-bs-vol-surface').getContext('2d'), {
+    type: 'line',
+    data: { labels: skArr.map(sk => 'S/K='+sk.toFixed(2)), datasets: volDatasets },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, color: TICK, boxWidth:12 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(1)}% premium` } }
+      },
+      scales: { x: { grid:{display:false}, ticks:{color:TICK} }, y: { grid:{color:GRID}, ticks:{color:TICK, callback: v=>v+'%'}, title:{display:true,text:'Premium %',color:TICK,font:{size:11}} } }
+    }
+  });
+}
+
+function runBSCalc() {
+  const { S, K, T, sigma, r, ratio } = bsGetInputs();
+  renderBSResults(S, K, T, r, sigma, ratio);
+  drawBSCharts(S, K, T, r, sigma, ratio);
+}
+
+function loadBSFromTicker(ticker) {
+  const cw = allData.find(d => d.ticker === ticker);
+  if (!cw) return;
+  document.getElementById('bs-S').value     = cw.underlying_price || '';
+  document.getElementById('bs-K').value     = cw.exercise || '';
+  const days = daysLeft(cw.maturity);
+  document.getElementById('bs-T').value     = days > 0 ? days : '';
+  document.getElementById('bs-sigma').value = cw.sigma || '';
+  document.getElementById('bs-r').value     = cw.risk_free || 0.0465;
+  document.getElementById('bs-ratio').value = cw.ratio || 4;
+  runBSCalc();
+}
+
+function initBSTab() {
+  const pool = allData.filter(d => d.status === 'active');
+  // Ưu tiên: CW đang xem ở Drill-down → CW đầu danh sách (fallback)
+  const target = (lastSelectedTicker && pool.find(d => d.ticker === lastSelectedTicker))
+                 ? lastSelectedTicker
+                 : pool[0]?.ticker;
+  makeCWCombo({
+    inputId: 'bs-combo-input',
+    dropId:  'bs-combo-drop',
+    pool,
+    onSelect: ticker => { lastSelectedTicker = ticker; loadBSFromTicker(ticker); },
+    initialTicker: target,
+  });
+  if (target) loadBSFromTicker(target);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════════════════════
+// Khôi phục lastSelectedTicker từ sessionStorage
+const savedTicker = sessionStorage.getItem('selectedCW');
+if (savedTicker) lastSelectedTicker = savedTicker;
+
+// Đảm bảo các tab ban đầu
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+document.querySelectorAll('.tab')[0].classList.add('on');
+document.getElementById('pane-overview').classList.remove('hidden');
+document.getElementById('pane-opportunity').classList.add('hidden');
+document.getElementById('pane-drilldown').classList.add('hidden');
+document.getElementById('pane-blackscholes').classList.add('hidden');
+document.getElementById('pane-guide').classList.add('hidden');
+document.getElementById('global-filters').classList.remove('hidden');
+
+loadData();
+</script>
+</body>
+</html>
