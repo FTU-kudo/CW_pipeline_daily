@@ -714,6 +714,8 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
         "expectedAsOf": session["expected"],
         "expectedAsOfLabel": session["expectedLabel"],
         "session": session,
+        # Lịch nghỉ cho đồng hồ topbar (2027 là dự kiến — xem config.MARKET_HOLIDAYS)
+        "marketHolidays": sorted(config.MARKET_HOLIDAYS),
         "stale": bool(session["lagSessions"] >= 2
                       or data_age > config.STALE_DATA_DAYS_WARNING),
         "universe": {

@@ -14,8 +14,8 @@ Quy ước
   * Giờ ICT (UTC+7), không dùng giờ máy chủ (GitHub Actions chạy UTC).
   * Phiên được coi là "đã đóng" sau 15:10 ICT (ATC kết thúc 14:45, đóng cửa
     15:00, chờ thêm 10 phút cho dữ liệu về).
-  * Chỉ tính Thứ Hai–Thứ Sáu và trừ danh sách ngày nghỉ trong `config.MARKET_HOLIDAYS`
-    (các ngày lễ cố định; lễ âm lịch phải bổ sung thủ công — xem config).
+  * Chỉ tính Thứ Hai–Thứ Sáu và trừ `config.MARKET_HOLIDAYS` (lịch HOSE/HNX,
+    gồm cả Tết âm lịch; phần 2027 là dự kiến và được đánh dấu rõ trong config).
 """
 
 from __future__ import annotations

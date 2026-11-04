@@ -139,3 +139,82 @@ def test_artifact_co_cong_chat_luong_session_lag():
     assert gate["status"] in {"ok", "warn"}
     if gate["value"]["lagSessions"] == 0:
         assert gate["status"] == "ok"
+
+
+# ── lịch lễ thật của HOSE/HNX (config.MARKET_HOLIDAYS) ────────────────────
+def test_lich_le_2026_khop_thong_bao_cua_so():
+    """2026: HOSE công bố 13 phiên nghỉ (2294/TB-SGDHCM)."""
+    from cwintel import config
+
+    days = [d for d in config.MARKET_HOLIDAYS if d.startswith("2026-")]
+    assert len(days) == 13, f"2026 phải có 13 phiên nghỉ, đang có {len(days)}"
+    for d in ("2026-01-01", "2026-01-02", "2026-02-16", "2026-02-20",
+              "2026-04-27", "2026-04-30", "2026-05-01",
+              "2026-08-31", "2026-09-01", "2026-09-02"):
+        assert d in days
+
+
+def test_lich_le_2025_khop_thong_bao_cua_so():
+    from cwintel import config
+
+    days = [d for d in config.MARKET_HOLIDAYS if d.startswith("2025-")]
+    assert len(days) == 12, f"2025 phải có 12 phiên nghỉ, đang có {len(days)}"
+
+
+def test_lich_le_khong_co_ngay_cuoi_tuan_va_khong_trung_lap():
+    from cwintel import config
+
+    for d in config.MARKET_HOLIDAYS:
+        day = date.fromisoformat(d)
+        assert day.weekday() < 5, f"{d} là cuối tuần — không cần khai báo"
+    assert len(set(config.MARKET_HOLIDAYS)) == len(config.MARKET_HOLIDAYS)
+
+
+def test_tet_va_quoc_khanh_lui_ve_phien_truoc_ky_nghi():
+    # 17/02/2026 (Tết) → phiên cuối là 13/02
+    assert sessions.last_closed_session(ict(2026, 2, 17, 18)) == date(2026, 2, 13)
+    # 02/09/2026 (Quốc khánh) → 28/08 (31/08–02/09 đều nghỉ)
+    assert sessions.last_closed_session(ict(2026, 9, 2, 18)) == date(2026, 8, 28)
+    # 27/04/2026 (Giỗ Tổ, nghỉ bù) → 24/04
+    assert sessions.last_closed_session(ict(2026, 4, 27, 18)) == date(2026, 4, 24)
+
+
+def test_ngay_nghi_lao_dong_chua_duoc_so_xac_nhan_khong_che_canh_bao():
+    """24/11/2026 chưa có lịch nghỉ giao dịch của Sở → vẫn phải đòi dữ liệu."""
+    from cwintel import config
+
+    assert "2026-11-24" not in config.MARKET_HOLIDAYS
+    st = sessions.session_status("2026-11-23", now=ict(2026, 11, 24, 16, 30))
+    assert st["lagSessions"] == 1 and st["status"] == "warn"
+    assert st["expected"] == "2026-11-24" and st["missing"] == ["2026-11-24"]
+
+
+def test_lich_2027_du_kien_co_du_ngay_nghi_bu():
+    from cwintel import config
+
+    days = {d for d in config.MARKET_HOLIDAYS if d.startswith("2027-")}
+    assert days == {
+        "2027-01-01",
+        "2027-02-04", "2027-02-05", "2027-02-08", "2027-02-09", "2027-02-10",
+        "2027-04-16", "2027-04-30", "2027-05-03", "2027-09-02", "2027-09-03",
+    }
+
+
+def test_bo_lich_le_rieng_khong_anh_huong_config():
+    # Truyền danh sách ngày lễ riêng vẫn hoạt động (dùng cho test/backtest lịch sử)
+    st = sessions.session_status("2026-09-01", now=ict(2026, 9, 2, 18),
+                                 holidays=("2026-09-02",))
+    assert st["expected"] == "2026-09-01" and st["lagSessions"] == 0
+
+
+def test_meta_phat_hanh_lich_le_cho_dong_ho():
+    import json
+    from pathlib import Path
+
+    from cwintel import config
+
+    meta_path = Path("docs/data/meta.json")
+    if not meta_path.exists():
+        pytest.skip("chưa có artifact")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta.get("marketHolidays") == sorted(config.MARKET_HOLIDAYS)

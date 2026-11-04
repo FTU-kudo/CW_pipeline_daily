@@ -20,8 +20,12 @@ Mọi trường trong `docs/data/*.json`. Quy ước chung:
 | `version` / `methodologyVersion` | str | phiên bản phần mềm / phương pháp |
 | `generatedAt` | str | thời điểm build (dd/mm/yyyy HH:MM +07:00) |
 | `asof` / `asofLabel` | str | phiên dữ liệu (ISO / dd/mm/yyyy) |
-| `dataAgeDays` | int | số ngày từ phiên dữ liệu tới lúc build |
-| `stale` | bool | `dataAgeDays > 3` |
+| `dataAgeDays` | int | số ngày lịch từ phiên dữ liệu tới lúc build |
+| `dataAgeSessions` | int | số **phiên** dữ liệu còn thiếu so với phiên đã đóng gần nhất |
+| `expectedAsOf` / `expectedAsOfLabel` | str | phiên đã đóng gần nhất (ISO / dd/mm/yyyy) |
+| `session` | obj | chi tiết lịch phiên: `asof`, `expected`, `lagSessions`, `missing[]`, `todayClosed`, `checkedAt`, `status` |
+| `marketHolidays` | list[str] | ngày nghỉ giao dịch ISO cho đồng hồ; lịch 2027 là dự kiến, xem `config.MARKET_HOLIDAYS` |
+| `stale` | bool | thiếu ≥2 phiên hoặc dữ liệu cũ hơn `STALE_DATA_DAYS_WARNING` ngày lịch |
 | `universe` | obj | `{total, active, expired, underlyings, issuers}` |
 | `riskFree` | obj | `{value, source, date}` — lãi suất phi rủi ro năm |
 | `dataSources` | list[str] | mô tả nguồn |
