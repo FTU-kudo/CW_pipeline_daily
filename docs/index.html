@@ -60,6 +60,20 @@
         </div>
       </div>
       <div class="topbar-right">
+        <div class="clock" id="market-clock" role="timer" aria-live="off"
+             data-session="pre" data-tone="muted" title="Giờ Việt Nam (GMT+7)">
+          <svg class="clock-face" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+            <circle class="cf-track" cx="18" cy="18" r="15"></circle>
+            <circle class="cf-ring" id="clock-ring" cx="18" cy="18" r="15"
+                    stroke-dasharray="94.25" stroke-dashoffset="0"></circle>
+            <circle class="cf-tick" cx="18" cy="3.6" r="1.5"></circle>
+          </svg>
+          <div class="clock-main">
+            <time class="clock-time" id="clock-time" datetime="">--:--:--</time>
+            <span class="clock-sub" id="clock-date">—</span>
+          </div>
+          <span class="clock-session" id="clock-session">—</span>
+        </div>
         <span class="pill" id="data-age-pill">—</span>
         <span class="pill ghost" id="universe-pill">—</span>
         <div class="lang-switch" role="group" aria-label="Ngôn ngữ / Language" title="Ngôn ngữ / Language">

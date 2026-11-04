@@ -11,6 +11,7 @@ import { watchlistPage, portfolioPage, alertsPage } from './pages/tools.js';
 import { dataPage, methodPage } from './pages/system.js';
 import liquidityPage from './pages/liquidity.js';
 import { initI18n, getLang } from './i18n.js';
+import { startClock } from './clock.js';
 
 function setBoot(pct, msg) {
   const bar = $('#boot-bar');
@@ -82,6 +83,8 @@ async function boot() {
   $('#boot').classList.add('hidden');
   $('#app').classList.remove('hidden');
   initSearch();
+  // Đồng hồ thời gian thực (giờ VN): chạy suốt phiên làm việc của tab
+  startClock(document, { lang: getLang });
 
   registerRoute('overview', overview);
   registerRoute('heatmap', heatmap);

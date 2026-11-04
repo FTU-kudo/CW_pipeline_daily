@@ -192,6 +192,22 @@ Cách sửa, giữ được cả hai theme:
 - Chart tự vẽ lại khi đổi theme hoặc đổi kích thước: `registerChart()` gắn `_redraw` cho từng canvas, `ResizeObserver` (debounce 80 ms) + `redrawAllCharts()`.
 - Thêm cho khả năng đọc: legend theo màu phía trên chart, crosshair + tooltip nhiều series (không cần hover chính xác), nhãn trục tự nới `padL`, header bảng dính, kẻ sọc, cột mã dính, `text-wrap: pretty`, `focus-visible`, tôn trọng `prefers-reduced-motion`.
 
+### 3.4 Đồng hồ thời gian thực & phân cấp thị giác
+
+- **`docs/assets/clock.js`** là module thuần + một hàm gắn DOM: `clockParts()` tách giờ theo
+  `Intl.DateTimeFormat(timeZone: 'Asia/Ho_Chi_Minh')` nên **không phụ thuộc timezone của máy
+  người xem**; mỗi nhịp `setInterval` đều đọc lại `Date.now()` (không cộng dồn) nên không trôi khi
+  tab bị treo; tick lại ngay khi `visibilitychange`/`pageshow`/`focus` hoặc đổi ngôn ngữ.
+- Trạng thái phiên theo lịch HOSE/HNX: `pre`, `ato`, `open`, `break`, `atc`, `post`, `closed`, `weekend`
+  (`sessionKey()`), kèm nhãn VI/EN và 3 tông màu (`live`/`amber`/`muted`). Ngày lễ chưa có trong
+  nguồn dữ liệu nên chỉ phân biệt được cuối tuần.
+- Vòng giây là SVG `stroke-dashoffset` (không phải ảnh), số dùng `tabular-nums` nên **không nhảy layout**
+  mỗi giây; có `role="timer"`, `aria-label` theo ngôn ngữ và tôn trọng `prefers-reduced-motion`.
+- Phân cấp thị giác dùng chung một bộ quy ước trong `app.css`: gai accent bên trái tiêu đề card,
+  gạch nhấn ở `section-head`, KPI có `tone` (`up/down/warn/accent/muted`) lấy từ `kpiCard({tone})`,
+  chip lọc có số đếm, `.rec-card` tô viền trái theo khuyến nghị, bảng cổng chất lượng có thanh
+  "đang chặn" theo từng cổng.
+
 ## 4. Hiệu năng
 
 Đo trên máy 4 vCPU với cache sẵn:

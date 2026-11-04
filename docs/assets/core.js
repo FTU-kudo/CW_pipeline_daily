@@ -937,8 +937,8 @@ export function pageHead(title, sub, actions = []) {
   ]);
 }
 
-export function kpiCard({ label, value, sub, delta, deltaClass, valueClass = '', id }) {
-  return el('div', { class: 'kpi-card', id }, [
+export function kpiCard({ label, value, sub, delta, deltaClass, valueClass = '', id, tone = '' }) {
+  return el('div', { class: 'kpi-card' + (tone ? ` tone-${tone}` : ''), id }, [
     el('div', { class: 'kpi-label', text: label }),
     el('div', { class: `kpi-value ${valueClass}` }, [el('span', { text: value })].concat(
       delta !== undefined && delta !== null ? [el('span', { class: `kpi-delta ${deltaClass || ''}`, style: 'margin-left:8px', text: delta })] : [])),
