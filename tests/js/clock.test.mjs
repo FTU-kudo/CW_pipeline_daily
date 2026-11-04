@@ -4,8 +4,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
-  BOUNDARIES, SESSION_LABEL, SESSION_TONE, TZ,
-  clockParts, dateLabel, minutesToNextBoundary, secondsProgress, sessionKey, sessionLabel,
+  BOUNDARIES, CLOSE_READY_MINUTES, SESSION_LABEL, SESSION_TONE, TZ,
+  clockParts, dateLabel, dayKey, hasClosedToday, holidaySet, minutesToNextBoundary, secondsProgress,
+  sessionKey, sessionLabel,
 } from '../../docs/assets/clock.js';
 
 let checks = 0;
@@ -68,6 +69,37 @@ ok(minutesToNextBoundary(at('2026-11-04T02:00:00Z')) === 15, '09:00 còn 15 phú
 ok(minutesToNextBoundary(at('2026-11-04T02:20:00Z')) === 130, '09:20 còn 130 phút tới 11:30');
 ok(minutesToNextBoundary(at('2026-11-04T08:30:00Z')) === null, 'sau 15:00 không còn mốc');
 ok(minutesToNextBoundary(at('2026-11-07T02:00:00Z')) === null, 'cuối tuần không đếm ngược');
+
+/* 6b. Ngày lễ (danh sách do build phát hành: meta.marketHolidays) */
+const HOL = ['2026-02-17', '2026-04-27', '2026-09-02'];
+const hol = (iso, list = HOL) => clockParts(new Date(iso), list);
+ok(hol('2026-09-02T03:00:00Z').session === 'holiday', '02/09/2026 là nghỉ lễ dù là Thứ Tư');
+ok(hol('2026-09-02T03:00:00Z').isHoliday === true, 'cờ isHoliday bật đúng ngày');
+ok(hol('2026-09-03T03:00:00Z').session === 'open', 'hôm sau ngày lễ giao dịch bình thường');
+ok(hol('2026-09-02T03:00:00Z').isWeekend === false, 'ngày lễ trong tuần không bị coi là cuối tuần');
+ok(sessionKey(600, false, true) === 'holiday', 'sessionKey ưu tiên ngày lễ');
+ok(sessionKey(600, true, true) === 'holiday', 'ngày lễ trùng cuối tuần vẫn là holiday');
+ok(sessionLabel('holiday', 'vi') === 'Nghỉ lễ' && sessionLabel('holiday', 'en') === 'Market holiday',
+  'nhãn nghỉ lễ VI/EN');
+ok(sessionLabel('holiday', 'both') === 'Nghỉ lễ · Market holiday', 'nhãn nghỉ lễ VI+EN');
+ok(SESSION_TONE.holiday === 'muted', 'ngày lễ dùng tone muted');
+ok(minutesToNextBoundary(hol('2026-09-02T02:00:00Z')) === null, 'ngày lễ không đếm ngược mốc phiên');
+ok(dayKey(hol('2026-09-02T03:00:00Z')) === '2026-09-02', 'dayKey đúng định dạng YYYY-MM-DD');
+ok(holidaySet(HOL).size === HOL.length, 'holidaySet nhận mảng chuỗi');
+ok(holidaySet(() => HOL).has('2026-04-27'), 'holidaySet nhận hàm (meta tải muộn)');
+ok(holidaySet(null).size === 0, 'không có lịch thì không có ngày lễ');
+ok(clockParts(new Date('2026-09-02T03:00:00Z')).session !== 'holiday',
+  'không truyền lịch thì giữ hành vi cũ (tương thích ngược)');
+// giờ Việt Nam, không phải UTC: 27/04 00:30 giờ VN = 17:30Z ngày 26/04
+ok(hol('2026-04-26T17:30:00Z').session === 'holiday', 'ngày lễ tính theo giờ VN, không theo UTC');
+
+/* 6c. "Phiên hôm nay" theo giờ xem, không theo thời điểm build */
+ok(CLOSE_READY_MINUTES === 910, 'mốc chờ dữ liệu phải là 15:10 ICT');
+ok(hasClosedToday(at('2026-11-04T08:09:00Z')) === false, '15:09 chưa đòi dữ liệu phiên hôm nay');
+ok(hasClosedToday(at('2026-11-04T08:10:00Z')) === true, '15:10 đã có phiên hôm nay');
+ok(hasClosedToday(at('2026-11-04T03:00:00Z')) === false, 'trong giờ giao dịch chưa gọi là phiên hôm nay');
+ok(hasClosedToday(at('2026-11-07T10:00:00Z')) === false, 'cuối tuần không có phiên hôm nay');
+ok(hasClosedToday(hol('2026-09-02T10:00:00Z')) === false, 'ngày lễ không có phiên hôm nay');
 
 /* 7. Không phụ thuộc timezone của máy: chạy lại trong tiến trình có TZ khác */
 const script = `

@@ -38,6 +38,7 @@ def test_clock_is_started_by_app() -> None:
     assert started > shown
     # đổi ngôn ngữ phải cập nhật nhãn đồng hồ
     assert "getLang" in app
+    assert "holidays: () => data.meta?.marketHolidays" in app
 
 
 def test_clock_module_is_timezone_fixed() -> None:
@@ -50,7 +51,7 @@ def test_clock_module_is_timezone_fixed() -> None:
     assert "visibilitychange" in src, "phải đồng bộ lại khi quay lại tab"
     for fn in ("clockParts", "sessionKey", "sessionLabel", "startClock", "secondsProgress"):
         assert f"export function {fn}" in src, f"thiếu export {fn}"
-    for key in ("ato", "open", "break", "atc", "post", "closed", "weekend"):
+    for key in ("ato", "open", "break", "atc", "post", "closed", "weekend", "holiday"):
         assert f"'{key}'" in src, f"thiếu trạng thái phiên {key}"
 
 

@@ -30,7 +30,7 @@ Không có backend, không có database, không có API key trong repo. Mọi th
                         │ cwintel/scoring.py CW Score + cổng       │
                         │ cwintel/recommend.py card, kế hoạch      │
                         │ cwintel/backtest.py walk-forward         │
-                        │ cwintel/quality.py 16 kiểm tra DQ        │
+                        │ cwintel/quality.py 21 kiểm tra DQ        │
                         │ cwintel/methodology.py công bố phương pháp│
                         │ cwintel/build.py   xuất artifact         │
                         └──────────────────┬───────────────────────┘
@@ -93,7 +93,7 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 
 | Tệp | Nội dung | Kích thước điển hình |
 |---|---|---|
-| `meta.json` | phiên bản, as-of, **`session`** (phiên đã đóng gần nhất, số phiên bị thiếu), nguồn, lãi suất, danh sách series, kích thước tệp, thời gian build | ~11 KB |
+| `meta.json` | phiên bản, as-of, **`session`** (phiên đã đóng gần nhất, số phiên bị thiếu), **`marketHolidays`** cho đồng hồ, nguồn, lãi suất, danh sách series, kích thước tệp, thời gian build | ~11 KB |
 | `market.json` | KPI, phân bố TCPH/cơ sở, top lists, breadth 250 phiên | ~100 KB |
 | `screener.json` | CW còn hiệu lực + CW đã đáo hạn/ngừng giao dịch, 40+ trường | ~730 KB |
 | `recommendations.json` | card đầy đủ cho mọi CW còn hiệu lực | ~1,1 MB |
@@ -129,8 +129,16 @@ ghi "Phiên dữ liệu 03/11" trong khi phiên 04/11 đã đóng cửa, và ng�
   pill đầu trang đếm phiên thật ("Thiếu 1 phiên" thay cho "cách 3 ngày"); lệch 1 phiên hiện banner
   vàng, lệch ≥ 2 phiên hiện banner đỏ.
 
-Lễ âm lịch (Tết, Giỗ Tổ) chưa tự suy ra được — thiếu một ngày trong `MARKET_HOLIDAYS` chỉ làm
-cảnh báo sớm hơn, không làm sai số liệu. Bổ sung mỗi năm một lần.
+Lễ âm lịch (Tết, Giỗ Tổ) được liệt kê tường minh trong `MARKET_HOLIDAYS`, không tự suy ra bằng
+thư viện lịch âm. Bảng hiện có **12 phiên nghỉ năm 2025** và **13 phiên năm 2026** theo lịch
+HOSE/HNX đã công bố; **11 phiên năm 2027 là dự kiến** theo lịch nghỉ Chính phủ và phải đối chiếu
+lại khi Sở công bố. Các ngày nghỉ bù rơi vào ngày trong tuần cũng được liệt kê; ngày làm bù vào
+thứ Bảy vẫn không là phiên giao dịch.
+
+Không tự suy lịch giao dịch từ mọi ngày nghỉ lao động: ngày **24/11/2026 (Ngày Văn hóa Việt Nam)**
+chưa được đưa vào vì đến 04/11/2026 chưa thấy HOSE/HNX xác nhận nghỉ giao dịch. Đây là lựa chọn
+an toàn cho giám sát — nếu Sở nghỉ mà bảng chưa cập nhật, hệ thống có thể cảnh báo sớm; ngược lại,
+khai báo nhầm một ngày vẫn mở cửa là ngày lễ sẽ **che mất cảnh báo chậm dữ liệu**.
 
 
 CW không phải vũ trụ tĩnh: mỗi tuần có mã mới niêm yết, mỗi tháng có mã đáo hạn.
@@ -222,8 +230,10 @@ Cách sửa, giữ được cả hai theme:
   người xem**; mỗi nhịp `setInterval` đều đọc lại `Date.now()` (không cộng dồn) nên không trôi khi
   tab bị treo; tick lại ngay khi `visibilitychange`/`pageshow`/`focus` hoặc đổi ngôn ngữ.
 - Trạng thái phiên theo lịch HOSE/HNX: `pre`, `ato`, `open`, `break`, `atc`, `post`, `closed`, `weekend`
-  (`sessionKey()`), kèm nhãn VI/EN và 3 tông màu (`live`/`amber`/`muted`). Ngày lễ chưa có trong
-  nguồn dữ liệu nên chỉ phân biệt được cuối tuần.
+  và **`holiday`** (`sessionKey()`), kèm nhãn VI/EN và 3 tông màu (`live`/`amber`/`muted`). Build xuất
+  `MARKET_HOLIDAYS` vào `meta.marketHolidays`; `app.js` truyền danh sách này cho `startClock()`, nên
+  trong ngày lễ đồng hồ hiển thị **"Nghỉ lễ / Market holiday"**, không đếm ngược tới mốc khớp lệnh.
+  Nếu artifact cũ chưa có trường này, đồng hồ vẫn hoạt động với lịch cuối tuần như trước.
 - Vòng giây là SVG `stroke-dashoffset` (không phải ảnh), số dùng `tabular-nums` nên **không nhảy layout**
   mỗi giây; có `role="timer"`, `aria-label` theo ngôn ngữ và tôn trọng `prefers-reduced-motion`.
 - Phân cấp thị giác dùng chung một bộ quy ước trong `app.css`: gai accent bên trái tiêu đề card,

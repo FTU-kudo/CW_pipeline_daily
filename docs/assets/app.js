@@ -11,7 +11,7 @@ import { watchlistPage, portfolioPage, alertsPage } from './pages/tools.js';
 import { dataPage, methodPage } from './pages/system.js';
 import liquidityPage from './pages/liquidity.js';
 import { initI18n, getLang, bi } from './i18n.js';
-import { startClock } from './clock.js';
+import { clockParts, hasClosedToday, startClock } from './clock.js';
 
 function setBoot(pct, msg) {
   const bar = $('#boot-bar');
@@ -70,9 +70,14 @@ function applyMeta() {
 
   const age = $('#data-age-pill');
   if (age) {
-    age.textContent = lag <= 0
-      ? tx('Dữ liệu phiên hôm nay', 'Updated this session')
-      : tx(`Thiếu ${lag} phiên`, `${lag} session${lag > 1 ? 's' : ''} behind`);
+    // Tính theo giờ xem, không dùng session.todayClosed (đó là trạng thái lúc build).
+    // Cuối tuần/ngày lễ không có phiên hôm nay → nêu rõ phiên dữ liệu gần nhất.
+    const todayClosed = hasClosedToday(clockParts(Date.now(), data.meta?.marketHolidays || []));
+    age.textContent = lag > 0
+      ? tx(`Thiếu ${lag} phiên`, `${lag} session${lag > 1 ? 's' : ''} behind`)
+      : todayClosed
+        ? tx('Dữ liệu phiên hôm nay', 'Updated this session')
+        : tx(`Dữ liệu phiên ${meta.asofLabel}`, `Session ${meta.asofLabel}`);
     age.className = 'pill ' + (lag > 0 ? 'warn' : 'ok');
     age.title = lag > 0 && expectedLabel
       ? tx(`Dữ liệu dừng ở phiên ${meta.asofLabel}. Phiên đã đóng gần nhất: ${expectedLabel}.`,
@@ -149,7 +154,9 @@ async function boot() {
   $('#app').classList.remove('hidden');
   initSearch();
   // Đồng hồ thời gian thực (giờ VN): chạy suốt phiên làm việc của tab
-  startClock(document, { lang: getLang });
+  // Nghỉ lễ lấy từ meta.marketHolidays (sinh từ cwintel/config.py) để đồng hồ
+  // không báo "đang khớp lệnh" vào ngày thị trường đóng cửa.
+  startClock(document, { lang: getLang, holidays: () => data.meta?.marketHolidays || [] });
 
   registerRoute('overview', overview);
   registerRoute('heatmap', heatmap);

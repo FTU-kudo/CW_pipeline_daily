@@ -192,14 +192,40 @@ MIN_SESSIONS_FOR_TECH = 30       # dưới ngưỡng này RSI/MACD không đáng
 # ──────────────────────────────────────────────────────────────────
 # LỊCH PHIÊN (dùng để phát hiện dữ liệu chậm phiên — xem cwintel/sessions.py)
 # ──────────────────────────────────────────────────────────────────
-# Chỉ liệt kê ngày lễ **cố định** của HOSE/HNX. Các lễ âm lịch (Tết Nguyên Đán,
-# Giỗ Tổ Hùng Vương) phải bổ sung thủ công mỗi năm: thiếu một ngày trong danh sách
-# này chỉ làm dashboard cảnh báo sớm hơn (an toàn), không làm sai số liệu.
+# Lịch nghỉ giao dịch HOSE/HNX (chỉ cần ngày trong tuần — cuối tuần đã tự động).
+# Nguồn:
+#   * 2025 — 12 phiên, đã công bố: Công văn 1046/SGDVN-GSTT ngày 25/12/2024.
+#   * 2026 — 13 phiên, đã công bố: HOSE 2294/TB-SGDHCM (09/12/2025) và
+#     HNX 5305/TB-SGDHN (03/12/2025).
+#   * 2027 — 11 phiên DỰ KIẾN theo lịch nghỉ Chính phủ (Công văn
+#     10065/VPCP-KGVX ngày 02/10/2026); phải đối chiếu lại khi Sở công bố.
+# Ngày 24/11 (Ngày Văn hóa Việt Nam) CHƯA được đưa vào: đến 04/11/2026 chưa thấy
+# HOSE/HNX xác nhận nghỉ giao dịch. Không suy từ lịch nghỉ lao động sang lịch Sở,
+# để tránh che mất cảnh báo chậm dữ liệu nếu thị trường vẫn mở cửa.
+# Ngày nghỉ là **ngày bù** đã được Sở dời sang ngày làm việc (ví dụ Giỗ Tổ 2026 rơi
+# Chủ nhật 26/04 nên nghỉ bù thứ Hai 27/04). Ngày làm bù vào thứ Bảy không giao dịch
+# nhưng cũng không phải phiên nên không cần khai báo.
 MARKET_HOLIDAYS = (
-    "2025-01-01", "2025-04-30", "2025-05-01", "2025-09-02",
-    "2026-01-01", "2026-04-30", "2026-05-01", "2026-09-02",
-    "2027-01-01", "2027-04-30", "2027-05-01", "2027-09-02",
+    # ── 2025 ──────────────────────────────────────────────────────
+    "2025-01-01",                                             # Tết Dương lịch
+    "2025-01-27", "2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31",   # Tết Ất Tỵ
+    "2025-04-07",                                             # Giỗ Tổ (bù cho 10/3 âm)
+    "2025-04-30", "2025-05-01", "2025-05-02",                 # 30/4 + 1/5 + nghỉ liền kề
+    "2025-09-01", "2025-09-02",                               # Quốc khánh (2 phiên)
+    # ── 2026 ──────────────────────────────────────────────────────
+    "2026-01-01", "2026-01-02",                               # Tết Dương lịch (2 phiên)
+    "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20",   # Tết Bính Ngọ
+    "2026-04-27",                                             # Giỗ Tổ (bù cho CN 26/04)
+    "2026-04-30", "2026-05-01",                               # 30/4 + 1/5
+    "2026-08-31", "2026-09-01", "2026-09-02",                 # Quốc khánh (3 phiên)
+    # ── 2027 (dự kiến) ────────────────────────────────────────────
+    "2027-01-01",                                             # Tết Dương lịch
+    "2027-02-04", "2027-02-05", "2027-02-08", "2027-02-09", "2027-02-10",   # Tết Đinh Mùi
+    "2027-04-16",                                             # Giỗ Tổ
+    "2027-04-30", "2027-05-03",                               # 30/4 + nghỉ bù 1/5 (thứ Bảy)
+    "2027-09-02", "2027-09-03",                               # Quốc khánh (2 phiên)
 )
+
 
 # ──────────────────────────────────────────────────────────────────
 # VÒNG ĐỜI CW (niêm yết / đáo hạn / ngừng giao dịch)

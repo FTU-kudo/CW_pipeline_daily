@@ -12,10 +12,15 @@
    Trạng thái phiên theo lịch HOSE/HNX (giờ VN, Thứ Hai–Thứ Sáu):
      09:00–09:15 ATO · 09:15–11:30 khớp lệnh liên tục · 11:30–13:00 nghỉ trưa
      13:00–14:30 khớp lệnh liên tục · 14:30–14:45 ATC · 14:45–15:00 sau giờ.
-   Ngày lễ chưa có trong dữ liệu nên chỉ phân biệt được cuối tuần.
+   Ngày lễ: danh sách do build phát hành (`meta.marketHolidays`, sinh từ
+     `cwintel/config.py:MARKET_HOLIDAYS`) được truyền vào `startClock({ holidays })`;
+     có ngày lễ thì trạng thái là `holiday` chứ không phải "đang khớp lệnh".
    ============================================================ */
 
 export const TZ = 'Asia/Ho_Chi_Minh';
+
+/** Dữ liệu phiên hôm nay được kỳ vọng sau 15:10 ICT — đồng bộ cwintel/sessions.py. */
+export const CLOSE_READY_MINUTES = 15 * 60 + 10;
 
 /** Các mốc phiên, tính bằng phút trong ngày (giờ VN). */
 export const BOUNDARIES = [
@@ -32,6 +37,7 @@ const VI_WEEKDAY = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ
 
 /** Nhãn trạng thái phiên: [tiếng Việt, tiếng Anh]. */
 export const SESSION_LABEL = {
+  holiday: ['Nghỉ lễ', 'Market holiday'],
   weekend: ['Nghỉ cuối tuần', 'Weekend'],
   pre: ['Trước giờ mở cửa', 'Pre-open'],
   ato: ['ATO · mở cửa', 'ATO · opening'],
@@ -44,7 +50,7 @@ export const SESSION_LABEL = {
 
 /** Nhóm màu của từng trạng thái (dùng cho class CSS). */
 export const SESSION_TONE = {
-  weekend: 'muted', pre: 'muted', closed: 'muted',
+  holiday: 'muted', weekend: 'muted', pre: 'muted', closed: 'muted',
   ato: 'amber', atc: 'amber', open: 'live', break: 'muted', post: 'muted',
 };
 
@@ -56,8 +62,30 @@ const fmtParts = new Intl.DateTimeFormat('en-GB', {
 
 const WEEKDAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
-/** Trạng thái phiên từ số phút trong ngày và cờ cuối tuần. */
-export function sessionKey(minutes, isWeekend = false) {
+/**
+ * Chuẩn hoá danh sách ngày lễ về Set 'YYYY-MM-DD'.
+ * Nhận mảng chuỗi ISO, Set, hoặc hàm trả về một trong hai (để đọc `meta` muộn).
+ */
+export function holidaySet(list) {
+  const raw = typeof list === 'function' ? list() : list;
+  if (!raw) return new Set();
+  const out = new Set();
+  for (const item of raw) {
+    if (typeof item === 'string') out.add(item.slice(0, 10));
+    else if (item) out.add(dayKey(item));
+  }
+  return out;
+}
+
+/** 'YYYY-MM-DD' của một mốc giờ Việt Nam. */
+export function dayKey(parts) {
+  const p = (parts && typeof parts.day === 'number') ? parts : clockParts(parts);
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** Trạng thái phiên từ số phút trong ngày, cờ cuối tuần và cờ ngày lễ. */
+export function sessionKey(minutes, isWeekend = false, isHoliday = false) {
+  if (isHoliday) return 'holiday';
   if (isWeekend) return 'weekend';
   if (!Number.isFinite(minutes)) return 'closed';
   if (minutes < BOUNDARIES[0][0]) return 'pre';
@@ -72,8 +100,9 @@ export function sessionKey(minutes, isWeekend = false) {
 /**
  * Tách giờ Việt Nam từ một mốc thời gian bất kỳ.
  * @param {number|Date} now mốc thời gian (ms hoặc Date); mặc định là hiện tại
+ * @param {Iterable<string>|Set<string>|Function} holidays ngày nghỉ dạng 'YYYY-MM-DD'
  */
-export function clockParts(now = Date.now()) {
+export function clockParts(now = Date.now(), holidays = null) {
   const date = now instanceof Date ? now : new Date(now);
   const parts = {};
   for (const p of fmtParts.formatToParts(date)) parts[p.type] = p.value;
@@ -83,15 +112,29 @@ export function clockParts(now = Date.now()) {
   const weekday = WEEKDAY_INDEX[parts.weekday] ?? 0;
   const minutes = hour * 60 + minute;
   const isWeekend = weekday === 0 || weekday === 6;
+  const day = Number(parts.day);
+  const month = Number(parts.month);
+  const year = Number(parts.year);
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const holidaySetCache = holidays == null ? null : holidaySet(holidays);
+  const isHoliday = !!holidaySetCache && holidaySetCache.has(iso);
   return {
     hour, minute, second, minutes,
-    weekday, isWeekend,
-    day: Number(parts.day), month: Number(parts.month), year: Number(parts.year),
-    session: sessionKey(minutes, isWeekend),
+    weekday, isWeekend, isHoliday, iso,
+    day, month, year,
+    session: sessionKey(minutes, isWeekend, isHoliday),
     hhmmss: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:`
       + String(second).padStart(2, '0'),
     hm: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
   };
+}
+
+/**
+ * Hôm nay đã có một phiên đóng cửa cần dữ liệu hay chưa (theo giờ Việt Nam hiện tại).
+ * Khác với meta.session.todayClosed, vốn là trạng thái tại thời điểm build.
+ */
+export function hasClosedToday(parts) {
+  return !parts.isWeekend && !parts.isHoliday && parts.minutes >= CLOSE_READY_MINUTES;
 }
 
 /** Nhãn trạng thái phiên, tự chọn ngôn ngữ. */
@@ -123,7 +166,7 @@ export function secondsProgress(second) {
 
 /** Số phút còn lại tới mốc phiên kế tiếp (null khi đã đóng cửa / cuối tuần). */
 export function minutesToNextBoundary(parts) {
-  if (parts.isWeekend) return null;
+  if (parts.isWeekend || parts.isHoliday) return null;
   for (const [start] of BOUNDARIES) {
     if (parts.minutes < start) return start - parts.minutes;
   }
@@ -136,7 +179,8 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /**
  * Gắn đồng hồ vào DOM và chạy mỗi giây.
  * @param {Document|HTMLElement} root nơi chứa các phần tử #clock-*
- * @param {{ lang?: () => string, now?: () => number }} opts
+ * @param {{ lang?: () => string, now?: () => number,
+ *           holidays?: Iterable<string>|Set<string>|Function }} opts
  * @returns {{ tick: Function, stop: Function, read: Function }}
  */
 export function startClock(root, opts = {}) {
@@ -145,6 +189,7 @@ export function startClock(root, opts = {}) {
     ? opts.lang
     : ((typeof opts.lang === 'string') ? () => opts.lang : () => 'vi');
   const nowOf = typeof opts.now === 'function' ? opts.now : () => Date.now();
+  const holidaysOf = () => (typeof opts.holidays === 'function' ? opts.holidays() : opts.holidays);
   const host = doc.querySelector('#market-clock');
   const timeEl = doc.querySelector('#clock-time');
   const dateEl = doc.querySelector('#clock-date');
@@ -156,7 +201,7 @@ export function startClock(root, opts = {}) {
   let last = null;
 
   const read = () => {
-    const parts = clockParts(nowOf());
+    const parts = clockParts(nowOf(), holidaysOf());
     last = parts;
     return parts;
   };
