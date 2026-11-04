@@ -99,7 +99,7 @@ Không có backend, không có database, không có API key trong repo. Mọi th
 | `recommendations.json` | card đầy đủ cho mọi CW còn hiệu lực | ~1,1 MB |
 | `lifecycle.json` | trạng thái vòng đời, sự kiện niêm yết/đáo hạn, lịch 12+12 tháng | ~24 KB |
 | `underlyings.json` | tổng hợp 22 cổ phiếu cơ sở | ~6 KB |
-| `backtest.json` | summary, curve, trades, buckets, độ nhạy, caveats | ~100 KB |
+| `backtest.json` | summary, curve theo phiên, trades, buckets, regime, độ nhạy, caveats VI/EN | ~212 KB |
 | `quality.json` | 20 kiểm tra + headline | ~6 KB |
 | `methodology.json` | công thức, trọng số, cổng, giới hạn | ~9 KB |
 | `series/cw/<ticker>.json` | ~759 tệp, chỉ CW active hoặc giao dịch trong 365 ngày | ~11 MB |
@@ -201,9 +201,9 @@ Cách sửa, giữ được cả hai theme:
 | Nạp + chuẩn hoá 273k dòng OHLCV | ~8 s |
 | Panel 158k dòng, 148k quan sát IV | ~30 s |
 | Snapshot + scoring 348 CW | ~5 s |
-| Backtest walk-forward 43 kỳ, 215 lệnh | ~90 s |
+| Backtest walk-forward 43 kỳ, 215 lệnh, 854 phiên MTM | ~85 s |
 | Xuất 780 tệp JSON | ~25 s |
-| **Tổng** | **~250 s** |
+| **Tổng** | **~123 s** |
 
 RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 
@@ -214,7 +214,9 @@ RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 3. **Momentum percentile trên các underlying duy nhất**, tránh underlying có 30 CW làm méo phân bố.
 4. **Confidence-weighted score**: CW thiếu dữ liệu bị giảm trọng số thay vì bị điểm 0 oan.
 5. **Cổng chất lượng tách khỏi điểm**: điểm cao vẫn có thể bị hạ hạng; lý do được ghi vào `rec_reason`.
-6. **Backtest tách khỏi build demo**: báo cáo cả chiến lược thua lỗ, kèm độ nhạy và caveats.
+6. **Backtest mark-to-market theo phiên**: đường vốn/drawdown/lợi nhuận tháng tính lại
+   từng phiên cho từng vị thế (không compounding các kỳ chồng lấn); báo cáo **gross và net
+   riêng** để chi phí không bị trộn với chất lượng tín hiệu; công bố cả chiến lược thua lỗ.
 7. **Artifact tĩnh**: đơn giản, miễn phí, không cần server; đổi lại không có realtime và không có order routing.
 8. **Vòng đời là hạng nhất, không phải bộ lọc phụ.** CW đáo hạn liên tục, nên
    trạng thái (`listed/matured/pending/...`) được tính ở engine và xuất bản thành

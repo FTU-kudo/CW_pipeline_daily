@@ -430,6 +430,9 @@ export const STRINGS = {
 
   /* ---------- cuối: nhãn backtest / thanh khoản / công cụ ---------- */
   "⇩ Tải trades (CSV)": "⇩ Download trades (CSV)",
+  "Backtest walk-forward": "Walk-forward backtest",
+  "Nhật ký lệnh": "Trade log",
+  "Bộ lọc bổ sung": "Extra filter",
   "Lợi nhuận theo tháng — top-5 Score": "Monthly returns — top-5 by score",
   "Lợi nhuận 20 phiên tới theo nhóm điểm (toàn bộ CW)": "Next 20-session return by score bucket (all warrants)",
   "Cơ sở: top-5 theo CW Score": "Base: top-5 by CW Score",

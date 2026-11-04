@@ -584,3 +584,72 @@ html[data-theme="light"] .badge { font-weight: 700; }
   .app { grid-template-columns: 1fr; }
   body { background: #fff; color: #000; }
 }
+
+/* ================= BACKTEST (trang Lời khuyên › Backtest) ================= */
+.strong { font-weight: 650; }
+
+.bt-verdict {
+  border-left: 3px solid var(--down);
+  background: color-mix(in srgb, var(--down) 6%, var(--surface));
+}
+.bt-verdict-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.bt-verdict-tag {
+  flex: 0 0 auto;
+  font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.bt-verdict-tag.down { color: var(--down); border-color: color-mix(in srgb, var(--down) 40%, var(--border)); background: color-mix(in srgb, var(--down) 12%, transparent); }
+.bt-verdict-tag.up { color: var(--up); border-color: color-mix(in srgb, var(--up) 40%, var(--border)); background: color-mix(in srgb, var(--up) 12%, transparent); }
+.bt-verdict-text { font-size: 12.5px; line-height: 1.6; color: var(--text); }
+.bt-verdict-text.muted { color: var(--text-2); font-size: 11.5px; }
+
+/* thanh lợi nhuận theo nhóm điểm */
+.bt-bars { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+.bt-bar-row { display: grid; grid-template-columns: 58px 1fr 74px 62px; gap: 8px; align-items: center; }
+.bt-bar-name { font-size: 11px; color: var(--text-2); }
+.bt-bar-track { position: relative; height: 12px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
+.bt-bar { display: block; height: 100%; border-radius: 6px; }
+.bt-bar.neg { background: color-mix(in srgb, var(--down) 70%, transparent); }
+.bt-bar.pos { background: color-mix(in srgb, var(--up) 70%, transparent); }
+.bt-bar-val { font-size: 11px; text-align: right; }
+.bt-bar-n { text-align: right; white-space: nowrap; }
+
+/* heatmap tháng × năm */
+.mh-cell {
+  display: inline-block; min-width: 52px; padding: 2px 5px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 10.5px; text-align: right; line-height: 1.5;
+}
+.mh-na { color: var(--text-3); opacity: .55; }
+.mh-pos-1 { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--text); }
+.mh-pos-2 { background: color-mix(in srgb, var(--up) 22%, transparent); color: var(--text); }
+.mh-pos-3 { background: color-mix(in srgb, var(--up) 34%, transparent); color: var(--text); }
+.mh-pos-4 { background: color-mix(in srgb, var(--up) 48%, transparent); color: var(--text); }
+.mh-neg-1 { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--text); }
+.mh-neg-2 { background: color-mix(in srgb, var(--down) 22%, transparent); color: var(--text); }
+.mh-neg-3 { background: color-mix(in srgb, var(--down) 34%, transparent); color: var(--text); }
+.mh-neg-4 { background: color-mix(in srgb, var(--down) 48%, transparent); color: var(--text); }
+html[data-theme="dark"] .mh-cell { color: var(--text); }
+
+/* khối giải thích "vì sao lỗ" */
+.bt-explain { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.bt-explain-item { border-left: 2px solid var(--border-2); padding-left: 10px; }
+.bt-explain-title { font-size: 11.5px; font-weight: 650; margin-bottom: 2px; color: var(--text); }
+.bt-explain-item .tiny { line-height: 1.55; }
+
+@media (max-width: 640px) {
+  .bt-bar-row { grid-template-columns: 50px 1fr 66px; }
+  .bt-bar-n { display: none; }
+  .bt-verdict-row { flex-direction: column; }
+}
+
+.bt-filter-rows { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.bt-filter-row {
+  display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 10px; align-items: center;
+  padding: 6px 9px; border-radius: 6px; background: color-mix(in srgb, var(--up) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--up) 22%, var(--border)); font-size: 11px;
+}
+.bt-filter-name { color: var(--text); }
+@media (max-width: 720px) {
+  .bt-filter-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .bt-filter-name { grid-column: 1 / -1; }
+}

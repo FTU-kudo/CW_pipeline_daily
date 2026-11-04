@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -111,6 +112,51 @@ def test_backtest_reports_losses_honestly():
     assert any(v["total_return_pct"] < 0 for v in b["summary"].values())
     for t in b["trades"][:20]:
         assert t["entry_date"] > t["signal_date"]
+
+
+def test_backtest_curve_is_daily_and_self_consistent():
+    """Đường vốn phải theo từng phiên (không phải vài chục điểm rời rạc) và bắt đầu ở 100."""
+    b = _load("backtest.json")
+    cfg = b["config"]
+    n_sessions = len(b["curve"])
+    assert n_sessions > cfg["n_signal_dates"] * 5, "curve phải là mark-to-market theo phiên"
+    first = b["curve"][0]
+    for k in ("eq_score", "eq_gross", "eq_ew", "eq_random", "eq_underlying"):
+        assert first[k] == pytest.approx(100.0, abs=0.01), f"{k} phải bắt đầu từ 100"
+    last = b["curve"][-1]
+    assert last["dd_score"] <= 0
+    assert last["eq_score"] == pytest.approx(b["summary"]["score_top"]["final_equity"], abs=0.05)
+
+
+def test_backtest_cost_always_hurts():
+    b = _load("backtest.json")
+    assert b["cost_drag_pct"] < 0
+    # trước phí phải tốt hơn sau phí
+    assert b["summary"]["score_top_gross"]["total_return_pct"] > b["summary"]["score_top"]["total_return_pct"]
+    costs = [r["total_return_pct"] for r in b["cost_sensitivity"]]
+    assert costs == sorted(costs, reverse=True), "lợi nhuận phải giảm đơn điệu khi chi phí tăng"
+    assert any(r["is_default"] for r in b["cost_sensitivity"])
+
+
+def test_backtest_stop_and_liquidity_blocks():
+    b = _load("backtest.json")
+    stops = b["stop_sensitivity"]
+    assert len(stops) == 2 and {s["with_stops"] for s in stops} == {True, False}
+    # bỏ stop không làm giảm drawdown
+    by = {s["with_stops"]: s for s in stops}
+    assert by[False]["max_drawdown_pct"] <= by[True]["max_drawdown_pct"]
+
+    liq = b["liquidity"]
+    assert len(liq["quintiles"]) == 5 and len(liq["gates"]) >= 3
+    assert all(q["n"] > 0 for q in liq["quintiles"])
+
+
+def test_backtest_caveats_are_bilingual():
+    b = _load("backtest.json")
+    assert len(b["caveats"]) == len(b["caveats_en"]) >= 5
+    vn = re.compile(r"[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]", re.I)
+    assert all(c.strip() for c in b["caveats_en"])
+    assert not any(vn.search(c) for c in b["caveats_en"]), "bản dịch caveat còn tiếng Việt"
 
 
 def test_series_files_match_manifest():
