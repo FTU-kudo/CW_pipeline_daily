@@ -193,21 +193,33 @@ def test_underlyings_payload():
 # VÒNG ĐỜI CW — chặn tái phát lỗi "đếm trùng mã đã đáo hạn"
 # ──────────────────────────────────────────────────────────────────
 def test_universe_identity_matches_states():
-    """Tổng vũ trụ = còn hiệu lực + chờ niêm yết + đã đáo hạn + ngừng GD (+ thiếu ngày)."""
+    """Mọi CW phải nằm trong snapshot, nhóm idle hoặc danh sách ngoài hiệu lực."""
     u = _load("meta.json")["universe"]
     parts = u["listed"] + u["pending"] + u["matured"] + u["delistedEarly"] + u["unknown"]
     assert parts == u["total"]
     assert u["traded"] + u["notTraded"] == u["listed"]
     assert u["expired"] == u["matured"] + u["delistedEarly"]
-    assert u["total"] == len(_load("screener.json")["active"]) + len(_load("screener.json")["expired"])
+
+    screener = _load("screener.json")
+    liquidity = _load("liquidity.json")
+    active = screener["active"]
+    expired = screener["expired"]
+    # CW listed nhưng im lặng quá cửa sổ snapshot vẫn thuộc vũ trụ, nằm ở liquidity.idle.
+    idle = liquidity["idle"]
+    assert len(idle) == liquidity["kpi"]["idleCount"]
+    assert u["listed"] == len(active) + len(idle)
+    assert u["total"] == len(active) + len(expired) + len(idle)
 
 
 def test_screener_sets_are_disjoint():
-    """Không một CW nào vừa "còn hiệu lực" vừa "đã đáo hạn" (lỗi cũ: 13 mã nằm cả hai)."""
+    """Snapshot, CW idle và CW ngoài hiệu lực phải là ba tập rồi nhau."""
     s = _load("screener.json")
     active = {r["t"] for r in s["active"]}
     expired = {r["t"] for r in s["expired"]}
+    idle = {r["t"] for r in _load("liquidity.json")["idle"]}
     assert not (active & expired)
+    assert not (active & idle)
+    assert not (expired & idle)
 
 
 def test_snapshot_has_no_matured_warrants():

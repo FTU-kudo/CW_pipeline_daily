@@ -149,15 +149,16 @@ là nguồn duy nhất cho việc này.
 
 | Trạng thái | Điều kiện | Xử lý |
 |---|---|---|
-| `listed` | `maturity > asof` và đã bắt đầu giao dịch | vào snapshot, được chấm điểm/khuyến nghị |
+| `listed` | `maturity > asof` và đã bắt đầu giao dịch | vào snapshot nếu có giá trong cửa sổ 14 ngày; nếu không, nằm ở `liquidity.idle` |
 | `matured` | `maturity <= asof` | sang `screener.expired`, không chấm điểm |
 | `delisted_early` | còn hạn nhưng im lặng > `LIFECYCLE_EARLY_STOP_DAYS` (45 ngày) | như trên, kèm cờ ngừng sớm |
 | `pending` | `first_trade > asof` | chưa vào snapshot |
 | `unknown` | thiếu `maturity` | loại khỏi snapshot, bị quality cảnh báo |
 
 **Bất biến được kiểm tra tự động**: `total = listed + matured + delisted_early +
-pending + unknown`; `screener.active ∩ screener.expired = ∅`; mọi CW trong
-`recommendations.json` đều thuộc `screener.active`; `DTE ≥ 0` trong snapshot.
+pending + unknown`; `listed = screener.active + liquidity.idle`; ba tập snapshot, idle và
+`screener.expired` rồi nhau; mọi CW trong `recommendations.json` đều thuộc
+`screener.active`; `DTE ≥ 0` trong snapshot.
 Vi phạm → check `universe_identity` / `snapshot_lifecycle` / `recs_listed_only`
 chuyển sang `error` và build bị coi là hỏng.
 
