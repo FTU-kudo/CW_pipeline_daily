@@ -51,14 +51,16 @@ jobs:
           pip install --upgrade pip
           pip install --no-cache-dir pandas numpy pyarrow openpyxl pytest pytz
 
-      - name: Run test suite
-        run: pytest -q
-
+      # Build trước: test độ mới phải đọc artifact vừa tạo từ cache mới nhất,
+      # không phải docs/data cũ trong checkout (lỗi asof 04/11 khi cache đã có 05/11).
       - name: Build artifacts
         env:
           PYTHONIOENCODING: "utf-8"
           PYTHONUTF8: "1"
         run: python -m cwintel.build
+
+      - name: Run test suite
+        run: pytest -q
 
       - name: Upload artifacts (backup)
         uses: actions/upload-artifact@v4

@@ -309,6 +309,8 @@ def market_payload(snap: pd.DataFrame, panel: pd.DataFrame, asof: pd.Timestamp,
         "up": int((ret1 > 0).sum()),
         "down": int((ret1 < 0).sum()),
         "flat": int((ret1 == 0).sum()),
+        # Phiên giao dịch đầu tiên chưa có giá kỳ trước; không gom thiếu dữ liệu vào flat.
+        "noReturnData": int(ret1.isna().sum()),
         "totalValue": _f(value.sum(), 0),
         "totalVolume": _f(volume.sum(), 0),
         "itm": int((money == "ITM").sum()),

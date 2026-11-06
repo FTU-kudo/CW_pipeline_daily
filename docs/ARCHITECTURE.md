@@ -307,5 +307,8 @@ RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 - Chuỗi publish: `cw_pipeline.yml` (ingest, cron 16:00 ICT T2–T6) → `workflow_run`
   "CW Pipeline Daily" (completed, chỉ khi `success`) → `cw_intelligence.yml` (build + publish,
   cron dự phòng 17:30 ICT). Nhờ vậy build không còn chạy độc lập trước khi ingest xong.
+- Trong `cw_intelligence.yml`, **Build artifacts luôn trước Run test suite**: freshness test phải
+  đọc artifact vừa tạo từ cache mới nhất, không phải `docs/data` cũ trong checkout. Test tĩnh
+  `test_workflow_build_artifact_truoc_khi_chay_test` khoá thứ tự này.
 - Bước "Báo cáo độ mới dữ liệu (phiên)" trong `cw_intelligence.yml` in `asof` / phiên đã đóng /
   số phiên lệch vào Summary và phát `::warning` khi lệch, để sự cố hiện ngay trên trang Actions.
