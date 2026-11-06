@@ -80,7 +80,8 @@ def test_market_kpi_consistency():
     m = _load("market.json")
     k = m["kpi"]
     assert k["itm"] + k["atm"] + k["otm"] <= k["total"]
-    assert abs(k["up"] + k["down"] + k["flat"] - k["active"]) <= 5
+    # Mọi CW active phải được phân loại: tăng/giảm/đi ngang hoặc chưa có giá kỳ trước.
+    assert k["up"] + k["down"] + k["flat"] + k["noReturnData"] == k["active"]
     assert 0 <= k["avgScore"] <= 100
     assert len(m["breadth"]) > 20
 
