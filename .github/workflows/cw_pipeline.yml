@@ -9,6 +9,8 @@ on:
 
 jobs:
   run-pipeline:
+    # Do not invoke the new client until the user selects and configures a source.
+    if: ${{ vars.VNSTOCK_SOURCE != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
 
@@ -41,10 +43,10 @@ jobs:
             pytz \
             playwright
           
-          # Cài vnstock từ source (PyPI đã ngừng hỗ trợ)
-          pip install -U \
-            --extra-index-url https://vnstocks.com/api/simple \
-            vnstock vnai
+          # Generation 6: keep exact pins so pip cannot resolve the older generation.
+          pip install --no-cache-dir \
+            --extra-index-url https://vnstocks.com/api/packages \
+            "vnstock==6.0.0" "vnstock-oapi==0.1.0"
             
       - name: Install Playwright browser
         run: |
@@ -53,9 +55,13 @@ jobs:
 
       # ── BƯỚC QUAN TRỌNG: Commit cache NGAY KHI pipeline xong ──────
       # Tách riêng 2 bước commit để cache được lưu kể cả khi pipeline lỗi giữa chừng
+      # Configure the non-secret VNSTOCK_SOURCE variable and the selected provider's
+      # API-key secret before enabling this workflow. It intentionally fails closed
+      # while no source has been selected.
       - name: Run pipeline
         env:
-          VNSTOCK_API: ${{ secrets.VNSTOCK_API }}
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API }}
+          VNSTOCK_SOURCE: ${{ vars.VNSTOCK_SOURCE }}
           PYTHONIOENCODING: "utf-8"   # FIX: tránh UnicodeEncodeError trên Ubuntu
           PYTHONUTF8: "1"
         run: |
