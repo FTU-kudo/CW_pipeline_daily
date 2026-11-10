@@ -301,7 +301,7 @@ RAM đỉnh ~1,5 GB. Toàn bộ chạy trong GitHub Actions runner 7 GB.
 
 ## 6. Bảo mật & vận hành
 
-- Không có secret trong repo. `VNSTOCK_API` (nếu dùng) lấy từ GitHub Secrets.
+- Không có secret trong repo. Thế hệ 6 dùng biến nguồn `VNSTOCK_SOURCE`; khóa tài khoản Vnstock được truyền qua secret CI, còn khóa dữ liệu do nguồn cấp và cấu hình riêng.
 - Dashboard chỉ đọc tệp tĩnh cùng origin; không có CORS, không có endpoint ghi.
 - Dữ liệu cá nhân (watchlist/danh mục) không rời khỏi trình duyệt.
 - Log build in ra stdout, có `buildSeconds`, `warnings`, số bản ghi từng bước.

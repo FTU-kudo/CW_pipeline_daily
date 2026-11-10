@@ -193,10 +193,7 @@ try:
 except ImportError:
     cffi_requests = None
 
-try:
-    from vnstock import Vnstock
-except ImportError:
-    Vnstock = None
+# Generation 6 uses the selected Open API source from vnstock_config.py.
 
 import contextlib, io
 
@@ -218,36 +215,12 @@ def _hnx_throttle():
         _hnx_last_call["t"] = time.time()
 
 def fetch_vnstock_yields(start_date: str, end_date: str) -> pd.DataFrame:
-    """Lớp 1: thử dùng thư viện vnstock."""
-    if Vnstock is None:
-        return pd.DataFrame()
-    try:
-        api_key = os.getenv('VNSTOCK_API_KEY')
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+    """Legacy Vnstock bond-yield route has no confirmed generation-6 equivalent.
 
-        def _fetch():
-            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                vs = Vnstock(token=api_key) if api_key else Vnstock()
-                if hasattr(vs, 'bond'):
-                    bond_data = vs.bond(source='VCI')
-                    if hasattr(bond_data, 'bond_yield'):
-                        df = bond_data.bond_yield(start_date=start_date, end_date=end_date)
-                        if not df.empty and 'date' in df.columns:
-                            df['date'] = pd.to_datetime(df['date'])
-                            df = df.set_index('date').sort_index()
-                            standard_tenors = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '15Y']
-                            avail = [c for c in standard_tenors if c in df.columns]
-                            if avail:
-                                return df[avail].dropna()
-            return pd.DataFrame()
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch)
-            df_res = future.result(timeout=20)
-            if df_res is not None and not df_res.empty:
-                return df_res
-    except Exception:
-        pass
+    Return no data and let the existing public/HNX/Trading Economics fallback chain
+    run; do not invent or silently substitute a new feed.
+    """
+    print("   [!] Vnstock bond_yield has no confirmed generation-6 route; using existing fallbacks.")
     return pd.DataFrame()
 
 def fetch_public_api_yields(start_date: str, end_date: str) -> pd.DataFrame:
@@ -834,8 +807,13 @@ def _to_ymd(s):
     return s
 
 def _normalise_ohlcv(df, symbol):
+    if df is None or df.empty:
+        return pd.DataFrame()
     df = df.copy()
-    df.columns = [c.lower() for c in df.columns]
+    attrs = dict(getattr(df, "attrs", {}))
+    df.columns = [str(c).lower() for c in df.columns]
+    if not any(c in df.columns for c in ("time", "date", "trading_date", "datetime")) and isinstance(df.index, pd.DatetimeIndex):
+        df = df.rename_axis("time").reset_index()
     for alt in ["time","date","trading_date","datetime"]:
         if alt in df.columns:
             if alt != "time":
@@ -855,222 +833,72 @@ def _normalise_ohlcv(df, symbol):
         parsed = pd.to_datetime(col, errors="coerce")
         if parsed.isna().sum() > len(df) * 0.3:
             parsed = pd.to_datetime(col, dayfirst=True, errors="coerce")
+        if getattr(parsed.dt, "tz", None) is not None:
+            parsed = parsed.dt.tz_convert("Asia/Ho_Chi_Minh").dt.tz_localize(None)
         df["time"] = parsed.dt.strftime("%d/%m/%Y")
     df["Ticker"] = symbol
     keep = [c for c in ["time","open","high","low","close","volume","Ticker"] if c in df.columns]
-    return df[keep].dropna(subset=["time"])
+    result = df[keep].dropna(subset=["time"])
+    result.attrs.update(attrs)
+    return result
 
-def fetch_one(symbol, start_str, end_str, _vci_circuit: dict | None = None):
+def fetch_one(symbol, start_str, end_str, _source_circuit: dict | None = None):
+    """Fetch one daily OHLCV series through the centrally selected generation-6 source.
+
+    The old VCI→KBS fallback is intentionally removed: generation 6 requires the
+    user to select and authorize a source; silently selecting a second source is not safe.
     """
-    Fetch OHLCV cho 1 CW/underlying.
-
-    FIX 1: Trigger KBS fallback khi ReadTimeout (không chỉ 403)
-    FIX 2: Giới hạn read_timeout trong vnstock SDK call xuống 20s (thay vì 30s mặc định)
-    FIX 3: Circuit breaker — nếu VCI liên tiếp timeout >= CIRCUIT_OPEN_AFTER lần,
-           tự động skip VCI và dùng KBS cho các lần gọi tiếp trong cùng 1 run
-    """
-    VCI_CIRCUIT_OPEN_AFTER = 6   # FIX #2: VCI: mở circuit sau 6 timeout liên tiếp
-    KBS_CIRCUIT_OPEN_AFTER = 12  # FIX #2: KBS (fallback): ngưỡng cao hơn VCI (12 lần)
-    VCI_READ_TIMEOUT   = 35  # Tang tu 20s -> 35s: GitHub Actions cold-start cham hon local
-
-    start = _to_ymd(start_str)
-    end   = _to_ymd(end_str)
-
-    # Phát hiện symbol là chứng quyền (CW) hay cổ phiếu thường
-    # CW có dạng: C[3-4 chữ] + 2 chữ số (năm) + 2 chữ số (STT) vd: CACB2301, CHPG2605
-    # KBS không hỗ trợ CW — luôn raise ValueError → bỏ qua toàn bộ
-    import re as _re_sym
-    _is_cw_symbol = bool(_re_sym.match(r'^C[A-Z]{2,4}\d{4}$', symbol))
-
-
-    # _vci_circuit là dict mutable dùng chung toàn bộ run: {"fails": N, "open": bool}
-    if _vci_circuit is None:
-        _vci_circuit = fetch_one._circuit  # dùng state cấp module
-
-    def _try_vci():
-        from vnstock.api.quote import Quote
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-        q = Quote(symbol=symbol, source="VCI")
-        # Thử set timeout trực tiếp trên session nếu SDK expose nó
-        if hasattr(q, 'session') and hasattr(q.session, 'request'):
-            q.session.request = lambda method, url, **kw: (
-                kw.update({"timeout": (10, VCI_READ_TIMEOUT)}) or
-                type(q.session).request(q.session, method, url, **kw)
-            )
-        def _fetch():
-            return q.history(start=start, end=end, interval="1D")
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch)
-            try:
-                return future.result(timeout=VCI_READ_TIMEOUT + 5)
-            except FuturesTimeoutError:
-                raise TimeoutError("read timeout: VCI hard-cap reached")
-
-    def _try_kbs():
-        # ROOT CAUSE FIX: KBS không hỗ trợ symbol chứng quyền (CW) — luôn raise ValueError
-        # Test xác nhận: [CW/KBS] RetryError: raised ValueError, [STK/KBS] OK
-        # → Skip KBS hoàn toàn cho CW, chỉ dùng KBS cho cổ phiếu thường
-        if _is_cw_symbol:
-            raise ValueError(f"KBS không hỗ trợ CW symbol ({symbol}) — bỏ qua KBS")
-        if getattr(fetch_one, '_kbs_circuit', {}).get("open"):
-            raise TimeoutError("KBS circuit is open")
-        from vnstock.api.quote import Quote as Q2
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-        q2 = Q2(symbol=symbol, source="KBS")
-        def _fetch():
-            return q2.history(start=start, end=end, interval="1D")
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch)
-            try:
-                df = future.result(timeout=VCI_READ_TIMEOUT + 5)
-                if hasattr(fetch_one, '_kbs_circuit'): fetch_one._kbs_circuit["fails"] = 0
-                return df
-            except FuturesTimeoutError:
-                if hasattr(fetch_one, '_kbs_circuit'):
-                    fetch_one._kbs_circuit["fails"] += 1
-                    if fetch_one._kbs_circuit["fails"] >= KBS_CIRCUIT_OPEN_AFTER:  # FIX #2
-                        fetch_one._kbs_circuit["open"] = True
-                        print("      [CIRCUIT OPEN] KBS unstable → skip everything")
-                raise TimeoutError("read timeout: KBS hard-cap reached")
-            except Exception as e:
-                msg = str(e).lower()
-                # ROOT CAUSE FIX: Chỉ đếm lỗi mạng vào circuit, KHÔNG đếm ValueError (lỗi dữ liệu)
-                # Lý do: ValueError từ KBS có nghĩa là symbol không hợp lệ, không phải mạng bị ngắt
-                is_network_err = any(k in msg for k in ["retryerror", "timeout", "connection", "urlerror"])
-                if is_network_err and "valueerror" not in msg:
-                    if hasattr(fetch_one, '_kbs_circuit'):
-                        fetch_one._kbs_circuit["fails"] += 1
-                        if fetch_one._kbs_circuit["fails"] >= KBS_CIRCUIT_OPEN_AFTER:  # FIX #2
-                            fetch_one._kbs_circuit["open"] = True
-                            print("      [CIRCUIT OPEN] KBS unstable → skip everything")
-                raise e
-
-
-    def _normalise(df):
-        if df is None or df.empty:
-            return pd.DataFrame()
-        return _normalise_ohlcv(df, symbol)
-
-    # FIX EXPIRED-CW: Khi VCI circuit đang open:
-    # - Cổ phiếu (underlying): thử KBS (hỗ trợ bình thường)
-    # - CW: KBS không hỗ trợ CW → thử VCI trực tiếp 1 lần
-    #   Lý do: circuit có thể mở do CW hết hạn (timeout fetch 3 năm)
-    #   không phải do VCI thực sự down — active CW vẫn fetch được
-    if _vci_circuit.get("open"):
-        if not _is_cw_symbol and not getattr(fetch_one, '_kbs_circuit', {}).get("open"):
-            # Cổ phiếu: thử KBS
-            try:
-                df = _try_kbs()
-                result = _normalise(df)
-                if not result.empty:
-                    return result
-            except Exception:
-                pass
-        elif _is_cw_symbol:
-            # CW: KBS không giúp được → thử VCI 1 lần dự phòng
-            # (circuit có thể đã mở do CW hết hạn, không phải VCI down hoàn toàn)
-            try:
-                df = _try_vci()
-                # VCI thành công → soft-reset circuit
-                _vci_circuit["fails"] = max(0, _vci_circuit["fails"] - 3)
-                if _vci_circuit["fails"] < VCI_CIRCUIT_OPEN_AFTER:
-                    _vci_circuit["open"] = False
-                result = _normalise(df)
-                if not result.empty:
-                    return result
-                return pd.DataFrame()  # VCI trả empty → bình thường (không phải lỗi)
-            except TimeoutError:
-                pass  # VCI thực sự timeout → bỏ qua
-            except Exception:
-                return pd.DataFrame()  # Lỗi khác → coi như empty
+    start, end = _to_ymd(start_str), _to_ymd(end_str)
+    circuit = _source_circuit if _source_circuit is not None else fetch_one._circuit
+    if circuit.get("open"):
+        print(f"      [CIRCUIT OPEN] selected source unavailable; skip {symbol}")
         return None
+
+    from vnstock_config import configure_vnstock
+    vnstock = configure_vnstock()
+    from vnstock import Market
+    from vnstock.errors import VnstockError
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            df = _try_vci()
-            # Thành công → reset fail streak
-            _vci_circuit["fails"] = 0
+            df = Market().equity(symbol).ohlcv(start=start, end=end, interval="1D")
+            circuit["fails"] = 0
             if df is None or df.empty:
-                try:
-                    df_kbs = _try_kbs()
-                    if df_kbs is not None and not df_kbs.empty:
-                        return _normalise(df_kbs)
-                except Exception:
-                    pass
                 return pd.DataFrame()
-            return _normalise(df)
-
-        except Exception as e:
-            msg = str(e)
-            is_timeout = any(k in msg.lower() for k in
-                             ["timed out", "timeout", "read timeout", "connect timeout",
-                              "connectionerror", "remotedisconnected", "retryerror"])
-            is_rl  = any(k in msg.lower() for k in
-                         ["rate limit","429","too many","quota","throttle",
-                          "gian han api","gioi han","rate_limit","exceeded"])
-            is_403 = "403" in msg or "forbidden" in msg.lower()
-
-            if is_rl:
-                # Tìm thời gian chờ chính xác từ thông báo rate limit
-                import re as _re
-                _m = _re.search(r'(\d+)\s*gi.y', msg)
-                wait = int(_m.group(1)) + 2 if _m else 62
-                print(f"      [RL] {symbol} #{attempt} → chờ {wait}s (rate limit)...")
-                time.sleep(wait)
-                continue
-
-            # FIX 1: ReadTimeout → tăng fail streak, thử KBS ngay thay vì retry VCI
-            if is_timeout:
-                _vci_circuit["fails"] = _vci_circuit.get("fails", 0) + 1
-                print(f"      TIMEOUT {symbol} #{attempt} | VCI streak={_vci_circuit['fails']}")
-
-                # FIX #2: Mở VCI circuit nếu đủ ngưỡng (VCI_CIRCUIT_OPEN_AFTER)
-                if _vci_circuit["fails"] >= VCI_CIRCUIT_OPEN_AFTER:
-                    _vci_circuit["open"] = True
-                    print(f"      [CIRCUIT OPEN] VCI unstable ({_vci_circuit['fails']} timeouts) "
-                          f"→ chuyển sang KBS cho toàn bộ run")
-
-                # FIX 1: Thử KBS ngay thay vì retry VCI tiếp
-                try:
-                    df2 = _try_kbs()
-                    result = _normalise(df2)
-                    if not result.empty:
-                        print(f"      KBS fallback OK {symbol}")
-                        return result
-                except Exception as e2:
-                    print(f"      KBS fallback FAIL {symbol}: {str(e2)[:50]}")
-
-                # DEBUG FIX: CW không được hỗ trợ bởi KBS, nếu VCI timeout thì khả năng cao là mã CW chưa có dữ liệu.
-                # Bỏ qua retry để tiết kiệm 70s+ cho mỗi mã CW không tồn tại.
-                if _is_cw_symbol:
-                    print(f"      [SKIP RETRY] {symbol} là CW, VCI timeout (có thể chưa có dữ liệu) → bỏ qua nhanh.")
-                    return pd.DataFrame()
-
-                # KBS cũng fail → nếu còn attempt thì retry VCI, ngược lại bỏ
-                if attempt < MAX_RETRIES:
-                    time.sleep(RETRY_DELAY)
-                continue
-
-            # 403 hoặc lỗi khác → thử KBS ở attempt đầu
-            if is_403 and attempt == 1:
-                try:
-                    df2 = _try_kbs()
-                    result = _normalise(df2)
-                    if not result.empty:
-                        return result
-                except Exception:
-                    pass
-
-            tag = "403" if is_403 else "ERR"
-            print(f"      {tag} {symbol} #{attempt} wait {RETRY_DELAY:.0f}s | {msg[:60]}")
+            return _normalise_ohlcv(df, symbol)
+        except VnstockError as exc:
+            code = getattr(exc, "code", None)
+            action = getattr(exc, "action", None)
+            # These errors require user/configuration changes; retries cannot fix them.
+            if code in {"VNSTOCK_INPUT_SOURCE", "VNSTOCK_ROUTE_UNSUPPORTED", "VNSTOCK_INPUT_PARAM"}:
+                raise
+            circuit["fails"] = circuit.get("fails", 0) + 1
+            print(f"      Vnstock {code or type(exc).__name__} {symbol} #{attempt}: {str(exc)[:160]}")
+            if action:
+                print(f"      Action: {action}")
+            if circuit["fails"] >= SOURCE_CIRCUIT_OPEN_AFTER:
+                circuit["open"] = True
+                print("      [CIRCUIT OPEN] selected source has repeated failures")
+                return None
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
-
+        except RuntimeError:
+            # In particular, do not turn an unset source into an empty successful result.
+            raise
+        except Exception as exc:
+            circuit["fails"] = circuit.get("fails", 0) + 1
+            print(f"      ERROR {symbol} #{attempt}: {type(exc).__name__}: {str(exc)[:120]}")
+            if circuit["fails"] >= SOURCE_CIRCUIT_OPEN_AFTER:
+                circuit["open"] = True
+                print("      [CIRCUIT OPEN] selected source has repeated failures")
+                return None
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_DELAY)
     return None
 
-# Circuit breaker state — dict mutable dùng chung cho cả run (reset khi module load lại)
+# Circuit breaker state for the user's one configured generation-6 source.
+SOURCE_CIRCUIT_OPEN_AFTER = 6
 fetch_one._circuit = {"fails": 0, "open": False}
-fetch_one._kbs_circuit = {"fails": 0, "open": False}
 
 def _is_trading_day_closed() -> bool:
     now_ict = datetime.now(timezone.utc) + timedelta(hours=7)
@@ -1084,15 +912,8 @@ def step2_ohlcv(df_vs):
     print("\n"+"="*60)
     print("BUOC 2 - OHLCV (incremental)")
     print("="*60)
-    api_key = os.environ.get("VNSTOCK_API","")
-    if api_key:
-        try:
-            import vnai; vnai.setup_api_key(api_key)
-            print("   OK Vnstock API key registered.")
-        except Exception as e:
-            print(f"   WARN: setup_api_key failed: {e}")
-    else:
-        print("   WARN: no VNSTOCK_API env var.")
+    # The old Vnstock account-key registration (vnai) is not used in generation 6.
+    # The selected source is configured centrally when the first data call is made.
     tickers = df_vs["ma_cw"].dropna().unique().tolist()
     df_cache = load_cache(OHLCV_CACHE)
     now_ict = datetime.now(timezone.utc) + timedelta(hours=7)
@@ -1213,7 +1034,6 @@ def step2_ohlcv(df_vs):
     new_rows = []; failed = []; n_ok = 0; n_empty = 0
     t_fetch_start = time.time()
     fetch_one._circuit = {"fails": 0, "open": False}  # reset circuit cho run mới
-    fetch_one._kbs_circuit = {"fails": 0, "open": False}  # FIX #3: reset KBS circuit cùng lúc
     _consecutive_ok = 0  # FIX #3: đếm số CW OK liên tiếp để soft-reset circuit
     for i, (sym, start_str, lbl) in enumerate(to_fetch, 1):
         df_r = fetch_one(sym, start_str, end_str, fetch_one._circuit)
@@ -1237,8 +1057,6 @@ def step2_ohlcv(df_vs):
             if _consecutive_ok >= 10 and fetch_one._circuit.get("open"):
                 fetch_one._circuit["fails"] = 0
                 fetch_one._circuit["open"] = False
-                fetch_one._kbs_circuit["fails"] = 0
-                fetch_one._kbs_circuit["open"] = False
                 _consecutive_ok = 0
                 print(f"  [{i:>4}/{len(to_fetch)}] [CIRCUIT RESET] Phục hồi sau 10 OK liên tiếp")
             if n_ok % 50 == 1 or "new" in lbl or "NaT" in lbl:
@@ -1389,41 +1207,33 @@ def _parse_exercise(raw):
 
 def _fetch_underlying_prices(underlyings: list) -> dict:
     prices = {}
-    today_str = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")  # BUG FIX C
-    week_ago = ((datetime.now(timezone.utc) + timedelta(hours=7)).date() - timedelta(days=10)).strftime("%Y-%m-%d")  # BUG FIX C
+    today_str = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")
+    week_ago = ((datetime.now(timezone.utc) + timedelta(hours=7)).date() - timedelta(days=10)).strftime("%Y-%m-%d")
+    from vnstock_config import configure_vnstock, VNSTOCK_SOURCE
+    configure_vnstock()
+    from vnstock import Market
+    from vnstock.errors import VnstockError
     for sym in underlyings:
-        for source in ["VCI", "KBS"]:
-            try:
-                from vnstock.api.quote import Quote
-                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-                def _fetch():
-                    return Quote(symbol=sym, source=source).history(
-                        start=week_ago, end=today_str, interval="1D"
-                    )
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(_fetch)
-                    try:
-                        df = future.result(timeout=25)
-                    except FuturesTimeoutError:
-                        raise TimeoutError(f"read timeout: {source} hard-cap reached")
-                if df is None or df.empty:
-                    continue
-                df.columns = [c.lower() for c in df.columns]
-                close_col = next((c for c in ["close","close_price"] if c in df.columns), None)
-                if close_col is None:
-                    continue
-                last_close = float(df[close_col].iloc[-1])
-                if last_close < 1000:
-                    last_close *= 1000
-                prices[sym] = round(last_close)
-                print(f"   underlying {sym}: {last_close:,.0f} VND (source={source})")
-                break
-            except Exception as e:
-                print(f"   WARN underlying {sym} source={source}: {str(e)[:60]}")
-                time.sleep(0.5)
-                continue
-        if sym not in prices:
-            print(f"   WARN: khong lay duoc gia {sym}, dung fallback 0")
+        try:
+            df = Market().equity(sym).ohlcv(start=week_ago, end=today_str, interval="1D")
+            if df is None or df.empty:
+                raise ValueError("empty OHLCV result")
+            df.columns = [str(c).lower() for c in df.columns]
+            close_col = next((c for c in ("close", "close_price") if c in df.columns), None)
+            if close_col is None:
+                raise KeyError("close column missing from OHLCV result")
+            last_close = float(df[close_col].iloc[-1])
+            if last_close < 1000:
+                last_close *= 1000
+            prices[sym] = round(last_close)
+            print(f"   underlying {sym}: {last_close:,.0f} VND (source={VNSTOCK_SOURCE})")
+        except VnstockError as exc:
+            if getattr(exc, "code", None) in {"VNSTOCK_INPUT_SOURCE", "VNSTOCK_ROUTE_UNSUPPORTED", "VNSTOCK_INPUT_PARAM"}:
+                raise
+            print(f"   WARN underlying {sym} {getattr(exc, 'code', type(exc).__name__)}: {str(exc)[:100]}")
+            prices[sym] = 0
+        except Exception as exc:
+            print(f"   WARN underlying {sym}: {type(exc).__name__}: {str(exc)[:100]}")
             prices[sym] = 0
     return prices
 

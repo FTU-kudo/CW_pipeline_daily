@@ -9,7 +9,6 @@ beautifulsoup4
 requests
 curl_cffi
 git+https://github.com/KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589
---extra-index-url https://vnstocks.com/api/simple
-vnstock
-vnai
-vnstock
+--extra-index-url https://vnstocks.com/api/packages
+vnstock==6.0.0
+vnstock-oapi==0.1.0

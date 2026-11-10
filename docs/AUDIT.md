@@ -205,3 +205,8 @@ nhưng không được dùng; workflow cài dependency bằng tay thay vì `requ
 * Dashboard mới đọc artifact mới (`docs/data/*.json`); dashboard cũ được giữ tại `docs/legacy.html`.
 * Mọi thứ chưa đủ dữ liệu hiển thị "Chưa đủ dữ liệu" — không nội suy, không hardcode giá.
 * Số liệu mô phỏng (scenario, portfolio, backtest) được ghi nhãn rõ và tách khỏi số liệu thị trường thật.
+
+
+## Ghi chú chuyển đổi Vnstock thế hệ 6
+
+Mã nạp OHLCV đang được chuyển sang `Market().equity(...).ohlcv(...)` với cấu hình nguồn tập trung tại `vnstock_config.py`. Nguồn Open API chưa được chọn; không chạy ingest hay xuất bản mới cho tới khi có quyền nguồn và được kiểm tra điều khoản công bố. Vnstock thế hệ 6 hiện chưa có tuyến `bond_yield` tương đương được xác nhận; mã dùng các lớp dự phòng HNX/Trading Economics vốn đã tồn tại. Đây là ghi chú kế hoạch, chưa phải kết quả đối chiếu dữ liệu thế hệ 6.

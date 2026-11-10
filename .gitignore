@@ -30,3 +30,6 @@ Thumbs.db
 
 # Lưu ý: docs/data/ và output/cache/ ĐƯỢC commit có chủ đích —
 # dashboard tĩnh và build tái lập cần chúng.
+
+# Vnstock migration work folder contains source data and must not be committed
+vnstock-migration/

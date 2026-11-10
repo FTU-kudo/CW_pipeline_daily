@@ -79,7 +79,8 @@ for sym in sorted(stuck_14):
 print(f'Tong can fetch: {len(need_update)} tickers')
 
 
-from vnstock.api.quote import Quote
+from vnstock_config import configure_vnstock, VNSTOCK_SOURCE
+from vnstock import Market
 import re
 
 DELAY = 1.2   # 1.2s/request = 50 req/min, an toàn dưới ngưỡng 60 req/min của Community
@@ -89,26 +90,30 @@ failed = []
 n_ok = 0
 
 def fetch_with_retry(sym, start_str, end_str, max_retries=3):
-    """Fetch OHLCV với xử lý rate limit tự động."""
+    """Fetch via the single centrally configured generation-6 source."""
+    configure_vnstock()
     for attempt in range(1, max_retries + 1):
-        for source in ['VCI', 'KBS']:
-            try:
-                q = Quote(symbol=sym, source=source)
-                df_r = q.history(start=start_str, end=end_str, interval='1D')
-                if df_r is not None and not df_r.empty:
-                    return df_r
-            except Exception as e:
-                msg = str(e).lower()
-                # Phát hiện rate limit
-                if any(k in msg for k in ['rate limit', '429', 'gioi han', 'exceeded', 'wait']):
-                    # Tìm thời gian chờ trong thông báo lỗi
-                    wait_match = re.search(r'ch[oờ]\s+(\d+)\s+gi[âa]y', str(e), re.IGNORECASE)
-                    wait_sec = int(wait_match.group(1)) + 2 if wait_match else 62
-                    print(f'    [RL] {sym} → chờ {wait_sec}s...')
-                    time.sleep(wait_sec)
-                    break  # thử lại với cùng source
-                # Lỗi khác → thử source tiếp theo
-                break
+        try:
+            df = Market().equity(sym).ohlcv(
+                start=start_str, end=end_str, interval="1D"
+            )
+            if df is not None and not df.empty:
+                return df
+            return pd.DataFrame()
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code in {"VNSTOCK_INPUT_SOURCE", "VNSTOCK_ROUTE_UNSUPPORTED", "VNSTOCK_INPUT_PARAM"}:
+                raise
+            message = str(exc).lower()
+            if any(k in message for k in ("rate limit", "429", "quota", "too many")):
+                wait_match = re.search(r"(\d+)\s*(?:seconds|secs|giây)", str(exc), re.IGNORECASE)
+                wait_sec = int(wait_match.group(1)) + 2 if wait_match else 62
+                print(f"    [RL] {sym} → chờ {wait_sec}s...")
+                time.sleep(wait_sec)
+            elif attempt < max_retries:
+                time.sleep(DELAY)
+            else:
+                print(f"    [ERROR] {sym}: {type(exc).__name__}: {str(exc)[:120]}")
     return None
 
 for i, (sym, start_str) in enumerate(need_update, 1):

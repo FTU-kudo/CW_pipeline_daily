@@ -31,7 +31,7 @@ Nền tảng phân tích **covered warrant (chứng quyền)** cho thị trườ
 Nguồn                    Ingestion              Chuẩn hoá & kiểm tra        Quant                 Phát hành
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 Vietstock (điều khoản) ─┐
-vnstock VCI/KBS (OHLCV)─┤→ output/cache/*.parquet → cwintel/data.py      → cwintel/panels.py  → docs/data/*.json
+vnstock thế hệ 6 (nguồn Open API do người dùng cấu hình)─┤→ output/cache/*.parquet → cwintel/data.py      → cwintel/panels.py  → docs/data/*.json
 HNX/VBMA (lãi suất)     ┘        (dedupe ngày)      cwintel/dates.py         cwintel/bs.py        13 MB tĩnh
                                                     cwintel/quality.py       cwintel/scoring.py   (GitHub Pages)
                                                                              cwintel/recommend.py
@@ -173,6 +173,6 @@ Xem [`docs/DEPLOY.md`](docs/DEPLOY.md). Tóm tắt:
 
 ## 9. Ghi công & giấy phép
 
-Dữ liệu: Vietstock (điều khoản CW), vnstock/VCI/KBS (OHLCV), HNX/VBMA (đường cong lợi suất). Mã nguồn theo giấy phép trong [`LICENSE`](LICENSE).
+Dữ liệu: Vietstock (điều khoản CW), vnstock thế hệ 6 / nguồn Open API do người dùng chọn (OHLCV), HNX/VBMA (đường cong lợi suất). Mã nguồn theo giấy phép trong [`LICENSE`](LICENSE).
 
 **Miễn trừ:** chứng quyền có thể mất toàn bộ giá trị khi đáo hạn OTM. Hiệu suất quá khứ không đảm bảo tương lai. Nhà đầu tư tự chịu trách nhiệm với quyết định của mình.

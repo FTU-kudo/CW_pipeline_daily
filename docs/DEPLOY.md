@@ -10,11 +10,21 @@ Thư viện (`requirements.txt`): pandas, numpy, pyarrow, openpyxl, requests, be
 
 ## 2. Cài đặt cục bộ
 
-```bash
+```powershell
 git clone https://github.com/FTU-kudo/CW_pipeline_daily.git
 cd CW_pipeline_daily
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+# Windows PowerShell: inspect an existing Vnstock 6 environment before using it
+if (Test-Path "$HOME\.venv_6x\Scripts\python.exe") {
+    & "$HOME\.venv_6x\Scripts\python.exe" -m pip show vnstock vnstock-oapi
+} else {
+    py -m venv "$HOME\.venv_6x"
+}
+```
+
+Nếu môi trường đã tồn tại, kiểm tra kết quả trước khi cài; dừng nếu đang chứa thế hệ khác. Chỉ khi môi trường mới hoặc đã là thế hệ 6 mới chạy:
+
+```powershell
+& "$HOME\.venv_6x\Scripts\python.exe" -m pip install -r requirements.txt
 ```
 
 ## 3. Cập nhật dữ liệu
@@ -31,13 +41,16 @@ python -m cwintel.build --out /tmp/cwdata    # đích khác
 ### 3.2 Cập nhật dữ liệu gốc từ nguồn
 
 ```bash
-export VNSTOCK_API="..."     # chỉ khi dùng vnstock bản cần key
-python pipeline.py           # scrape Vietstock + tải OHLCV → output/cache + Excel + docs/data.json
+# Chọn nguồn sau khi có tài khoản/khóa ở nguồn đó; không dùng tên VCI/KBS cũ.
+$env:VNSTOCK_SOURCE = "<nguồn-bạn-chọn>"
+& "$HOME\.venv_6x\Scripts\python.exe" pipeline.py
 ```
 
 Pipeline gốc mất 1–2 giờ (playwright). Sau đó chạy `python -m cwintel.build` để cập nhật dashboard mới.
 
-> **Không commit API key.** Dùng `.env` cục bộ hoặc GitHub Secrets.
+> **Không commit khóa.** Khóa tài khoản Vnstock và khóa nguồn là hai loại riêng.
+> Lưu khóa nguồn bằng `vnstock keys set <nguồn>` trong Terminal của bạn; không đưa vào mã hay Git.
+> Cấu hình nguồn duy nhất nằm ở `vnstock_config.py` / `VNSTOCK_SOURCE`.
 
 ## 4. Chạy dashboard cục bộ
 
@@ -68,7 +81,7 @@ on:
     - cron: "0 9 * * 1-5"     # 16:00 ICT, T2–T6
 ```
 
-Cần secret `VNSTOCK_API` nếu dùng vnstock bản trả phí.
+Generation 6 cần biến Actions `VNSTOCK_SOURCE` sau khi bạn chọn nguồn và khóa tài khoản Vnstock trong secret `VNSTOCK_API` (được ánh xạ sang `VNSTOCK_API_KEY`). Cấu hình khóa API của chính nguồn phải theo hướng dẫn nguồn đã chọn; chưa chọn nguồn thì không chạy workflow.
 
 ### 6.2 Workflow CW Intelligence — `cw_intelligence.yml`
 
