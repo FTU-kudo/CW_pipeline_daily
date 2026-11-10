@@ -267,7 +267,7 @@ export default function overview(view) {
       el('div', { text: 'Premium hoà vốn = (K + giá CW × tỷ lệ)/S − 1. '
         + 'Điểm CW là thang tương đối trong vũ trụ hiện tại.' }),
     ]),
-    el('div', { class: 'tiny muted', html: `Nguồn: Vietstock (điều khoản) · vnstock VCI/KBS (OHLCV) · HNX/VBMA (lãi suất phi rủi ro 10Y = ${fmt.pct((meta.riskFree?.value || 0) * 100, 2, false)}).` }),
+    el('div', { class: 'tiny muted', text: 'Nguồn do người dùng cấu hình; provenance và điều khoản gốc cần được kiểm tra trước khi chia sẻ kết quả.' }),
   ]);
   view.appendChild(notes);
 }

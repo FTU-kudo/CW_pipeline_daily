@@ -142,10 +142,10 @@ async function boot() {
   } catch (err) {
     console.error(err);
     setBoot(1, '');
-    $('#boot-msg').innerHTML = `<div style="color:var(--down);font-weight:600">Không tải được dữ liệu</div>`
+    $('#boot-msg').innerHTML = `<div style="color:var(--down);font-weight:600">Dữ liệu công khai đang tắt</div>`
       + `<div style="margin-top:6px">${escapeHtml(err.message)}</div>`
-      + '<div style="margin-top:10px;color:var(--text-3)">Kiểm tra rằng thư mục <code>docs/data/</code> tồn tại và đã chạy pipeline '
-      + '(<code>python -m cwintel.build</code>). Nếu mở tệp trực tiếp bằng file://, hãy chạy một web server tĩnh.</div>';
+      + '<div style="margin-top:10px;color:var(--text-3)">Dự án không phát hành dữ liệu thị trường khi chưa có chấp thuận bằng văn bản cho việc hiển thị và phân phối lại. '
+      + 'Để dùng riêng, tạo dữ liệu cục bộ rồi chạy <code>python scripts/serve_private_dashboard.py</code>.</div>';
     return;
   }
 

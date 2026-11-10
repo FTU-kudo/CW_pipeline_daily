@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from . import METHODOLOGY_VERSION, __version__, config, lifecycle, liquidity as liq, sessions
+from .rights import PublicationNotAuthorized, assert_public_output_allowed
 from .backtest import History, build_signals, rebalance_dates, run_backtest
 from .data import MarketData, load_market_data
 from .panels import build_cw_panel, build_underlying_features, slice_asof
@@ -490,6 +491,8 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
               asof: pd.Timestamp | None = None, verbose: bool = True) -> dict:
     t0 = time.time()
     out_dir = Path(out_dir) if out_dir else config.DATA_DIR
+    # Fail before loading or writing anything when the destination is GitHub Pages.
+    assert_public_output_allowed(out_dir)
     market = load_market_data(asof)
     asof = market.asof
 
@@ -743,9 +746,8 @@ def build_all(out_dir: Path | None = None, run_bt: bool = True,
             "date": market.risk_free_date.strftime("%Y-%m-%d") if market.risk_free_date else None,
         },
         "dataSources": [
-            "Vietstock — điều khoản CW (strike, tỷ lệ chuyển đổi, ngày đáo hạn)",
-            "vnstock (VCI/KBS) — OHLCV chứng quyền và cổ phiếu cơ sở",
-            "HNX / VBMA — đường cong lợi suất TPCP (lãi suất phi rủi ro)",
+            "Nguồn do người dùng cấu hình; xem provenance/terms của dữ liệu đầu vào",
+            "Kiểm tra điều khoản hiện hành trước khi sử dụng hoặc chia sẻ kết quả",
         ],
         "files": {k: v for k, v in sorted(sizes.items()) if not k.startswith("series/")},
         "seriesTickers": meta_series,
@@ -779,13 +781,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--asof", help="phiên dữ liệu (YYYY-MM-DD), mặc định phiên mới nhất")
     parser.add_argument("--no-backtest", action="store_true", help="bỏ backtest (nhanh hơn)")
-    parser.add_argument("--out", help="thư mục đích (mặc định docs/data)")
+    parser.add_argument("--out", help="thư mục đích riêng tư (mặc định output/private-data/dashboard; docs/ bị khóa nếu thiếu giấy phép)")
     parser.add_argument("-q", "--quiet", action="store_true", help="giảm log")
     args = parser.parse_args(argv)
 
     asof = pd.Timestamp(args.asof) if args.asof else None
-    result = build_all(out_dir=args.out, run_bt=not args.no_backtest, asof=asof,
-                       verbose=not args.quiet)
+    try:
+        result = build_all(out_dir=args.out, run_bt=not args.no_backtest, asof=asof,
+                           verbose=not args.quiet)
+    except PublicationNotAuthorized as exc:
+        parser.error(str(exc))
     meta = result["meta"]
     u = meta["universe"]
     print(f"OK {meta['asof']} · {u['traded']} giao dịch / {u['listed']} còn hiệu lực · "

@@ -1,108 +1,34 @@
-name: CW Pipeline Daily
+name: CW Pipeline — offline tests only
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
-  schedule:
-    # Chạy lúc 09:00 UTC = 16:00 ICT, Thứ 2 - Thứ 6.
-    # Ingest xong sẽ kích hoạt workflow_run cho "CW Intelligence — build & publish".
-    - cron: "0 9 * * 1-5"
+
+permissions:
+  contents: read
 
 jobs:
-  run-pipeline:
+  tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout repo (với toàn bộ lịch sử cache)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1   # chỉ cần HEAD là đủ, cache đã nằm trong repo
-
-      - name: Validate source configuration
-        env:
-          VNSTOCK_SOURCE: ${{ vars.VNSTOCK_SOURCE }}
-        shell: bash
-        run: |
-          if [[ -z "${VNSTOCK_SOURCE//[[:space:]]/}" ]]; then
-            echo "::error title=Missing source configuration::Set the repository variable VNSTOCK_SOURCE to a source you have authorized, and configure its provider API key, before ingesting data."
-            exit 1
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+          cache: pip
+          cache-dependency-path: requirements-core.txt
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install --no-cache-dir \
-            requests \
-            pandas \
-            beautifulsoup4 \
-            openpyxl \
-            pyarrow \
-            pytz \
-            playwright
-          
-          # Generation 6: keep exact pins so pip cannot resolve the older generation.
-          pip install --no-cache-dir \
-            --extra-index-url https://vnstocks.com/api/packages \
-            "vnstock==6.0.0" "vnstock-oapi==0.1.0"
-            
-      - name: Install Playwright browser
-        run: |
-            pip install playwright
-            playwright install --with-deps chromium
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-core.txt
 
-      # ── BƯỚC QUAN TRỌNG: Commit cache NGAY KHI pipeline xong ──────
-      # Tách riêng 2 bước commit để cache được lưu kể cả khi pipeline lỗi giữa chừng
-      # Configure the selected provider's API-key secret before ingesting data.
-      - name: Run pipeline
-        env:
-          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API }}
-          VNSTOCK_SOURCE: ${{ vars.VNSTOCK_SOURCE }}
-          PYTHONIOENCODING: "utf-8"   # FIX: tránh UnicodeEncodeError trên Ubuntu
-          PYTHONUTF8: "1"
-        run: |
-          mkdir -p output/cache docs
-          python pipeline.py
+      - name: Run offline test suite
+        run: pytest -q
 
-      # ── Bước 1: Commit cache parquet (luôn chạy, kể cả khi pipeline lỗi) ──
-      - name: Commit OHLCV + Vietstock cache (always)
-        if: always()   # CRITICAL: chạy ngay cả khi bước Run pipeline thất bại
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add output/cache/
-          git diff --cached --quiet \
-            && echo "Cache khong thay doi." \
-            || (git commit -m "cache: OHLCV update $(date +'%Y-%m-%d %H:%M UTC')" \
-                && git pull --rebase --autostash \
-                && git push)
-
-      # ── Bước 2: Commit data.json + Excel (chỉ khi pipeline thành công) ──
-      - name: Commit data.json + Excel
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json output/cw_master.xlsx
-          git diff --cached --quiet \
-            && echo "Khong co thay doi moi." \
-            || (git commit -m "update: CW data $(date +'%Y-%m-%d %H:%M UTC')" \
-                && git pull --rebase --autostash \
-                && git push)
-
-      - name: Upload Excel as Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cw-master-${{ github.run_number }}
-          path: output/cw_master.xlsx
-          retention-days: 30
+      # No provider credentials, market-data ingestion, upload, or data commit runs
+      # in GitHub Actions. The private pipeline is run locally by the account owner.

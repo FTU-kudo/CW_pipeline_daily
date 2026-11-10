@@ -202,7 +202,7 @@ export function methodPage(view) {
   view.appendChild(el('div', { class: 'card section' }, [
     el('div', { class: 'card-title' }, [el('h3', { text: 'Vận hành & triển khai' })]),
     el('div', { class: 'small', style: 'line-height:1.7' }, [
-      el('p', { html: '<b>Kiến trúc:</b> GitHub Actions chạy hằng ngày → ingestion (Vietstock/vnstock) → validation & chuẩn hoá → panel đặc trưng → quant (BS/Greeks/IV) → scoring → recommendation → xuất JSON tĩnh vào <code>docs/data/</code> → GitHub Pages phục vụ SPA này.' }),
+      el('p', { html: '<b>Kiến trúc:</b> ingestion do người dùng chạy cục bộ → cache riêng → validation & chuẩn hoá → panel đặc trưng → quant (BS/Greeks/IV) → scoring/recommendation/backtest → <code>output/private-data/dashboard/</code>. GitHub Actions chỉ chạy test offline; public export bị khóa khi thiếu chấp thuận dữ liệu.' }),
       el('p', { html: '<b>Không có backend:</b> dashboard chỉ đọc JSON tĩnh, nên không thể đặt lệnh hay gửi Telegram trực tiếp. Cảnh báo chạy trên trình duyệt; muốn gửi Telegram/email cần thêm workflow định kỳ gọi bot API.' }),
       el('p', { html: '<b>Tính tái lập:</b> mọi phép biến đổi nằm trong <code>cwintel/</code>, có test; build in ra metadata phiên bản và thời điểm sinh. Không có số liệu nào được nhập tay.' }),
       el('p', { html: '<b>Bảo mật:</b> không có API key trong repo; workflow dùng GitHub Secrets khi cần.' }),

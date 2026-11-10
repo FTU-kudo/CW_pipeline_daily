@@ -1,6 +1,6 @@
 # Từ điển dữ liệu — CW Intelligence
 
-Mọi trường trong `docs/data/*.json`. Quy ước chung:
+Schema dưới đây mô tả artifact cục bộ trong `output/private-data/dashboard/`; các tệp đó không được commit hay công khai mặc định. Quy ước chung:
 
 - **Giá CW**: VND cho 1 chứng quyền (ví dụ `490` = 490 VND/CW). UI hiển thị rút gọn "nghìn VND" ở một số nhãn để dễ đọc, nhưng JSON luôn là VND.
 - **Giá cổ phiếu cơ sở**: VND/cổ phiếu.

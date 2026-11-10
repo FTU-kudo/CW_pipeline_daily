@@ -71,18 +71,16 @@ def test_overview_head_says_latest_session() -> None:
     assert "Phiên dữ liệu cuối" in src
 
 
-def test_workflows_are_chained_and_scheduled() -> None:
-    intel = INTEL.read_text(encoding="utf-8")
-    assert "workflow_run:" in intel
-    assert re.search(r'workflows:\s*\[\s*"CW Pipeline Daily"\s*\]', intel)
-    assert "conclusion == 'success'" in intel
-    assert re.search(r'cron:\s*"30 10 \* \* 1-5"', intel), "build phải có cron dự phòng 17:30 ICT"
-    assert "Báo cáo độ mới dữ liệu" in intel
-
+def test_github_workflow_is_offline_and_does_not_publish() -> None:
     pipe = PIPELINE.read_text(encoding="utf-8")
-    assert re.search(r'cron:\s*"0 9 \* \* 1-5"', pipe), "ingest phải chạy 16:00 ICT"
-    # không được comment schedule nữa
-    assert "\n  # schedule:" not in pipe and "\n  # schedule:" not in intel
+    assert "pytest -q" in pipe
+    assert "workflow_dispatch:" in pipe
+    assert "schedule:" not in pipe
+    assert "secrets." not in pipe
+    assert "VNSTOCK_SOURCE" not in pipe
+    assert "upload-artifact" not in pipe
+    assert "git push" not in pipe
+    assert not INTEL.exists(), "old scheduled data-publishing workflow must stay removed"
 
 
 def test_artifact_session_block_is_consistent() -> None:

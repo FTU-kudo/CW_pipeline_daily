@@ -890,7 +890,7 @@
 
       <!-- Footer note -->
       <div style="font-size:11px;color:var(--text3);text-align:center;padding-top:0.5rem;border-top:0.5px solid var(--border2)">
-        ©️ Tài liệu này được tạo tự động và cập nhật cùng với hệ thống pipeline · Dữ liệu nguồn: Vietstock, vnstock, HNX · Mô hình: Black-Scholes (European Call/Put)
+        Dashboard cũ đã ngừng phát hành dữ liệu. Mọi dữ liệu nguồn/dẫn xuất chỉ dùng cục bộ nếu quyền nguồn cho phép · Mô hình: Black-Scholes (European Call/Put)
       </div>
     </div>
   </div>
@@ -1079,7 +1079,7 @@ async function loadData() {
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
   } catch (e) {
-    document.querySelector('#loading p').textContent = 'Lỗi tải dữ liệu: ' + e.message;
+    document.querySelector('#loading p').textContent = 'Dữ liệu công khai đang tắt khi chưa có chấp thuận phân phối lại. Hãy dùng pipeline/dashboard riêng trên máy; chi tiết tại DATA_RIGHTS.md.';
   }
 }
 
