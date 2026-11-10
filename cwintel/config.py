@@ -14,7 +14,11 @@ from pathlib import Path
 # ──────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 
-CACHE_DIR = ROOT / "output" / "cache"
+# All source data and generated analysis default to an ignored local directory.
+# Set CW_DATA_DIR/CW_CACHE_DIR for a different private location; public publication
+# under docs/ is separately blocked unless written rights are documented.
+PRIVATE_DATA_DIR = Path(os.environ.get("CW_DATA_DIR", ROOT / "output" / "private-data"))
+CACHE_DIR = Path(os.environ.get("CW_CACHE_DIR", PRIVATE_DATA_DIR / "cache"))
 VIETSTOCK_CACHE = CACHE_DIR / "vietstock.parquet"
 OHLCV_CACHE = CACHE_DIR / "ohlcv.parquet"
 UNDERLYING_CACHE = CACHE_DIR / "underlying.parquet"
@@ -24,7 +28,7 @@ REC_HISTORY_CACHE = CACHE_DIR / "rec_history.parquet"
 PANEL_CACHE = CACHE_DIR / "feature_panel.parquet"
 
 DOCS_DIR = ROOT / "docs"
-DATA_DIR = DOCS_DIR / "data"
+DATA_DIR = PRIVATE_DATA_DIR / "dashboard"
 SERIES_DIR = DATA_DIR / "series"
 
 # Lịch sử khuyến nghị (walk-forward) chỉ cần đủ dài để đánh giá, không cần toàn bộ 2023.

@@ -139,8 +139,7 @@ def methodology_payload() -> dict:
             "Không phải khuyến nghị đầu tư; không đảm bảo lợi nhuận.",
         ],
         "sources": [
-            "Vietstock (finance.vietstock.vn) — điều khoản CW",
-            "vnstock — OHLCV (VCI/KBS)",
-            "HNX / VBMA — đường cong lợi suất TPCP",
+            "Nguồn do người dùng cấu hình; xem provenance và điều khoản gốc",
+            "Chỉ dùng/chia sẻ kết quả trong phạm vi quyền nguồn đã cấp",
         ],
     }

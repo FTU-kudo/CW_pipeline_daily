@@ -110,15 +110,17 @@ def test_config_co_market_holidays():
     assert all(isinstance(h, str) and len(h) == 10 for h in config.MARKET_HOLIDAYS)
 
 
-def test_workflow_build_artifact_truoc_khi_chay_test():
-    """Freshness test phải chạy trên artifact vừa build, không phải bản cũ ở checkout."""
+def test_workflow_does_not_build_or_publish_market_data():
+    """Hosted CI is tests-only; source data stays local unless rights are cleared."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    workflow = (root / ".github/workflows/cw_intelligence.yml").read_text(encoding="utf-8")
-    build = workflow.index("- name: Build artifacts")
-    test = workflow.index("- name: Run test suite")
-    assert build < test, "workflow phải build artifact mới trước khi pytest kiểm tra asof"
+    workflow = (root / ".github/workflows/cw_pipeline.yml").read_text(encoding="utf-8")
+    assert "pytest -q" in workflow
+    assert "vnstock" not in workflow.lower()
+    assert "upload-artifact" not in workflow
+    assert "git push" not in workflow
+    assert not (root / ".github/workflows/cw_intelligence.yml").exists()
 
 
 def test_artifact_asof_bang_phien_da_dong_gan_nhat():

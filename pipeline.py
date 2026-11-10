@@ -417,11 +417,13 @@ MAX_RETRIES      = 3        # FIX: giảm từ 5 → 3; worst-case 1 CW = 3×30s
 RETRY_DELAY      = 4.0      # FIX: giảm từ 5.0 → 4.0s
 REQUEST_DELAY    = 1.2      # FIX: 1.2s/req = 50 req/min → an toàn dưới ngưỡng 60 req/min (Community tier)
 
-CACHE_DIR       = "output/cache"
+PRIVATE_DIR     = os.environ.get("CW_DATA_DIR", "output/private-data")
+CACHE_DIR       = os.environ.get("CW_CACHE_DIR", os.path.join(PRIVATE_DIR, "cache"))
 VIETSTOCK_CACHE = f"{CACHE_DIR}/vietstock.parquet"
 OHLCV_CACHE     = f"{CACHE_DIR}/ohlcv.parquet"
-IV_CACHE        = f"{CACHE_DIR}/iv_history.parquet"   # lưu chuỗi IV hàng ngày cho mỗi CW
-OUTPUT_FILE     = "output/cw_master.xlsx"
+IV_CACHE        = f"{CACHE_DIR}/iv_history.parquet"   # chuỗi IV cục bộ, không xuất bản
+OUTPUT_FILE     = os.path.join(PRIVATE_DIR, "cw_master.xlsx")
+DATA_JSON_FILE  = os.path.join(PRIVATE_DIR, "data.json")
 
 # ══════════════════════════════════════════════════════════════════
 # CACHE HELPERS
@@ -1180,6 +1182,7 @@ def step4_excel(df_ohlcv, df_vs, valid_tickers):
     act=df[df["_ldt"]>=today_ts].drop(columns=["_ldt"]).sort_values("Ticker")
     exp=df[df["_ldt"]< today_ts].drop(columns=["_ldt"]).sort_values("Ticker")
     os.makedirs("output",exist_ok=True)
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     with pd.ExcelWriter(OUTPUT_FILE,engine="openpyxl") as w:
         df_ohlcv.to_excel(w,sheet_name="OHLCV",index=False)
         act.to_excel(w,sheet_name="CW_Info_Active",index=False)
@@ -1581,12 +1584,12 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
         "cw_list": cw_list,
         "ohlcv": ohlcv_out,
     }
-    os.makedirs("docs", exist_ok=True)
-    with open("docs/data.json", "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(DATA_JSON_FILE), exist_ok=True)
+    with open(DATA_JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
 
-    size_kb = os.path.getsize("docs/data.json") / 1024
-    print(f"OK docs/data.json  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV, {size_kb:.0f} KB)")
+    size_kb = os.path.getsize(DATA_JSON_FILE) / 1024
+    print(f"OK {DATA_JSON_FILE}  ({len(cw_list)} CW, {len(ohlcv_out)} OHLCV, {size_kb:.0f} KB)")
     print("\n   Sample metrics (3 CW đầu):")
     for c in cw_list[:3]:
         print(f"   {c['ticker']:12} S={c.get('underlying_price',0):>8,.0f}  "
@@ -1598,6 +1601,9 @@ def step5_export_json(df_ohlcv_full, df_vietstock, valid_tickers):
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    from cwintel.rights import assert_private_data_path
+    assert_private_data_path(PRIVATE_DIR)
+    assert_private_data_path(CACHE_DIR)
     t0 = time.time()
     df_vs              = step1_vietstock()
     df_ohlcv_full      = step2_ohlcv(df_vs)

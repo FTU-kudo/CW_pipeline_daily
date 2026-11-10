@@ -28,8 +28,14 @@ Thumbs.db
 *.tmp
 /tmp/
 
-# Lưu ý: docs/data/ và output/cache/ ĐƯỢC commit có chủ đích —
-# dashboard tĩnh và build tái lập cần chúng.
+# Source-derived datasets, caches, reports and legal evidence stay local/private.
+output/private-data/
+output/cache/
+output/cw_master.xlsx
+docs/data.json
+docs/data/*.json
+docs/data/series/
+output/legal/
 
 # Vnstock migration work folder contains source data and must not be committed
 vnstock-migration/

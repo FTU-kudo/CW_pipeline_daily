@@ -4,10 +4,16 @@ Script patch OHLCV cache: fetch missing data from 15/08 -> 19/08 for all stuck C
 import os, time, pandas as pd
 from datetime import datetime, timezone, timedelta
 
-OHLCV_CACHE = 'output/cache/ohlcv.parquet'
-VIETSTOCK_CACHE = 'output/cache/vietstock.parquet'
+PRIVATE_DIR = os.environ.get('CW_DATA_DIR', 'output/private-data')
+CACHE_DIR = os.environ.get('CW_CACHE_DIR', os.path.join(PRIVATE_DIR, 'cache'))
+OHLCV_CACHE = os.path.join(CACHE_DIR, 'ohlcv.parquet')
+VIETSTOCK_CACHE = os.path.join(CACHE_DIR, 'vietstock.parquet')
 START_DATE = '2026-08-15'
 END_DATE = '2026-08-20'
+
+from cwintel.rights import assert_private_data_path
+assert_private_data_path(PRIVATE_DIR)
+assert_private_data_path(CACHE_DIR)
 
 def normalise(df, symbol):
     if df is None or df.empty:
