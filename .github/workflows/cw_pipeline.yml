@@ -9,8 +9,6 @@ on:
 
 jobs:
   run-pipeline:
-    # Do not invoke the new client until the user selects and configures a source.
-    if: ${{ vars.VNSTOCK_SOURCE != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
 
@@ -24,6 +22,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1   # chỉ cần HEAD là đủ, cache đã nằm trong repo
+
+      - name: Validate source configuration
+        env:
+          VNSTOCK_SOURCE: ${{ vars.VNSTOCK_SOURCE }}
+        shell: bash
+        run: |
+          if [[ -z "${VNSTOCK_SOURCE//[[:space:]]/}" ]]; then
+            echo "::error title=Missing source configuration::Set the repository variable VNSTOCK_SOURCE to a source you have authorized, and configure its provider API key, before ingesting data."
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,9 +63,7 @@ jobs:
 
       # ── BƯỚC QUAN TRỌNG: Commit cache NGAY KHI pipeline xong ──────
       # Tách riêng 2 bước commit để cache được lưu kể cả khi pipeline lỗi giữa chừng
-      # Configure the non-secret VNSTOCK_SOURCE variable and the selected provider's
-      # API-key secret before enabling this workflow. It intentionally fails closed
-      # while no source has been selected.
+      # Configure the selected provider's API-key secret before ingesting data.
       - name: Run pipeline
         env:
           VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API }}
