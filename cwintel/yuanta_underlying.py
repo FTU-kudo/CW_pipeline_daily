@@ -159,7 +159,31 @@ def realized_volatility(closes: Iterable[float], *, window: int | None = None,
     return daily * math.sqrt(config.TRADING_DAYS_PER_YEAR) * 100
 
 
-def coverage(frame: pd.DataFrame, *, asof: str | date | None = None) -> dict:
+def market_calendar(frames: dict[str, pd.DataFrame], *, min_share: float = 0.6) -> set[str]:
+    """Lịch các **phiên thị trường thực sự mở cửa**, suy từ chính dữ liệu.
+
+    Vì sao không dùng danh sách ngày lễ cấu hình: lịch lễ Việt Nam 2010–2020 không có trong
+    ``config.MARKET_HOLIDAYS`` (chỉ khai báo từ 2021), nên nếu đối chiếu bằng lịch cứng thì
+    mỗi dịp Tết 2010–2020 sẽ bị báo là "thiếu dữ liệu" — sai, và che mất lỗ hổng thật.
+
+    Ở đây ngày được coi là phiên nếu có ít nhất ``min_share`` (mặc định 60%) số mã đã lưu có
+    giao dịch. Ngày lễ toàn thị trường không mã nào giao dịch → không phải phiên → không bao
+    giờ bị tính là thiếu. Mã bị đình chỉ riêng lẻ (ví dụ SHB 10/2021) vẫn lộ ra thành lỗ hổng
+    vì các mã khác vẫn giao dịch ngày đó.
+    """
+    usable = [f for f in frames.values() if f is not None and not f.empty]
+    if not usable:
+        return set()
+    counts: dict[str, int] = {}
+    for frame in usable:
+        for day in frame["TradingDate"].astype(str).unique():
+            counts[day] = counts.get(day, 0) + 1
+    # max(1, …) chứ không phải max(2, …): một mã duy nhất vẫn phải có lịch của chính nó.
+    threshold = max(1, math.ceil(len(usable) * min_share))
+    return {day for day, n in counts.items() if n >= threshold}
+
+
+def coverage(frame: pd.DataFrame, *, market: set[str] | None = None) -> dict:
     """Độ phủ lịch sử: khoảng ngày, số phiên, phiên thiếu, phiên không khớp lệnh.
 
     ``missing`` chỉ tính trong khoảng đã có dữ liệu — không thể biết phiên nào bị thiếu trước
@@ -172,11 +196,17 @@ def coverage(frame: pd.DataFrame, *, asof: str | date | None = None) -> dict:
     first, last = days[0], days[-1]
     present = set(days)
 
-    # Chỉ loại cuối tuần; ngày lễ không bị coi là thiếu vì nguồn không trả phiên lễ nào.
-    from cwintel import sessions as session_calendar
+    if market is not None:
+        # Đối chiếu với lịch thị trường suy từ dữ liệu: chỉ ngày nào THỊ TRƯỜNG giao dịch mà
+        # mã này vắng mới là thiếu. Đây là cách duy nhất đúng cho cả 2010–2020, khi lịch lễ
+        # không có trong config.
+        expected = sorted(d for d in market if first <= d <= last)
+    else:
+        # Không có lịch thị trường: loại cuối tuần + ngày lễ đã biết trong config.
+        from cwintel import sessions as session_calendar
 
-    expected = [d.isoformat() for d in
-                session_calendar.sessions_between(first, last, config.MARKET_HOLIDAYS)]
+        expected = [d.isoformat() for d in
+                    session_calendar.sessions_between(first, last, config.MARKET_HOLIDAYS)]
     missing = [d for d in expected if d not in present]
 
     zero_volume = int((pd.to_numeric(frame["Volume"], errors="coerce").fillna(0) <= 0).sum())
@@ -189,6 +219,10 @@ def coverage(frame: pd.DataFrame, *, asof: str | date | None = None) -> dict:
         "missingCount": len(missing),
         "missing": missing[:60],
         "zeroVolumeSessions": zero_volume,
+        "marketSessionsInRange": len(expected),
+        "calendarBasis": ("lịch thị trường suy từ dữ liệu (ngày có ≥60% số mã giao dịch)"
+                          if market is not None else
+                          "cuối tuần + config.MARKET_HOLIDAYS (chưa đủ cho 2010–2020)"),
         "tradingDaysPerYear": config.TRADING_DAYS_PER_YEAR,
     }
 
@@ -236,7 +270,7 @@ def foreign_flow(frame: pd.DataFrame, *, window: int = 20) -> dict:
     }
 
 
-def summarize(frame: pd.DataFrame) -> dict:
+def summarize(frame: pd.DataFrame, *, market: set[str] | None = None) -> dict:
     """Tóm tắt một cổ phiếu cơ sở: giá, HV ngắn/dài hạn, khối lượng, dòng khối ngoại."""
     if frame is None or frame.empty:
         return {"available": False, "reason": "Chưa có dữ liệu."}
@@ -255,7 +289,7 @@ def summarize(frame: pd.DataFrame) -> dict:
         "sessions": int(len(closes)),
         "relativeVolume": relative_volume(data),
         "foreign": foreign_flow(data),
-        "coverage": coverage(frame),
+        "coverage": coverage(frame, market=market),
         "hvBasis": (
             f"Độ lệch chuẩn log-return {HV_WINDOW_SHORT} và {HV_WINDOW_LONG} phiên, "
             f"quy năm theo {config.TRADING_DAYS_PER_YEAR} phiên. Phiên không khớp lệnh bị loại "

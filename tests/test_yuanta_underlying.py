@@ -232,3 +232,55 @@ def test_iv_vs_hv_summarises_available_rows():
     assert result["medianIvMinusHv"] == pytest.approx(20.0)
     assert result["countIvAboveHv"] == 2
     assert result["countIvBelowHv"] == 1
+
+
+# ── lịch thị trường suy từ dữ liệu ──────────────────────────────────────
+def _day_frames(presence: dict[str, list[str]]) -> dict[str, pd.DataFrame]:
+    return {sym: hist.parse_history(_payload(days, [100.0] * len(days)), sym)
+            for sym, days in presence.items()}
+
+
+def test_market_calendar_excludes_days_when_every_symbol_is_absent():
+    """Ngày lễ 2010–2020 không có trong config, nên phải suy từ dữ liệu."""
+    frames = _day_frames({
+        "ACB": ["2021-09-01", "2021-09-02", "2021-09-06"],
+        "FPT": ["2021-09-01", "2021-09-02", "2021-09-06"],
+        "VNM": ["2021-09-01", "2021-09-02", "2021-09-06"],
+    })
+    frames["ACB"] = frames["ACB"][frames["ACB"]["TradingDate"] != "2021-09-02"].reset_index(drop=True)
+    frames["FPT"] = frames["FPT"][frames["FPT"]["TradingDate"] != "2021-09-02"].reset_index(drop=True)
+    frames["VNM"] = frames["VNM"][frames["VNM"]["TradingDate"] != "2021-09-02"].reset_index(drop=True)
+    assert "2021-09-02" not in hist.market_calendar(frames)
+
+
+def test_market_calendar_keeps_day_when_most_symbols_trade():
+    frames = _day_frames({
+        "ACB": ["2021-10-06", "2021-10-07"],
+        "FPT": ["2021-10-06", "2021-10-07"],
+        "VNM": ["2021-10-06", "2021-10-07"],
+        "SHB": ["2021-10-07"],                      # SHB bị đình chỉ riêng 6/10
+    })
+    assert "2021-10-06" in hist.market_calendar(frames)
+
+
+def test_coverage_with_market_flags_single_symbol_suspension():
+    """SHB vắng 6/10 trong khi thị trường mở → lỗ hổng THẬT, phải bị báo."""
+    frames = _day_frames({
+        "ACB": ["2021-10-05", "2021-10-06", "2021-10-07"],
+        "FPT": ["2021-10-05", "2021-10-06", "2021-10-07"],
+        "VNM": ["2021-10-05", "2021-10-06", "2021-10-07"],
+        "SHB": ["2021-10-05", "2021-10-07"],
+    })
+    market = hist.market_calendar(frames)
+    assert hist.coverage(frames["SHB"], market=market)["missing"] == ["2021-10-06"]
+    assert hist.coverage(frames["ACB"], market=market)["missing"] == []
+
+
+def test_coverage_reports_calendar_basis():
+    frames = _day_frames({"ACB": ["2021-10-05", "2021-10-06"]})
+    market = hist.market_calendar(frames)
+    assert "suy từ dữ liệu" in hist.coverage(frames["ACB"], market=market)["calendarBasis"]
+
+
+def test_market_calendar_of_empty_store_is_empty():
+    assert hist.market_calendar({}) == set()
