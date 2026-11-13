@@ -53,11 +53,13 @@ def test_translation_values_contain_latin_letters() -> None:
     assert not bad, f"bản dịch còn tiếng Việt: {bad[:3]}"
 
 
-def test_language_switch_present_in_shell() -> None:
+def test_yuanta_snapshot_shell_has_only_current_board_controls() -> None:
     html = HTML.read_text(encoding="utf-8")
-    for lang in ("vi", "en", "both"):
-        assert f'data-lang-set="{lang}"' in html, f"thiếu nút ngôn ngữ {lang}"
-    assert 'id="btn-theme"' in html, "thiếu nút đổi giao diện"
+    assert 'id="search"' in html
+    assert 'id="download"' in html
+    assert 'id="rows"' in html
+    assert "không có OHLCV ngày riêng" in html
+    assert 'data-lang-set=' not in html
 
 
 def test_i18n_wired_into_runtime() -> None:

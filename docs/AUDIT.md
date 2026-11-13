@@ -1,18 +1,14 @@
-# Ghi chú audit và chuyển đổi quyền dữ liệu
-
-Tài liệu audit cũ có các số liệu theo mã, số lượng quan sát, ví dụ giá, thống kê chất lượng/backtest và mô tả cache từ các nguồn. Những nội dung này đã được gỡ khỏi working tree vì có thể cấu thành dữ liệu dẫn xuất được công bố lại. Không dùng tài liệu lịch sử này để suy ra tình trạng dữ liệu hiện tại.
+# Ghi chú audit và thay đổi nguồn dữ liệu
 
 ## Trạng thái hiện tại
 
-- Vnstock được ghim thế hệ 6 từ kho phát hành riêng của Vnstock; xem `requirements.txt` và `docs/DEPLOY.md`.
-- Không có nguồn G6 được chọn, không có credential trong repo và không phát sinh provider request từ GitHub Actions.
-- Adapter VCI/KBS thế hệ cũ không còn là fallback trong pipeline G6. Việc ngừng tích hợp cũ không chứng minh nhà cung cấp đã vĩnh viễn ngừng dịch vụ riêng.
-- Public artifacts `docs/data/**`, `docs/data.json`, cache và workbook đã bị xóa khỏi cây hiện tại; dữ liệu mới mặc định nằm trong `output/private-data/` (gitignored).
-- Build dưới `docs/` fail-closed qua `cwintel/rights.py`; cần source khớp cùng hồ sơ chấp thuận bằng văn bản còn hiệu lực.
-- Tài liệu G6 có route `Macro.global_macro.bond_yield`/`Market.bond(...).yield_history`, nhưng chưa xác nhận tương đương ngữ nghĩa với chuỗi HNX spot-rate/continuous-compounding mà mô hình cũ dùng.
+- Luồng phát hành hiện tại chỉ lấy snapshot `stock_type=EW` từ endpoint Yuanta do chủ dự án cung cấp.
+- `scripts/yuanta_snapshot.py` kiểm tra envelope và nhận diện mã/sàn/loại EW, đồng thời giữ nguyên các trường/value gốc; không tự đổi đơn vị.
+- Snapshot mới ghi đè `docs/data/yuanta_snapshot.json`. Không có chuỗi OHLCV ngày cho từng CW nên không tạo chart/backtest/Greeks/khuyến nghị.
+- Owner đã tuyên bố có quyền sử dụng/công khai API; agent không truy cập được host Yuanta từ sandbox nên chưa kiểm tra live hoặc rà hợp đồng độc lập.
+- Workflow test chạy offline. Workflow publish chỉ gọi endpoint Yuanta; không gọi Vnstock/Vietstock/HNX/VBMA/KBS/VCI.
+- Cache/artifact lịch sử cũ đã bị xóa khỏi cây hiện tại, nhưng có thể vẫn tồn tại trong Git history, forks, CDN hoặc deployment trước đó.
 
-## Giới hạn xử lý
+## Giới hạn
 
-Xóa các artifacts khỏi cây hiện tại không xóa chúng khỏi Git history, fork, cache trình duyệt/CDN hoặc một deployment Pages đã có. Nếu cần gỡ hoàn toàn, chủ repo cần xem lại Pages, lịch sử Git và nơi lưu trữ liên quan. Bản rewrite này không viết lại Git history và không truy cập/triển khai GitHub.
-
-Để xem chính sách và điều kiện tái phát hành, đọc [`DATA_RIGHTS.md`](DATA_RIGHTS.md). Đây là cổng kỹ thuật fail-closed; không thay thế việc kiểm tra hợp đồng/điều khoản với nhà cung cấp và sở giao dịch.
+Endpoint ảnh mẫu chỉ là bảng giá tại thời điểm gọi. `fetchedAt` do client ghi, không phải timestamp giao dịch của sàn. Mọi trường số được giữ nguyên, chưa khẳng định đơn vị. Nếu schema hoặc quyền thay đổi, cần dừng publish và cập nhật adapter sau khi xác minh tài liệu/điều khoản.

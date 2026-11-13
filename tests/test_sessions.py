@@ -110,16 +110,19 @@ def test_config_co_market_holidays():
     assert all(isinstance(h, str) and len(h) == 10 for h in config.MARKET_HOLIDAYS)
 
 
-def test_workflow_does_not_build_or_publish_market_data():
-    """Hosted CI is tests-only; source data stays local unless rights are cleared."""
+def test_publisher_is_narrowly_scoped_to_yuanta_snapshot():
+    """Only the explicitly selected Yuanta EW endpoint publishes; analytics are not rebuilt."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
     workflow = (root / ".github/workflows/cw_pipeline.yml").read_text(encoding="utf-8")
-    assert "pytest -q" in workflow
+    assert "scripts/fetch_yuanta_snapshot.py" in workflow
+    assert "docs/data/yuanta_snapshot.json" in workflow
     assert "vnstock" not in workflow.lower()
-    assert "upload-artifact" not in workflow
-    assert "git push" not in workflow
+    assert "cwintel.build" not in workflow
+    assert "git push origin HEAD:main" in workflow
+    tests_workflow = (root / ".github/workflows/cw_tests.yml").read_text(encoding="utf-8")
+    assert "pytest -q" in tests_workflow
     assert not (root / ".github/workflows/cw_intelligence.yml").exists()
 
 
