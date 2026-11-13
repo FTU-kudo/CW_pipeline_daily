@@ -66,7 +66,7 @@ def _walk_keys(node, path=""):
             yield from _walk_keys(item, path)
 
 
-def test_payload_has_no_numeric_valuation_fields():
+def test_payload_has_no_valuation_fields_without_contract_terms():
     """Không được có TRƯỜNG SỐ nào cho IV/Greeks/giá lý thuyết.
 
     Chỉ kiểm tra khoá, không kiểm tra chữ: payload có nhắc "iv"/"delta" trong phần giải
@@ -82,8 +82,11 @@ def test_payload_has_no_numeric_valuation_fields():
     row_keys = set(result["ranking"][0])
     assert row_keys <= {"rank", "t", "u", "score", "coveragePct", "price", "chgPct",
                         "valueVND", "spreadPct", "parts", "headroomPct", "nearCeiling", "tier"}
-    assert set(result["ranking"][0]["parts"]) <= {"liquidity", "cost", "priceQuality",
-                                                  "consistency"}
+    assert set(result["ranking"][0]["parts"]) <= {"liquidity", "cost", "valuation",
+                                                  "priceQuality", "consistency"}
+    # Không có `priced` (chưa có điều khoản) → trục định giá KHÔNG được chấm
+    assert result["ranking"][0]["parts"]["valuation"] is None
+    assert result["valuation"]["available"] is False
 
 
 def test_scoring_payload_says_valuation_is_unavailable():
@@ -144,7 +147,10 @@ def test_consistency_is_unscored_without_enough_history():
     assert "Chưa có kho lịch sử" in result["consistency"]["reason"]
     # Không chấm trục đó, nhưng điểm vẫn có (coverage < 100%)
     assert result["ranking"][0]["parts"]["consistency"] is None
-    assert result["ranking"][0]["coveragePct"] == pytest.approx(90.0)
+    # coverage = phần trọng số thực sự có dữ liệu. Không có định giá (20%) và không có lịch
+    # sử (8%) → 72% trọng số được dùng. Đây là lý do coverage phải hiển thị: điểm này chỉ
+    # dựa trên 72% trọng số, không phải 100%.
+    assert result["ranking"][0]["coveragePct"] == pytest.approx(72.0)
 
 
 def test_consistency_uses_history_when_available():
@@ -161,7 +167,8 @@ def test_consistency_uses_history_when_available():
     by_ticker = {r["t"]: r for r in result["ranking"]}
     assert by_ticker["CAAA2501"]["parts"]["consistency"] == 100.0
     assert by_ticker["CBBB2502"]["parts"]["consistency"] == 20.0
-    assert by_ticker["CAAA2501"]["coveragePct"] == 100.0
+    # Có lịch sử nhưng không có điều khoản → thiếu trục định giá 20%
+    assert by_ticker["CAAA2501"]["coveragePct"] == pytest.approx(80.0)
 
 
 def test_missing_part_does_not_penalise_the_score():
@@ -182,6 +189,8 @@ def test_weights_sum_to_one():
     assert sum(DEFAULT_WEIGHTS.values()) == pytest.approx(1.0)
     # headroom là cờ cảnh báo, không phải trục điểm
     assert "headroom" not in DEFAULT_WEIGHTS
+    # valuation là trục thật, dùng khi có điều khoản hợp đồng
+    assert DEFAULT_WEIGHTS["valuation"] == pytest.approx(0.20)
 
 
 def test_near_ceiling_is_flagged_not_scored():

@@ -48,3 +48,10 @@ yuanta_covered_warrants.csv
 # Chỉ bỏ qua file tạm trong lúc ghi.
 data/cw_history/*.tmp
 data/cw_history/*.csv.tmp
+
+# Bảng điều khoản CW (strike/tỷ lệ/đáo hạn) nhập từ repo Vietstock: ĐƯỢC commit,
+# vì thiếu nó thì phần định giá Black–Scholes không chạy được ở lần chạy sau.
+data/cw_terms/*.tmp
+
+# Lịch sử OHLCV cổ phiếu cơ sở: ĐƯỢC commit (nền cho HV và so sánh IV−HV).
+data/underlying_history/*.tmp

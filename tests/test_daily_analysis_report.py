@@ -136,7 +136,7 @@ def test_report_reads_published_artifacts_end_to_end(tmp_path):
     assert "Liền mạch" in text
     assert "3.800,0%" in text
     # Và phải nói rõ cái gì KHÔNG có
-    assert "Greeks" in text and "khuyến nghị" in text
+    assert "khuyến nghị" in text and "backtest" in text
 
 
 def test_report_does_not_mislabel_missing_artifacts_as_zero(tmp_path):

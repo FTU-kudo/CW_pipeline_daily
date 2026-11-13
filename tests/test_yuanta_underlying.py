@@ -1,0 +1,234 @@
+"""Test cho lịch sử OHLCV cổ phiếu cơ sở và phần IV − HV.
+
+Trọng tâm là những chỗ dễ sai một cách âm thầm: nội suy ngày thiếu, coi phiên không khớp
+lệnh là giá đứng, và biến khối lượng khối ngoại thành tiền khi nguồn không cho giá trị.
+"""
+from __future__ import annotations
+
+import json
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from cwintel import yuanta_underlying as hist
+
+
+def _payload(days: list[str], closes: list[float], *, volume: int = 1_000_000) -> dict:
+    return {"success": True, "response": [
+        {"TradingDate": d, "PerChange": 0.5, "Close": c, "Open": c, "Highest": c,
+         "Lowest": c, "Average": c, "Volume": volume, "Value": volume * c,
+         "ForeignVolumeBuy": 100, "ForeignVolumeSell": 50,
+         "PutThroughVolume": 0, "PutThroughValue": 0}
+        for d, c in zip(days, closes)
+    ]}
+
+
+# ── URL ──────────────────────────────────────────────────────────────────
+def test_history_url_has_required_shape():
+    url = hist.history_url("ACB", from_date="2010-01-01", to_date="2026-11-13")
+    assert url == ("https://ysradarapi.yuanta.com.vn/api/v3/market_data/market_watch/"
+                   "price_history/ACB?from_date=2010-01-01&to_date=2026-11-13")
+
+
+def test_history_url_uppercases_and_defaults_end_to_today():
+    url = hist.history_url("acb")
+    assert "/price_history/ACB?" in url
+    assert url.endswith(f"to_date={hist.utc_now()[:10]}")
+
+
+def test_history_url_rejects_bad_symbol():
+    with pytest.raises(ValueError):
+        hist.history_url("ACB/../etc")
+
+
+# ── parse ────────────────────────────────────────────────────────────────
+def test_parse_history_maps_all_columns():
+    frame = hist.parse_history(_payload(["2026-11-12"], [22100.0]), "ACB")
+    assert list(frame.columns) == list(hist.COLUMNS)
+    row = frame.iloc[0]
+    assert row["TradingDate"] == "2026-11-12"
+    assert row["Close"] == 22100.0
+    assert row["ForeignVolumeBuy"] == 100
+
+
+def test_parse_history_sorts_and_dedupes():
+    frame = hist.parse_history(
+        _payload(["2026-11-13", "2026-11-11", "2026-11-12"], [3, 1, 2]), "ACB")
+    assert frame["TradingDate"].tolist() == ["2026-11-11", "2026-11-12", "2026-11-13"]
+
+
+def test_parse_history_drops_rows_without_valid_date():
+    payload = _payload(["2026-11-12"], [100.0])
+    payload["response"].append({"TradingDate": "not-a-date", "Close": 1})
+    frame = hist.parse_history(payload, "ACB")
+    assert len(frame) == 1
+
+
+def test_parse_history_raises_when_api_reports_failure():
+    with pytest.raises(ValueError, match="success=false"):
+        hist.parse_history({"success": False, "response": None}, "ACB")
+
+
+def test_parse_history_raises_when_response_missing():
+    """Payload rác phải nổ, không được lặng lẽ thành bảng rỗng."""
+    with pytest.raises(ValueError, match="response"):
+        hist.parse_history({"data": []}, "ACB")
+
+
+def test_parse_history_does_not_invent_missing_values():
+    payload = _payload(["2026-11-12"], [100.0])
+    payload["response"][0]["ForeignVolumeBuy"] = None
+    frame = hist.parse_history(payload, "ACB")
+    assert pd.isna(frame.iloc[0]["ForeignVolumeBuy"])
+
+
+# ── merge: resume không nhân đôi ─────────────────────────────────────────
+def test_merge_prefers_fresh_row_on_same_date():
+    old = hist.parse_history(_payload(["2026-11-11", "2026-11-12"], [1.0, 2.0]), "ACB")
+    new = hist.parse_history(_payload(["2026-11-12", "2026-11-13"], [9.0, 3.0]), "ACB")
+    merged = hist.merge_history(old, new)
+    assert merged["TradingDate"].tolist() == ["2026-11-11", "2026-11-12", "2026-11-13"]
+    assert merged.iloc[1]["Close"] == 9.0      # dòng mới thắng
+
+
+def test_merge_is_idempotent():
+    frame = hist.parse_history(_payload(["2026-11-11", "2026-11-12"], [1.0, 2.0]), "ACB")
+    once = hist.merge_history(frame, frame)
+    twice = hist.merge_history(once, frame)
+    assert len(once) == len(twice) == 2
+
+
+def test_merge_handles_empty_sides():
+    frame = hist.parse_history(_payload(["2026-11-12"], [1.0]), "ACB")
+    assert len(hist.merge_history(None, frame)) == 1
+    assert len(hist.merge_history(frame, None)) == 1
+
+
+# ── HV ───────────────────────────────────────────────────────────────────
+def test_realized_volatility_matches_manual_computation():
+    closes = [100.0 + i * 0.7 for i in range(40)]      # xu hướng đều → vol rất nhỏ
+    value = hist.realized_volatility(closes, window=21)
+    manual = np.std(np.diff(np.log(np.array(closes[-21:]))), ddof=1) * np.sqrt(252) * 100
+    assert value == pytest.approx(manual, rel=1e-6)
+    assert value < 5
+
+
+def test_realized_volatility_returns_none_when_too_few_points():
+    assert hist.realized_volatility([100.0, 101.0, 102.0]) is None
+
+
+def test_realized_volatility_ignores_non_positive_prices():
+    """Giá 0 là lỗi dữ liệu, không phải mức giá — nếu để lọt, log(0) làm hỏng HV."""
+    closes = [100.0, 0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0,
+              108.0, 109.0, 110.0, 111.0]
+    assert hist.realized_volatility(closes, window=21) is not None
+
+
+def test_realized_volatility_grows_with_dispersion():
+    calm = hist.realized_volatility([100, 101, 100, 101, 100, 101, 100, 101, 100,
+                                     101, 100, 101], window=21)
+    wild = hist.realized_volatility([100, 120, 90, 115, 85, 118, 88, 121, 87, 119,
+                                     86, 120], window=21)
+    assert wild > calm
+
+
+# ── coverage ─────────────────────────────────────────────────────────────
+def test_coverage_lists_gap_between_present_days():
+    frame = hist.parse_history(_payload(["2026-11-10", "2026-11-12"], [1.0, 2.0]), "ACB")
+    result = hist.coverage(frame)
+    assert result["available"] is True
+    assert result["sessions"] == 2
+    assert "2026-11-11" in result["missing"]
+
+
+def test_coverage_does_not_flag_weekend_as_missing():
+    # 2026-11-13 là thứ Sáu, 2026-11-16 thứ Hai → cuối tuần không phải phiên thiếu.
+    frame = hist.parse_history(_payload(["2026-11-13", "2026-11-16"], [1.0, 2.0]), "ACB")
+    assert hist.coverage(frame)["missing"] == []
+
+
+def test_coverage_counts_zero_volume_sessions():
+    payload = _payload(["2026-11-12", "2026-11-13"], [1.0, 2.0])
+    payload["response"][1]["Volume"] = 0
+    result = hist.coverage(hist.parse_history(payload, "ACB"))
+    assert result["zeroVolumeSessions"] == 1
+
+
+def test_coverage_empty_frame_is_unavailable_not_zero():
+    assert hist.coverage(pd.DataFrame())["available"] is False
+
+
+# ── khối ngoại: khối lượng, không phải tiền ─────────────────────────────
+def test_foreign_flow_reports_volume_unit_explicitly():
+    frame = hist.parse_history(_payload(["2026-11-12"], [100.0]), "ACB")
+    result = hist.foreign_flow(frame)
+    assert result["available"] is True
+    assert result["netVolumeLast"] == 50          # 100 mua − 50 bán
+    assert "cổ phiếu" in result["unit"]
+
+
+def test_foreign_flow_never_returns_a_currency_field():
+    frame = hist.parse_history(_payload(["2026-11-12"], [100.0]), "ACB")
+    result = hist.foreign_flow(frame)
+    assert not any("Value" in key for key in result)
+
+
+# ── summarize ────────────────────────────────────────────────────────────
+def test_summarize_last_row_is_latest_and_has_hv():
+    days = [f"2026-{m:02d}-{d:02d}" for m, d in [(9, 1), (9, 2), (9, 3)]]
+    closes = [100.0 + i for i in range(12)]
+    payload = _payload(days + [f"2026-09-{i:02d}" for i in range(4, 14)], closes)
+    frame = hist.parse_history(payload, "ACB")
+    result = hist.summarize(frame)
+    assert result["available"] is True
+    assert result["lastDate"] == frame["TradingDate"].iloc[-1]
+    assert result["sessions"] == 12
+    assert result["hvShortPct"] is not None
+    assert "không nội suy" in result["hvBasis"]
+
+
+def test_summarize_of_empty_frame_is_unavailable():
+    assert hist.summarize(None)["available"] is False
+
+
+# ── store ────────────────────────────────────────────────────────────────
+def test_store_round_trip(tmp_path):
+    frame = hist.parse_history(_payload(["2026-11-12"], [100.0]), "ACB")
+    hist.write_store({"ACB": frame}, tmp_path)
+    loaded = hist.load_store(tmp_path, "ACB")
+    assert loaded is not None and len(loaded) == 1
+    assert hist.load_store(tmp_path, "ZZZ") is None
+
+
+def test_import_from_files_uses_filename_as_symbol(tmp_path):
+    path = tmp_path / "VPB.json"
+    path.write_text(json.dumps(_payload(["2026-11-12"], [100.0])), encoding="utf-8")
+    frames = hist.import_from_files([path])
+    assert list(frames) == ["VPB"]
+
+
+def test_import_from_files_skips_corrupt_json(tmp_path):
+    bad = tmp_path / "BAD.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert hist.import_from_files([bad]) == {}
+
+
+# ── tích hợp với định giá ───────────────────────────────────────────────
+def test_iv_vs_hv_is_unavailable_without_history():
+    from cwintel.yuanta_analytics import _iv_vs_hv
+
+    priced = pd.DataFrame({"iv": [0.5], "ivMinusHv": [np.nan]})
+    assert _iv_vs_hv(priced)["available"] is False
+
+
+def test_iv_vs_hv_summarises_available_rows():
+    from cwintel.yuanta_analytics import _iv_vs_hv
+
+    priced = pd.DataFrame({"ivMinusHv": [30.0, 20.0, -5.0, np.nan]})
+    result = _iv_vs_hv(priced)
+    assert result["available"] is True
+    assert result["count"] == 3
+    assert result["medianIvMinusHv"] == pytest.approx(20.0)
+    assert result["countIvAboveHv"] == 2
+    assert result["countIvBelowHv"] == 1

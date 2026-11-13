@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+
+import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,6 +32,7 @@ sys.path.insert(0, str(ROOT))
 from cwintel import yuanta_history as hist  # noqa: E402
 from cwintel.yuanta_analytics import build_analytics  # noqa: E402
 from cwintel.yuanta_board import BoardIntegrityError, clean_board, write_json  # noqa: E402
+from cwintel import yuanta_underlying as hist_underlying  # noqa: E402
 from cwintel.yuanta_intraday import ref_continuity  # noqa: E402
 from scripts.analyze_yuanta_warrants import extract_rows  # noqa: E402
 from scripts.yuanta_client import YuantaHTTPError, fetch_board  # noqa: E402
@@ -76,6 +79,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="thư mục kho CSV theo tháng (mặc định data/cw_history)")
     parser.add_argument("--sessions-out", type=Path, default=DEFAULT_SESSIONS)
     parser.add_argument("--analytics-out", type=Path, default=DEFAULT_ANALYTICS)
+    parser.add_argument("--underlying-store", type=Path,
+                        default=ROOT / "data" / "underlying_history",
+                        help="kho lịch sử cổ phiếu cơ sở (parquet/mã); thiếu thì S lấy từ "
+                             "Vietstock và không có HV")
+    parser.add_argument("--terms", type=Path, default=ROOT / "data" / "cw_terms" / "vietstock_terms.csv",
+                        help="bảng điều khoản (strike/ratio/đáo hạn) từ Vietstock; thiếu thì "
+                             "không định giá, phần còn lại vẫn chạy")
     parser.add_argument("--cwintel-cache", type=Path, default=None,
                         help="xuất parquet OHLCV theo schema cwintel (tuỳ chọn)")
     parser.add_argument("--limit", type=int, default=hist.SERIES_LIMIT,
@@ -119,7 +129,23 @@ def main(argv: list[str] | None = None) -> int:
     sessions_payload = build_sessions_payload(history, cov, gaps=gaps)
 
     frame = clean_board(rows, fetched_at=datetime.fromisoformat(fetched.replace("Z", "+00:00")))
-    analytics = build_analytics(frame, history=history, asof=snapshot_session.iso)
+    # Điều khoản hợp đồng (tuỳ chọn): có thì mở khoá Black–Scholes/IV, không có thì pipeline
+    # vẫn chạy đủ các phần khác. Không bao giờ bịa điều khoản để lấp chỗ trống.
+    terms = None
+    if args.terms and args.terms.exists():
+        try:
+            terms = pd.read_csv(args.terms, dtype={"session": str, "ticker": str})
+        except (OSError, pd.errors.ParserError) as exc:
+            print(f"CẢNH BÁO: không đọc được điều khoản {args.terms}: {exc}", file=sys.stderr)
+    underlyings = {}
+    if args.underlying_store and args.underlying_store.exists():
+        for path in sorted(args.underlying_store.glob("*.parquet")):
+            series = hist_underlying.load_store(args.underlying_store, path.stem)
+            if series is not None and not series.empty:
+                underlyings[path.stem.upper()] = series
+    analytics = build_analytics(frame, history=history, terms=terms,
+                                underlying_history=underlyings or None,
+                                asof=snapshot_session.iso)
 
     write_json(sessions_payload, args.sessions_out)
     write_json(analytics, args.analytics_out)
@@ -161,6 +187,27 @@ def main(argv: list[str] | None = None) -> int:
                 f"{r['t']}({r['status']})" for r in cont["rows"][:8]))
     else:
         print(f"Kiểm tra liên tục: {cont.get('reason')}")
+
+    valuation = analytics.get("valuation") or {}
+    if valuation.get("available"):
+        summary = valuation.get("summary") or {}
+        print(f"Định giá: {valuation['priced']} mã có BS/IV (IV trung vị "
+              f"{summary.get('medianIv')}% · {summary.get('moneyness')})")
+        excluded = valuation.get("excluded") or {}
+        if excluded:
+            print("  Loại khỏi định giá: " + ", ".join(f"{k}: {v}" for k, v in excluded.items()))
+        print(f"  Lãi suất phi rủi ro {valuation.get('riskFree')} — tham số cấu hình, "
+              "không phải số liệu thị trường")
+        ivhv = valuation.get("ivVsHv") or {}
+        if ivhv.get("available"):
+            print(f"  IV − HV: trung vị {ivhv['medianIvMinusHv']:+.2f} điểm "
+                  f"(p25–p75 {ivhv['p25']:+.2f} → {ivhv['p75']:+.2f}) trên "
+                  f"{ivhv['count']} mã có lịch sử cổ phiếu cơ sở")
+        else:
+            print(f"  IV − HV: chưa có ({ivhv.get('reason')})")
+    else:
+        print(f"Định giá: KHÔNG chạy — {valuation.get('reason')}")
+        print(f"  Để bật: python scripts/import_vietstock_terms.py --source <repo Vietstock>")
 
     print(f"Chuỗi: {args.sessions_out} · Phân tích: {args.analytics_out}")
     return 0

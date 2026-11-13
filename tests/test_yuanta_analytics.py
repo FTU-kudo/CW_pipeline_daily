@@ -234,8 +234,14 @@ def test_build_analytics_is_json_safe_and_honest(board, history):
     assert payload["sessions"]["available"] is False
     caveats = " ".join(payload["caveats"])
     assert "RefP" in caveats and "phân vị" in caveats
-    for forbidden in ("recommendations", "scores", "iv", "greeks", "valuation"):
-        assert forbidden not in payload
+    # Định giá nay CÓ (từ điều khoản Vietstock), nên không còn cấm "iv"/"valuation".
+    # Điều phải cấm là khuyến nghị và điểm mua/bán — thứ dữ liệu này không thể sinh ra.
+    for forbidden in ("recommendations", "buysignal", "sellsignal", "targetprice", "rating"):
+        assert forbidden not in text.lower()
+    valuation = payload["valuation"]
+    if not valuation["available"]:
+        # Không có điều khoản → phải nói rõ lý do, không được im lặng
+        assert valuation["reason"]
 
 
 def test_build_analytics_rejects_empty_frame():
