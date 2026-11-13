@@ -303,6 +303,21 @@ def render_markdown(report: dict, *, compact: bool = False) -> str:
                   f"- Lãi suất phi rủi ro {valuation.get('riskFree')} — "
                   f"{valuation.get('riskFreeSource', '')}",
                   f"- {valuation.get('ivInterpretation', '')}", ""]
+        ivhv = valuation.get("ivVsHv") or {}
+        if ivhv.get("available"):
+            lines += [
+                "### IV so với biến động thực hiện (IV − HV)", "",
+                f"HV tính từ chuỗi giá đóng cửa thật của {_vnd(ivhv.get('count'))} cổ phiếu cơ sở "
+                "(nguồn Yuanta, không nội suy phiên thiếu).", "",
+                f"- Trung vị **{ivhv.get('medianIvMinusHv'):+.2f} điểm phần trăm** "
+                f"(p25–p75 = {ivhv.get('p25'):+.2f} → {ivhv.get('p75'):+.2f})",
+                f"- IV cao hơn HV: {_vnd(ivhv.get('countIvAboveHv'))} mã · "
+                f"thấp hơn HV: {_vnd(ivhv.get('countIvBelowHv'))} mã",
+                f"- {ivhv.get('note', '')}", "",
+            ]
+        else:
+            lines += ["### IV so với biến động thực hiện (IV − HV)", "",
+                      f"Chưa đo được: {ivhv.get('reason', 'chưa có lịch sử cổ phiếu cơ sở')}", ""]
         cheap = [w for w in (valuation.get("warrants") or [])
                  if w.get("ivResidualPct") is not None][:10]
         if cheap:

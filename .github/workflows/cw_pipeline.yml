@@ -81,6 +81,15 @@ jobs:
           python scripts/import_vietstock_terms.py --source /tmp/vietstock_cw_bot \
             || echo "::warning::Nhập điều khoản thất bại — giữ bảng cũ nếu có"
 
+      # Lịch sử OHLCV cổ phiếu cơ sở (2010 → hôm nay): cho S trực tiếp và HV thật để so IV.
+      # Chạy sau snapshot vì danh sách cơ sở lấy từ bảng giá. Lỗi ở đây không được làm đỏ job:
+      # thiếu lịch sử thì S quay về suy từ Vietstock và phần IV−HV tự tắt.
+      - name: Fetch underlying stock history (OHLCV + foreign flow)
+        continue-on-error: true
+        run: |
+          python scripts/fetch_underlying_history.py --limit 0 \
+            || echo "::warning::Không tải được lịch sử cổ phiếu cơ sở — dùng dữ liệu đã có"
+
       - name: Append session bar to the OHLCV history store
         run: |
           python scripts/backfill_yuanta_history.py \
@@ -96,6 +105,7 @@ jobs:
           git add -f docs/data/yuanta_sessions.json docs/data/yuanta_analytics.json
           git add -f data/cw_history/*.csv 2>/dev/null || true
           git add -f data/cw_terms/*.csv 2>/dev/null || true
+          git add -f data/underlying_history/*.parquet 2>/dev/null || true
           # CSV là dữ liệu nguồn dẫn xuất: đính kèm vào lần chạy, không commit vào Git.
           if git diff --cached --quiet; then
             echo "Snapshot unchanged; no commit needed."

@@ -300,6 +300,33 @@ def _ticker_coverage(history: pd.DataFrame | None, *, asof: str | None = None,
     return rows[:limit]
 
 
+def _iv_vs_hv(priced: pd.DataFrame) -> dict:
+    """Chênh lệch IV − HV, chỉ trên các mã có lịch sử cổ phiếu cơ sở.
+
+    Đây là con số mà trước khi có endpoint lịch sử chỉ có thể nói bằng lời: IV cao hơn HV bao
+    nhiêu là mức bù rủi ro thị trường đang tính cho người mua CW. Dương = người mua trả nhiều
+    hơn biến động thực tế của cổ phiếu cơ sở.
+    """
+    if priced is None or priced.empty or "ivMinusHv" not in priced:
+        return {"available": False,
+                "reason": "Chưa tải lịch sử cổ phiếu cơ sở (scripts/fetch_underlying_history.py)."}
+    diff = pd.to_numeric(priced["ivMinusHv"], errors="coerce").dropna()
+    if diff.empty:
+        return {"available": False,
+                "reason": "Có bảng điều khoản nhưng chưa có lịch sử cổ phiếu cơ sở."}
+    return {
+        "available": True,
+        "count": int(len(diff)),
+        "medianIvMinusHv": _f(diff.median(), 2),
+        "p25": _f(diff.quantile(0.25), 2),
+        "p75": _f(diff.quantile(0.75), 2),
+        "countIvAboveHv": int((diff > 0).sum()),
+        "countIvBelowHv": int((diff < 0).sum()),
+        "note": ("IV − HV theo điểm phần trăm. Dương = thị trường định giá rủi ro cao hơn "
+                 "biến động thực tế của cổ phiếu cơ sở. Mô tả mặt bằng, không phải tín hiệu."),
+    }
+
+
 def _attach_tiers(frame: pd.DataFrame, liquidity: dict) -> pd.DataFrame:
     """Gắn cột ``LiquidityTier`` từ kết quả ``liquidity_ranking`` (không tính lại phân vị)."""
     thresholds = liquidity.get("thresholds") or []
@@ -313,6 +340,7 @@ def _attach_tiers(frame: pd.DataFrame, liquidity: dict) -> pd.DataFrame:
 
 def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                     terms: pd.DataFrame | None = None,
+                    underlying_history: dict | None = None,
                     asof: str | None = None) -> dict:
     """Gói toàn bộ phân tích mở rộng thành dict JSON-safe."""
     if frame is None or frame.empty:
@@ -344,7 +372,8 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
     priced, valuation_diag = pd.DataFrame(), {"available": False,
                                               "reason": "Chưa nạp điều khoản hợp đồng."}
     if terms is not None and not terms.empty and asof:
-        priced, valuation_diag = price_warrants(frame, terms, session=asof)
+        priced, valuation_diag = price_warrants(
+            frame, terms, session=asof, underlying_history=underlying_history)
 
     return {
         "schemaVersion": 1,
@@ -354,6 +383,7 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         "valuation": {
             **valuation_diag,
             "summary": summarize_valuation(priced),
+            "ivVsHv": _iv_vs_hv(priced),
             # replace({nan: None}) chứ không phải to_dict thô: pandas để NaN cho nhóm quá
             # nhỏ, và NaN không phải JSON hợp lệ (json.dumps mặc định allow_nan=False).
             # NaN ở đây có nghĩa "không xác định", không phải "bằng 0".

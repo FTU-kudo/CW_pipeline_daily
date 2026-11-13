@@ -166,6 +166,40 @@ so sánh được. Nhóm dưới 5 mã thì không chấm (trung vị 2 quan sá
 (`config.DEFAULT_RISK_FREE`) — repo không có chuỗi lợi suất trái phiếu, nên đây là **tham số
 phần mềm**, và điều đó được ghi kèm trong payload (`riskFreeSource`).
 
+### Lịch sử giá cổ phiếu cơ sở — và HV thật để so với IV
+
+`ysradarapi.yuanta.com.vn/api/v3/market_data/market_watch/price_history/{MÃ}` trả OHLCV từng
+phiên từ 2010 kèm `ForeignVolumeBuy`/`ForeignVolumeSell`/`PutThroughVolume`. Tải bằng:
+
+```bash
+python scripts/fetch_underlying_history.py                 # toàn bộ cơ sở có trong snapshot
+python scripts/fetch_underlying_history.py --symbol ACB     # một mã
+python scripts/fetch_underlying_history.py --limit 0        # không giới hạn số mã
+```
+
+Kho: `data/underlying_history/{MÃ}.parquet`, **resume được** — chạy lại gộp dữ liệu mới vào
+lịch sử cũ (`merge_history`), không nhân đôi phiên, không ghi đè quá khứ. Mã lỗi được liệt kê
+riêng và không làm hỏng phần còn lại; job CI để `continue-on-error` nên mất mạng chỉ làm mất
+phần HV, không làm đỏ pipeline.
+
+Điều này thay đổi hai thứ:
+
+1. **S trực tiếp thay vì suy luận.** Trước đây `S` chỉ suy được từ premium/đòn bẩy Vietstock.
+   Có lịch sử thì `S` là giá đóng cửa thật; mã chưa tải được lịch sử vẫn dùng cách suy cũ và
+   payload ghi rõ từng mã (`underlyingSource`).
+2. **IV − HV thành số đo, không còn là câu nói.** HV = độ lệch chuẩn log-return 21 và 63 phiên,
+   quy năm theo 252 phiên. Ngày 2026-11-13, trên 20 cổ phiếu cơ sở đã tải: **IV − HV trung vị
+   +26,5 điểm** (p25–p75 = +5,8 → +32,6), 18 mã IV trên HV / 2 mã dưới.
+
+**Không nội suy phiên thiếu.** Phiên nguồn không trả về thì để trống và ghi vào `missing` —
+nội suy sẽ làm HV thấp giả tạo, đúng loại lỗi khó phát hiện nhất. Phiên `Volume = 0` vẫn được
+lưu nhưng bị loại khỏi phép tính lợi suất, không bị coi là "giá đứng".
+
+**Khối ngoại là khối lượng, không phải tiền.** Payload cho `ForeignVolumeBuy`/`Sell`; muốn ra
+tiền phải nhân với giá khớp của riêng phần khối ngoại — dữ liệu đó không có, và nhân với
+`Average` của cả phiên sẽ tạo ra con số trông chính xác nhưng sai. Vì vậy `unit` trong payload
+ghi thẳng "cổ phiếu".
+
 ### Trọng số điểm khi đã có định giá
 
 | Trục | Trọng số |

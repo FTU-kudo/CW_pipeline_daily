@@ -75,6 +75,9 @@ def years_to_maturity(session: str | date, maturity: str | date | None) -> float
     return days / config.DAYS_PER_YEAR
 
 
+#: Số phiên dùng để tính HV dài hạn (3 tháng giao dịch).
+HV_LONG_WINDOW = 63
+
 #: Số phiên tối thiểu để ước lượng biến động từ chuỗi giá CW.
 MIN_VOL_SESSIONS = 10
 #: Số phiên dùng để ước lượng biến động gần nhất.
@@ -112,6 +115,16 @@ def realized_vol_from_series(series: pd.DataFrame, *, window: int = VOL_WINDOW) 
     return out
 
 
+def realized_vol_fast(closes: list[float], window: int) -> float | None:
+    """HV (%/năm) từ danh sách giá đóng cửa; ``None`` nếu không đủ mẫu."""
+    values = [v for v in closes if v and v > 0][-window - 1:]
+    if len(values) < max(MIN_VOL_SESSIONS, 6) + 1:
+        return None
+    returns = np.log(np.asarray(values[1:], dtype=float) / np.asarray(values[:-1], dtype=float))
+    daily = float(np.std(returns, ddof=1))
+    return daily * math.sqrt(config.TRADING_DAYS_PER_YEAR) * 100
+
+
 def iv_residual(priced: pd.DataFrame, *, min_group: int = 5) -> pd.DataFrame:
     """Chênh lệch IV của từng mã so với **trung vị IV của nhóm cùng cổ phiếu cơ sở**.
 
@@ -139,7 +152,8 @@ def iv_residual(priced: pd.DataFrame, *, min_group: int = 5) -> pd.DataFrame:
 def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
                    session: str | None = None,
                    risk_free: float | None = None,
-                   crosscheck_tolerance_pct: float = DEFAULT_CROSSCHECK_TOLERANCE_PCT
+                   crosscheck_tolerance_pct: float = DEFAULT_CROSSCHECK_TOLERANCE_PCT,
+                   underlying_history: dict[str, pd.DataFrame] | None = None
                    ) -> tuple[pd.DataFrame, dict]:
     """Định giá từng CW. Trả ``(bảng kết quả, chẩn đoán)``.
 
@@ -178,6 +192,25 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         }
     term_by_ticker = same_day.set_index(same_day["ticker"].astype(str).str.upper())
 
+    # Chỉ số cổ phiếu cơ sở từ lịch sử thật (nếu đã tải): giá đóng cửa mới nhất, HV 21/63
+    # phiên, dòng khối ngoại. Có lịch sử thì `S` lấy trực tiếp — chính xác hơn suy từ
+    # premium/đòn bẩy — và so sánh được IV với HV.
+    underlyings: dict[str, dict] = {}
+    for symbol, series in (underlying_history or {}).items():
+        if series is None or series.empty:
+            continue
+        closes = pd.to_numeric(series.sort_values("TradingDate")["Close"],
+                               errors="coerce").dropna().tolist()
+        if not closes:
+            continue
+        underlyings[str(symbol).upper()] = {
+            "close": closes[-1],
+            "date": str(series.sort_values("TradingDate")["TradingDate"].iloc[-1]),
+            "hvShort": realized_vol_fast(closes, VOL_WINDOW),
+            "hvLong": realized_vol_fast(closes, HV_LONG_WINDOW),
+            "sessions": len(closes),
+        }
+
     traded = frame[frame["Traded"].fillna(False)]
     rows: list[dict] = []
 
@@ -212,6 +245,15 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         if crosscheck is not None and crosscheck > crosscheck_tolerance_pct:
             exclude(f"S không khớp chéo (>{crosscheck_tolerance_pct}%)")
             continue
+
+        # Ưu tiên S từ lịch sử cổ phiếu cơ sở (đo trực tiếp) hơn S suy từ premium/đòn bẩy.
+        # Ghi lại nguồn để người đọc biết con số đến từ đâu.
+        history_row = underlyings.get(str(term.get("underlying") or "").upper())
+        if history_row and history_row["close"]:
+            underlying = float(history_row["close"])
+            underlying_source = f"lịch sử Yuanta ({history_row['date']})"
+        else:
+            underlying_source = "suy từ premium/đòn bẩy Vietstock"
 
         t_years = years_to_maturity(session, term.get("maturity"))
         if t_years is None:
@@ -273,6 +315,11 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             # Giá thị trường đắt/rẻ hơn giá lý thuyết bao nhiêu %. Dương = thị trường trả
             # nhiều hơn mô hình; âm = rẻ hơn mô hình. KHÔNG phải tín hiệu mua/bán.
             "vsBsPct": _f((cw_close / greeks.price - 1) * 100, 2),
+            "underlyingSource": underlying_source,
+            "hvShort": _f(history_row["hvShort"], 2) if history_row else None,
+            "hvLong": _f(history_row["hvLong"], 2) if history_row else None,
+            "ivMinusHv": (_f(iv * 100 - history_row["hvShort"], 2)
+                          if history_row and history_row["hvShort"] else None),
             "crosscheckPct": crosscheck,
             "termsSource": term.get("termsSource"),
         })
