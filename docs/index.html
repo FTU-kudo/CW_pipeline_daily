@@ -55,6 +55,7 @@
   <nav class="tabs" id="tabs" role="tablist">
     <button type="button" class="tab active" data-view="board" role="tab">Bảng giá</button>
     <button type="button" class="tab" data-view="scoring" role="tab">Xếp hạng</button>
+    <button type="button" class="tab" data-view="valuation" role="tab">Định giá</button>
     <button type="button" class="tab" data-view="liquidity" role="tab">Thanh khoản</button>
     <button type="button" class="tab" data-view="underlyings" role="tab">Theo cơ sở</button>
     <button type="button" class="tab" data-view="stale" role="tab">Mã không giao dịch</button>
@@ -63,6 +64,7 @@
     <button type="button" class="tab" data-view="history" role="tab">Lịch sử</button>
   </nav>
   <section class="view" id="view-scoring" hidden></section>
+  <section class="view" id="view-valuation" hidden></section>
   <section class="view" id="view-liquidity" hidden></section>
   <section class="view" id="view-underlyings" hidden></section>
   <section class="view" id="view-stale" hidden></section>
@@ -397,6 +399,53 @@ function emptyNotice(what) {
   return `<div class="empty">Không có khối ${esc(what)} trong file phân tích.${stamp}</div>`;
 }
 
+// ── Định giá: Black–Scholes + IV, từ điều khoản Vietstock ──
+function renderValuation() {
+  const host = document.querySelector('#view-valuation');
+  const val = analytics?.valuation;
+  if (!val) { host.innerHTML = emptyNotice('định giá'); return; }
+  if (val.available === false) {
+    host.innerHTML = `<div class="empty"><strong>Chưa định giá được.</strong> ${esc(val.reason || '')}
+      <br>Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu
+      cơ sở (S). Nạp bằng <code>scripts/import_vietstock_terms.py</code>.</div>`;
+    return;
+  }
+  const sum = val.summary || {};
+  const rows = val.warrants || [];
+  const excluded = val.excluded || {};
+  const exclText = Object.entries(excluded).map(([k, v]) => `${esc(k)}: ${v}`).join(' · ') || 'không có';
+  host.innerHTML = `
+    <h2>Black–Scholes, IV và Greeks</h2>
+    <p class="caption">Định giá <strong>${num(val.priced, 0)} mã</strong> bằng mô hình
+      Black–Scholes–Merton (quyền chọn mua kiểu châu Âu), dùng điều khoản hợp đồng từ
+      <a href="https://github.com/FTU-kudo/Vietstock_CW_bot" target="_blank" rel="noopener">Vietstock_CW_bot</a>:
+      strike, tỷ lệ chuyển đổi, ngày đáo hạn. Giá cổ phiếu cơ sở <em>S</em> suy ra từ chính dữ
+      liệu đó và được kiểm chứng chéo bằng hai công thức độc lập (premium và đòn bẩy) — lệch
+      quá 1% thì loại, không dùng.</p>
+    <p class="caption"><strong>IV trung vị ${num(sum.medianIv, 1)}%</strong>
+      (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) ·
+      ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM
+      ${num((sum.moneyness || {}).OTM, 0)} · delta trung vị ${num(sum.medianDelta, 3)}</p>
+    <p class="caption"><strong>Đọc IV thế nào:</strong> ${esc(val.ivInterpretation || '')}</p>
+    <p class="caption"><strong>Giới hạn của mô hình:</strong> ${esc(val.model || '')}
+      Lãi suất phi rủi ro ${num(val.riskFree, 4)} — ${esc(val.riskFreeSource || '')}</p>
+    <p class="caption">Loại khỏi định giá: ${exclText}</p>
+
+    <h2>Mã rẻ nhất so với nhóm cùng cơ sở</h2>
+    <p class="caption"><em>Chênh lệch IV</em> = IV của mã so với trung vị IV các CW cùng cổ phiếu
+      cơ sở. Âm = rủi ro được định giá rẻ hơn nhóm; dương = đắt hơn. Đây là so sánh
+      <strong>tương đối trong nhóm</strong>, không phải tín hiệu mua/bán.</p>
+    ${simpleTable(['Mã', 'Cơ sở', 'IV', 'IV nhóm', 'Chênh lệch IV', 'Delta', 'ITM/OTM', 'Strike', 'S', 'Giá CW', 'Đáo hạn (ngày)', 'Premium'], rows.slice(0, 40),
+      r => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.underlying || '—')}</td>`
+        + `<td class="num">${fmtPct(r.iv, 1)}</td><td class="num">${fmtPct(r.ivGroupMedian, 1)}</td>`
+        + `<td class="num ${r.ivResidualPct < 0 ? 'positive' : (r.ivResidualPct > 0 ? 'negative' : '')}">${fmtPct(r.ivResidualPct, 1)}</td>`
+        + `<td class="num">${num(r.delta, 3)}</td><td>${esc(r.moneyness || '—')}</td>`
+        + `<td class="num">${fmtVnd(r.strike)}</td><td class="num">${fmtVnd(r.underlyingPrice)}</td>`
+        + `<td class="num">${fmtVnd(r.cwPrice)}</td><td class="num">${num(r.daysToMaturity, 0)}</td>`
+        + `<td class="num">${fmtPct(r.premiumPct, 1)}</td></tr>`)}
+  `;
+}
+
 // ── Xếp hạng: điểm 0–100 từ các trục ĐO ĐƯỢC, kèm lý do không có Black–Scholes ──
 function renderScoring() {
   const host = document.querySelector('#view-scoring');
@@ -406,7 +455,7 @@ function renderScoring() {
   const val = sc.valuation || {};
   const rows = sc.ranking || [];
   const parts = [
-    ['Thanh khoản', 'liquidity'], ['Chi phí', 'cost'],
+    ['Thanh khoản', 'liquidity'], ['Chi phí', 'cost'], ['Định giá', 'valuation'],
     ['Chất lượng giá', 'priceQuality'], ['Độ ổn định', 'consistency'],
   ];
   host.innerHTML = `
@@ -418,20 +467,27 @@ function renderScoring() {
     <p class="caption"><strong>Điểm này không phải khuyến nghị mua/bán.</strong> Nó trả lời một câu hẹp:
       mã này có giao dịch được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?</p>
 
-    <h2>Vì sao không có Black–Scholes / IV / Greeks</h2>
-    <p class="caption">Thiếu đầu vào bắt buộc: <strong>${esc((val.blockedBy || []).join(' · '))}</strong>.
-      ${esc(val.reason || '')}</p>
-    <p class="caption">Engine đã có sẵn (${esc(val.engineReady || '—')}) và sẽ tự bật khi có điều khoản;
-      không phải viết lại. Cho tới lúc đó, điểm số dùng các trục thay thế:
-      ${esc(val.alternativeUsed || '')}</p>
+    ${val.available
+      ? `<h2>Định giá đã bật</h2>
+         <p class="caption">Điểm số có trục <strong>định giá ${Math.round((sc.weights?.valuation || 0) * 100)}%</strong>,
+           tính từ IV của mã so với trung vị IV các CW cùng cổ phiếu cơ sở
+           (${num(sc.valuationMeta?.scored, 0)} mã được chấm). Đã định giá ${num(val.priced, 0)} mã
+           bằng Black–Scholes. Xem chi tiết ở tab <strong>Định giá</strong>.</p>`
+      : `<h2>Vì sao chưa có Black–Scholes / IV / Greeks</h2>
+         <p class="caption">Thiếu đầu vào bắt buộc: <strong>${esc((val.blockedBy || []).join(' · '))}</strong>.
+           ${esc(val.reason || '')}</p>
+         <p class="caption">Engine đã có sẵn (${esc(val.engineReady || '—')}) và sẽ tự bật khi có điều khoản;
+           không phải viết lại. Cho tới lúc đó, điểm số dùng các trục thay thế:
+           ${esc(val.alternativeUsed || '')}</p>`}
 
-    ${simpleTable(['#', 'Mã', 'Cơ sở', 'Điểm', 'Độ phủ', 'Giá', '%Ngày', 'Giá trị', 'Thanh khoản', 'Chi phí', 'Chất lượng giá', 'Độ ổn định', 'Cảnh báo'], rows.slice(0, 50),
+    ${simpleTable(['#', 'Mã', 'Cơ sở', 'Điểm', 'Độ phủ', 'Giá', '%Ngày', 'Giá trị', 'Thanh khoản', 'Chi phí', 'Định giá', 'Chất lượng giá', 'Độ ổn định', 'Cảnh báo'], rows.slice(0, 50),
       r => `<tr><td class="num">${r.rank}</td><td><strong>${esc(r.t)}</strong></td><td>${esc(r.u || '—')}</td>`
         + `<td class="num"><strong>${num(r.score, 1)}</strong></td><td class="num">${num(r.coveragePct, 0)}%</td>`
         + `<td class="num">${num(r.price)}</td>`
         + `<td class="num ${r.chgPct > 0 ? 'positive' : (r.chgPct < 0 ? 'negative' : '')}">${fmtPct(r.chgPct)}</td>`
         + `<td class="num">${fmtVnd(r.valueVND)}</td>`
         + `<td class="num">${num(r.parts?.liquidity, 0)}</td><td class="num">${num(r.parts?.cost, 0)}</td>`
+        + `<td class="num">${r.parts?.valuation === null || r.parts?.valuation === undefined ? '—' : num(r.parts.valuation, 0)}</td>`
         + `<td class="num">${num(r.parts?.priceQuality, 0)}</td>`
         + `<td class="num">${r.parts?.consistency === null ? '—' : num(r.parts?.consistency, 0)}</td>`
         + `<td>${r.nearCeiling ? '<span class="flag">sát trần</span>' : '—'}</td></tr>`)}
@@ -449,7 +505,7 @@ function setView(name) {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.view === name);
   });
-  for (const view of ['board', 'scoring', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
+  for (const view of ['board', 'scoring', 'valuation', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
     const node = document.querySelector(`#view-${view}`);
     if (node) node.hidden = view !== name;
   }
@@ -491,6 +547,7 @@ try {
   loadOptional('sessions', SESSIONS_URL),
 ]);
 renderScoring();
+renderValuation();
 renderLiquidity();
 renderUnderlyings();
 renderStale();

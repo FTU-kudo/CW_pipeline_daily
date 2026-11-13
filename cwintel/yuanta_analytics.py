@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from .yuanta_scoring import score_warrants
+from .yuanta_valuation import price_warrants, summarize as summarize_valuation
 from .yuanta_intraday import (
     intraday_moves,
     last_trade_profile,
@@ -311,6 +312,7 @@ def _attach_tiers(frame: pd.DataFrame, liquidity: dict) -> pd.DataFrame:
 
 
 def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
+                    terms: pd.DataFrame | None = None,
                     asof: str | None = None) -> dict:
     """Gói toàn bộ phân tích mở rộng thành dict JSON-safe."""
     if frame is None or frame.empty:
@@ -337,12 +339,31 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
     trade_value = pd.to_numeric(frame["TotalVol"], errors="coerce").where(lambda s: s > 0)
     last_share = (pd.to_numeric(frame["LastMVol"], errors="coerce") / trade_value * 100)
 
+    # Định giá: chỉ chạy khi có bảng điều khoản. Thiếu điều khoản thì `priced` rỗng và
+    # `valuation.available=False` giữ nguyên lý do — không được im lặng bỏ qua.
+    priced, valuation_diag = pd.DataFrame(), {"available": False,
+                                              "reason": "Chưa nạp điều khoản hợp đồng."}
+    if terms is not None and not terms.empty and asof:
+        priced, valuation_diag = price_warrants(frame, terms, session=asof)
+
     return {
         "schemaVersion": 1,
         "kind": "yuanta-cw-analytics",
         "asof": asof,
         "liquidity": liquidity,
-        "scoring": score_warrants(tiered, history=history, last_share=last_share),
+        "valuation": {
+            **valuation_diag,
+            "summary": summarize_valuation(priced),
+            # replace({nan: None}) chứ không phải to_dict thô: pandas để NaN cho nhóm quá
+            # nhỏ, và NaN không phải JSON hợp lệ (json.dumps mặc định allow_nan=False).
+            # NaN ở đây có nghĩa "không xác định", không phải "bằng 0".
+            "warrants": (priced.sort_values("ivResidualPct", na_position="last")
+                         .replace({np.nan: None}).to_dict(orient="records")
+                         if len(priced) else []),
+        },
+        "scoring": score_warrants(tiered, history=history, last_share=last_share,
+                                  priced=priced if len(priced) else None,
+                                  valuation_diagnostics=valuation_diag),
         "underlyings": underlying_breakdown(frame),
         "stale": stale_monitor(frame, history, asof=asof),
         "tickerCoverage": _ticker_coverage(history, asof=asof),

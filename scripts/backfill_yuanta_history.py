@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+
+import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -76,6 +78,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="thư mục kho CSV theo tháng (mặc định data/cw_history)")
     parser.add_argument("--sessions-out", type=Path, default=DEFAULT_SESSIONS)
     parser.add_argument("--analytics-out", type=Path, default=DEFAULT_ANALYTICS)
+    parser.add_argument("--terms", type=Path, default=ROOT / "data" / "cw_terms" / "vietstock_terms.csv",
+                        help="bảng điều khoản (strike/ratio/đáo hạn) từ Vietstock; thiếu thì "
+                             "không định giá, phần còn lại vẫn chạy")
     parser.add_argument("--cwintel-cache", type=Path, default=None,
                         help="xuất parquet OHLCV theo schema cwintel (tuỳ chọn)")
     parser.add_argument("--limit", type=int, default=hist.SERIES_LIMIT,
@@ -119,7 +124,16 @@ def main(argv: list[str] | None = None) -> int:
     sessions_payload = build_sessions_payload(history, cov, gaps=gaps)
 
     frame = clean_board(rows, fetched_at=datetime.fromisoformat(fetched.replace("Z", "+00:00")))
-    analytics = build_analytics(frame, history=history, asof=snapshot_session.iso)
+    # Điều khoản hợp đồng (tuỳ chọn): có thì mở khoá Black–Scholes/IV, không có thì pipeline
+    # vẫn chạy đủ các phần khác. Không bao giờ bịa điều khoản để lấp chỗ trống.
+    terms = None
+    if args.terms and args.terms.exists():
+        try:
+            terms = pd.read_csv(args.terms, dtype={"session": str, "ticker": str})
+        except (OSError, pd.errors.ParserError) as exc:
+            print(f"CẢNH BÁO: không đọc được điều khoản {args.terms}: {exc}", file=sys.stderr)
+    analytics = build_analytics(frame, history=history, terms=terms,
+                                asof=snapshot_session.iso)
 
     write_json(sessions_payload, args.sessions_out)
     write_json(analytics, args.analytics_out)
@@ -161,6 +175,20 @@ def main(argv: list[str] | None = None) -> int:
                 f"{r['t']}({r['status']})" for r in cont["rows"][:8]))
     else:
         print(f"Kiểm tra liên tục: {cont.get('reason')}")
+
+    valuation = analytics.get("valuation") or {}
+    if valuation.get("available"):
+        summary = valuation.get("summary") or {}
+        print(f"Định giá: {valuation['priced']} mã có BS/IV (IV trung vị "
+              f"{summary.get('medianIv')}% · {summary.get('moneyness')})")
+        excluded = valuation.get("excluded") or {}
+        if excluded:
+            print("  Loại khỏi định giá: " + ", ".join(f"{k}: {v}" for k, v in excluded.items()))
+        print(f"  Lãi suất phi rủi ro {valuation.get('riskFree')} — tham số cấu hình, "
+              "không phải số liệu thị trường")
+    else:
+        print(f"Định giá: KHÔNG chạy — {valuation.get('reason')}")
+        print(f"  Để bật: python scripts/import_vietstock_terms.py --source <repo Vietstock>")
 
     print(f"Chuỗi: {args.sessions_out} · Phân tích: {args.analytics_out}")
     return 0

@@ -40,11 +40,16 @@ import pandas as pd
 
 #: Trọng số điểm tổng. Chỉ gồm các trục đo được từ bảng giá.
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "liquidity": 0.45,      # giá trị giao dịch — thước đo trực tiếp khả năng vào/ra
-    "cost": 0.30,           # spread quanh giá giữa — chi phí vòng
-    "priceQuality": 0.15,   # độ đại diện của giá đóng cửa
-    "consistency": 0.10,    # có giao dịch đều qua các phiên (khi đã đủ lịch sử)
+    "liquidity": 0.34,      # giá trị giao dịch — thước đo trực tiếp khả năng vào/ra
+    "cost": 0.26,           # spread quanh giá giữa — chi phí vòng
+    "valuation": 0.20,      # IV thấp so với nhóm cùng cơ sở = rủi ro được định giá rẻ hơn
+    "priceQuality": 0.12,   # độ đại diện của giá đóng cửa
+    "consistency": 0.08,    # có giao dịch đều qua các phiên (khi đã đủ lịch sử)
 }
+
+#: Không chấm điểm định giá khi nhóm cùng cơ sở ít hơn ngưỡng này — trung vị của 2–4 quan
+#: sát không đủ tin cậy để nói mã nào "rẻ".
+MIN_GROUP_FOR_VALUATION = 5
 
 #: ``headroom`` KHÔNG nằm trong điểm: 81,6% mã còn >50% dư địa tới trần, nên nó gần như hằng
 #: số và chỉ làm nén thang điểm. Nó vẫn được tính, nhưng là **cờ cảnh báo** (mã sát trần thì
@@ -174,6 +179,41 @@ def _consistency_score(history: pd.DataFrame | None) -> tuple[pd.Series, dict]:
     return coverage, {"available": True, "sessions": int(sessions)}
 
 
+def _valuation_score(priced: pd.DataFrame | None,
+                     tickers: pd.Series) -> tuple[pd.Series, dict]:
+    """Điểm theo ``ivResidualPct``: IV thấp hơn trung vị nhóm → điểm cao hơn.
+
+    Vì sao dùng IV chứ không dùng ``cwPrice/bsPrice``: khi IV được suy ngược từ chính giá
+    thị trường thì hai đại lượng đó bằng nhau, tỷ lệ luôn bằng 0 và không xếp hạng được gì.
+    So sánh IV của các CW **cùng một cổ phiếu cơ sở** mới có nghĩa — cùng rủi ro nền, khác
+    mức bù rủi ro.
+
+    Thang: residual −50% (rẻ hơn nhóm một nửa) → 100 điểm; +100% → 0 điểm. Đây là thang đo
+    tương đối trong nhóm, không phải "IV bao nhiêu là tốt".
+    """
+    empty = pd.Series(np.nan, index=tickers.index, dtype="float64")
+    if priced is None or priced.empty or "ivResidualPct" not in priced:
+        return empty, {"available": False,
+                       "reason": "Chưa có kết quả định giá (thiếu điều khoản hợp đồng)."}
+
+    residual = pd.to_numeric(priced.set_index("ticker")["ivResidualPct"], errors="coerce")
+    residual = residual[~residual.index.duplicated(keep="last")]
+    mapped = tickers.astype(str).str.upper().map(residual)
+
+    score = ((100 + mapped) / 150 * 100).clip(lower=0, upper=100)
+    # residual = −50 → 100 điểm; 0 → 66,7; +50 → 33,3; +100 → 0
+    return score, {
+        "available": bool(mapped.notna().any()),
+        "scored": int(mapped.notna().sum()),
+        "groupsTooSmall": int((pd.to_numeric(priced.get("ivGroupSize"), errors="coerce")
+                               .fillna(0) < MIN_GROUP_FOR_VALUATION).sum()),
+        "basis": (
+            "IV so với trung vị IV của các CW cùng cổ phiếu cơ sở. Dùng IV chứ không dùng "
+            "cwPrice/bsPrice vì IV suy ngược từ chính giá thị trường khiến tỷ lệ đó luôn ≈ 0."
+        ),
+    }
+
+
 def _headroom_score(frame: pd.DataFrame) -> pd.Series:
     """Dư địa tới trần: mã sát trần thì khó mua thêm ở giá hiện tại.
 
@@ -191,6 +231,8 @@ def _headroom_score(frame: pd.DataFrame) -> pd.Series:
 # ──────────────────────────────────────────────────────────────────
 def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                    last_share: pd.Series | None = None,
+                   priced: pd.DataFrame | None = None,
+                   valuation_diagnostics: dict | None = None,
                    weights: dict[str, float] | None = None) -> dict:
     """Điểm 0–100 cho từng mã, kèm điểm thành phần và độ phủ dữ liệu.
 
@@ -212,9 +254,12 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         consistency = frame["StockCode"].map(consistency)
 
     headroom = _headroom_score(frame).where(traded)
+    tickers = frame["StockCode"]
+    valuation, valuation_meta = _valuation_score(priced, tickers)
     parts = {
         "liquidity": _liquidity_score(frame).where(traded),
         "cost": _cost_score(frame).where(traded),
+        "valuation": valuation.where(traded),
         "priceQuality": _price_quality_score(frame, last_share).where(traded),
         "consistency": consistency.where(traded) if len(consistency) else
                        pd.Series(np.nan, index=frame.index),
@@ -227,6 +272,7 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         CwScore=total,
         CwScoreCoverage=coverage,
         ScoreLiquidity=parts["liquidity"].round(2),
+        ScoreValuation=parts["valuation"].round(2),
         ScoreCost=parts["cost"].round(2),
         ScorePriceQuality=parts["priceQuality"].round(2),
         ScoreConsistency=parts["consistency"].round(2),
@@ -252,6 +298,7 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
             "spreadPct": _f(getattr(row, "SpreadPct")),
             "parts": {
                 "liquidity": _f(getattr(row, "ScoreLiquidity")),
+                "valuation": _f(getattr(row, "ScoreValuation")),
                 "cost": _f(getattr(row, "ScoreCost")),
                 "priceQuality": _f(getattr(row, "ScorePriceQuality")),
                 "consistency": _f(getattr(row, "ScoreConsistency")),
@@ -291,16 +338,35 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
             "p75": _f(score_values.quantile(0.75)) if len(score_values) else None,
         },
         "consistency": consistency_meta,
-        "valuation": valuation_status(),
+        "valuationMeta": valuation_meta,
+        "valuation": valuation_status(priced, valuation_diagnostics),
     }
 
 
-def valuation_status() -> dict:
+def valuation_status(priced: pd.DataFrame | None = None,
+                     diagnostics: dict | None = None) -> dict:
     """Trạng thái trục định giá — luôn trả về, kể cả khi bị khoá.
 
     Trả về đúng cái đang thiếu thay vì một con số thay thế. Khi nguồn điều khoản xuất hiện,
     ``available`` chuyển thành ``True`` và engine ``cwintel.bs`` được dùng trực tiếp.
     """
+    if priced is not None and not priced.empty:
+        return {
+            "available": True,
+            "source": "điều khoản Vietstock (strike, tỷ lệ chuyển đổi, ngày đáo hạn) "
+                      "+ S suy từ dữ liệu Vietstock, kiểm chứng chéo hai công thức",
+            "priced": int(len(priced)),
+            "excluded": (diagnostics or {}).get("excluded", {}),
+            "riskFree": (diagnostics or {}).get("riskFree"),
+            "riskFreeSource": (diagnostics or {}).get("riskFreeSource"),
+            "model": (diagnostics or {}).get("model"),
+            "ivInterpretation": (diagnostics or {}).get("ivInterpretation"),
+            "ratingUse": (
+                "Xếp hạng dùng IV so với trung vị cùng cơ sở (ivResidualPct), không dùng "
+                "cwPrice/bsPrice — hai đại lượng đó bằng nhau khi IV suy ngược từ giá."
+            ),
+        }
+
     return {
         "available": False,
         "blockedBy": ["StrikePrice (K)", "MaturityDate (T)", "ConversionRatio (n)",

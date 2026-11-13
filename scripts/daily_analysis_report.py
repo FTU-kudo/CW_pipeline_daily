@@ -161,6 +161,7 @@ def build_report(*, snapshot_path: Path = DEFAULT_SNAPSHOT,
     if analytics:
         liq = analytics.get("liquidity", {})
         report["scoring"] = analytics.get("scoring", {})
+        report["valuation"] = analytics.get("valuation", {})
         report["liquidity"] = {
             "top": (liq.get("ranking") or [])[:10],
             "thresholds": liq.get("thresholds"),
@@ -288,6 +289,35 @@ def render_markdown(report: dict, *, compact: bool = False) -> str:
                           f"{valuation.get('reason', '')}"]
         lines.append("")
 
+    valuation = report.get("valuation") or {}
+    if valuation.get("available"):
+        vsum = valuation.get("summary") or {}
+        lines += ["## Định giá Black–Scholes / IV", "",
+                  f"- Định giá **{_vnd(valuation.get('priced'))}** mã bằng điều khoản Vietstock "
+                  "(strike, tỷ lệ chuyển đổi, ngày đáo hạn)",
+                  f"- IV trung vị **{_pct(vsum.get('medianIv'), 1)}** "
+                  f"(p25–p75 = {_pct(vsum.get('p25Iv'), 1)} đến {_pct(vsum.get('p75Iv'), 1)}) · "
+                  f"ITM {_vnd((vsum.get('moneyness') or {}).get('ITM'))} / "
+                  f"ATM {_vnd((vsum.get('moneyness') or {}).get('ATM'))} / "
+                  f"OTM {_vnd((vsum.get('moneyness') or {}).get('OTM'))}",
+                  f"- Lãi suất phi rủi ro {valuation.get('riskFree')} — "
+                  f"{valuation.get('riskFreeSource', '')}",
+                  f"- {valuation.get('ivInterpretation', '')}", ""]
+        cheap = [w for w in (valuation.get("warrants") or [])
+                 if w.get("ivResidualPct") is not None][:10]
+        if cheap:
+            lines += [*_table(
+                ["Mã", "Cơ sở", "IV", "IV nhóm", "Chênh lệch IV", "Delta", "ITM/OTM", "Đáo hạn (ngày)"],
+                [[str(w.get("ticker")), str(w.get("underlying") or "—"),
+                  _pct(w.get("iv"), 1), _pct(w.get("ivGroupMedian"), 1),
+                  _pct(w.get("ivResidualPct"), 1), _vnd(w.get("delta"), 3),
+                  str(w.get("moneyness") or "—"), _vnd(w.get("daysToMaturity"))]
+                 for w in cheap])]
+            lines += ["", "_Chênh lệch IV so với trung vị cùng cổ phiếu cơ sở: tương đối trong "
+                          "nhóm, không phải khuyến nghị._", ""]
+    elif valuation:
+        lines += ["## Định giá", "", f"- Không chạy: {valuation.get('reason', '')}", ""]
+
     intraday = report.get("intraday") or {}
     if intraday.get("available"):
         s = intraday.get("summary") or {}
@@ -359,9 +389,10 @@ def render_markdown(report: dict, *, compact: bool = False) -> str:
     lines.append("")
 
     lines += ["## Không có trong báo cáo này", "",
-              "Định giá, Greeks, IV, điểm số, khuyến nghị, backtest. Endpoint Yuanta EW không "
-              "có strike, hạn mức, ngày đáo hạn, giá cổ phiếu cơ sở hay chuỗi quá khứ, nên "
-              "không thể tính các chỉ tiêu đó. Báo cáo chỉ mô tả phiên đã xảy ra.", ""]
+              "Đây không phải khuyến nghị mua/bán và không có backtest. Định giá Black–Scholes "
+              "dùng điều khoản hợp đồng từ Vietstock; repo không có chuỗi lợi suất trái phiếu "
+              "nên lãi suất phi rủi ro là tham số cấu hình, không phải số liệu thị trường. "
+              "Mọi con số ở đây mô tả phiên đã xảy ra.", ""]
     return "\n".join(lines).rstrip() + "\n"
 
 

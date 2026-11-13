@@ -117,27 +117,64 @@ ghi `coveragePct` để biết điểm dựa trên bao nhiêu phần trăm trọ
 Điểm này **không phải khuyến nghị mua/bán**. Nó trả lời một câu hẹp: mã này có giao dịch
 được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?
 
-### Vì sao không có Black–Scholes / IV / Greeks trong điểm
+### Định giá Black–Scholes: mở khoá bằng điều khoản từ repo Vietstock
 
-Không phải vì chưa làm, mà vì **không thể** với nguồn này. Black–Scholes cần bốn biến:
+Bảng giá Yuanta **không** có bốn biến Black–Scholes cần (`S`, `K`, `T`, `n`). Repo thứ hai
+[`Vietstock_CW_bot`](https://github.com/FTU-kudo/Vietstock_CW_bot) có:
 
-| Biến | Endpoint `stock_type=EW` |
+| Biến | Nguồn Vietstock |
 |---|---|
-| `S` — giá cổ phiếu cơ sở | không có |
-| `K` — strike | không có |
-| `T` — ngày đáo hạn | không có |
-| `n` — tỷ lệ chuyển đổi | không có |
+| `K` strike | `gia_thuc_hien` |
+| `n` tỷ lệ chuyển đổi | `ty_le_chuyen_doi` (`"2 : 1"`) |
+| `T` ngày đáo hạn | `ngay_gd_cuoi_cung` |
+| `S` giá cổ phiếu cơ sở | **không có trực tiếp** — suy ra, xem dưới |
 
-Payload chỉ có 34 trường bảng giá. Engine `cwintel/bs.py` (`price_and_greeks`,
-`implied_vol`, `price_vector`) **đã có sẵn và đúng chuẩn** — nó chỉ chờ dữ liệu đầu vào.
-Khi có nguồn điều khoản, chỉ cần nối vào `score_valuation` của `cwintel/scoring.py`.
+```bash
+git clone --depth 1 https://github.com/FTU-kudo/Vietstock_CW_bot.git ../Vietstock_CW_bot
+python scripts/import_vietstock_terms.py --source ../Vietstock_CW_bot
+# → data/cw_terms/vietstock_terms.csv  (22.372 dòng, 526 mã, 68 phiên)
+python scripts/backfill_yuanta_history.py --offline   # tự dùng bảng điều khoản
+```
 
-Không suy ra strike từ tên mã: `CVPB2622` cho biết cơ sở là VPB (quy ước đặt tên, dự án đã
-dùng đúng cách này để nhóm), nhưng hai chữ số cuối không mã hoá strike, và các CW cùng cơ
-sở có strike khác nhau. Gán một con số cho đẹp sẽ sinh ra Greeks trông hợp lý nhưng vô nghĩa.
+**`S` được suy ra và kiểm chứng chéo, không phải phỏng đoán.** Repo Vietstock đã tính sẵn
+`premium` và `don_bay`, và hai công thức đó độc lập với nhau:
 
-Trang ghi rõ danh sách biến còn thiếu ngay trên tab **Xếp hạng**, và
-`scripts/check_cw_analytics_bridge.py` in ra cùng thông tin đó ở dạng kiểm tra được.
+```
+don_bay  = (S / CW) / n              →  S = don_bay × CW × n
+premium  = (K + CW×n − S) / S × 100  →  S = (K + CW×n) / (1 + premium/100)
+```
+
+Trên 400/400 mã kiểm tra được, hai cách cho cùng một `S` (lệch < 1%). Bản ghi nào lệch quá
+1% bị **loại** khỏi định giá và đếm vào `excluded`, không lấy trung bình hai giá trị.
+
+Kết quả phiên 13/11: **350/353 mã có giao dịch được định giá**, IV trung vị **48,5%**
+(p25–p75 = 38,0–67,7%), ITM 59 / ATM 13 / OTM 278, delta trung vị 0,090.
+
+### Đọc kết quả định giá cho đúng
+
+**IV không phải dự báo.** Nó là biến động ẩn suy ngược từ giá thị trường — "thị trường đang
+định giá rủi ro bao nhiêu". IV cao hơn HV là **chi phí** của người mua, không phải cơ hội.
+
+**Không dùng `cwPrice/bsPrice` để xếp hạng.** Khi IV suy ngược từ chính giá đó, hai đại
+lượng luôn bằng nhau và tỷ lệ luôn ≈ 0 — vô dụng. Thay vào đó dùng **`ivResidualPct`**: IV của
+mã so với trung vị IV các CW **cùng cổ phiếu cơ sở**. Cùng rủi ro nền, khác mức bù rủi ro →
+so sánh được. Nhóm dưới 5 mã thì không chấm (trung vị 2 quan sát không đáng tin).
+
+**Giới hạn mô hình.** BS giả định quyền chọn châu Âu, không cổ tức. CW Việt Nam có điều khoản
+đặc thù (chốt giá, điều chỉnh khi chia cổ tức) mà mô hình không mô tả, nên `bsPrice` chỉ dùng
+để xếp hạng tương đối, không phải giá mục tiêu. Lãi suất phi rủi ro là hằng số cấu hình
+(`config.DEFAULT_RISK_FREE`) — repo không có chuỗi lợi suất trái phiếu, nên đây là **tham số
+phần mềm**, và điều đó được ghi kèm trong payload (`riskFreeSource`).
+
+### Trọng số điểm khi đã có định giá
+
+| Trục | Trọng số |
+|---|---|
+| Thanh khoản | 34% |
+| Chi phí (spread) | 26% |
+| **Định giá (IV so với nhóm)** | **20%** |
+| Chất lượng giá | 12% |
+| Độ ổn định | 8% |
 
 ### Ngữ nghĩa từng trường — dùng đúng, không suy diễn
 
