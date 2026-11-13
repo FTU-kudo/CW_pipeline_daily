@@ -1,14 +1,2 @@
-requests
-pandas
-beautifulsoup4
-openpyxl
-pyarrow
-pytz
-playwright
-beautifulsoup4
-requests
-curl_cffi
-git+https://github.com/KhoaSampleTown/vnbond.git@a89cc002206cf2e1c75c672b21adc52deb262589
---extra-index-url https://vnstocks.com/api/packages
-vnstock==6.0.0
-vnstock-oapi==0.1.0
+# Dependencies for the Yuanta EW snapshot fetch/publish script.
+requests>=2.31.0

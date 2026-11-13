@@ -47,4 +47,4 @@ Mô hình cần xác định rõ tenor, ngày quan sát, đơn vị, lãi suất
 
 Vnstock G6 yêu cầu chỉ rõ nguồn, không có nguồn mặc định. Tài liệu route hiện hành liệt kê hỗ trợ theo từng API; không suy ra rằng tên adapter cũ (`VCI`, `KBS`) còn được hỗ trợ hoặc rằng route của nguồn mới tương đương.
 
-Điều khoản dữ liệu độc lập với giấy phép phần mềm Vnstock. Xem [Data rights](DATA_RIGHTS.md) và điều khoản gốc của provider/sở giao dịch. Mặc định mọi cache và output ở `output/private-data/`; `docs/` bị khóa khi chưa có record chấp thuận hợp lệ.
+Điều khoản dữ liệu độc lập với giấy phép phần mềm. Phần CW Intelligence cũ vẫn bị khóa ở chế độ private theo `cwintel/rights.py`; luồng công khai hiện tại chỉ là snapshot Yuanta riêng biệt, không chạy các phép tính trong tài liệu này. Xem [Data rights](DATA_RIGHTS.md).
