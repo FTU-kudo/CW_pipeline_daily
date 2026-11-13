@@ -70,20 +70,39 @@ jobs:
           NOTIFY: ${{ inputs.notify || 'summary' }}
           MAX_AGE_HOURS: ${{ inputs.max_age_hours || '36' }}
         run: |
-          set -o pipefail
-          REPORT_FLAGS="--out report/$(date -u +%F)-cw-report.md --max-age-hours $MAX_AGE_HOURS"
+          # Thư mục đích phải tồn tại TRƯỚC khi shell mở file để redirect: `> report/x.md`
+          # được thực hiện trước khi python chạy, nên thiếu mkdir sẽ lỗi
+          # "report/daily.md: No such file or directory" dù bản thân script đúng.
+          mkdir -p report
+          STAMP="$(date -u +%F)"
+
+          # Không dùng `set -e`: cần bắt mã thoát của script (3 = dữ liệu cũ) rồi mới quyết định.
+          set +e
           case "$NOTIFY" in
-            json)   python scripts/daily_analysis_report.py --format json $REPORT_FLAGS \
-                      > report/daily.json ;;
-            full)   python scripts/daily_analysis_report.py $REPORT_FLAGS > report/daily.md ;;
-            *)      python scripts/daily_analysis_report.py --summary $REPORT_FLAGS \
-                      > report/daily.md ;;
+            json)
+              python scripts/daily_analysis_report.py --format json \
+                --max-age-hours "$MAX_AGE_HOURS" > report/daily.json
+              STATUS=$?
+              [ -s report/daily.json ] && cp report/daily.json "report/${STAMP}-cw-report.json"
+              ;;
+            full)
+              python scripts/daily_analysis_report.py \
+                --out "report/${STAMP}-cw-report.md" \
+                --max-age-hours "$MAX_AGE_HOURS" > report/daily.md
+              STATUS=$?
+              ;;
+            *)
+              python scripts/daily_analysis_report.py --summary \
+                --out "report/${STAMP}-cw-report.md" \
+                --max-age-hours "$MAX_AGE_HOURS" > report/daily.md
+              STATUS=$?
+              ;;
           esac
-          STATUS=$?
+          echo "Mã thoát của báo cáo: $STATUS"
 
           # Đưa báo cáo vào phần tóm tắt của lần chạy để mở là đọc được.
           if [ -s report/daily.md ]; then
-            { echo "## Báo cáo CW Yuanta — $(date -u +%F)"; echo; cat report/daily.md; } \
+            { echo "## Báo cáo CW Yuanta — ${STAMP}"; echo; cat report/daily.md; } \
               >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -s report/daily.json ]; then

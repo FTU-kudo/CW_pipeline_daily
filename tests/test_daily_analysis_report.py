@@ -223,6 +223,45 @@ def test_daily_workflow_is_dispatchable_and_offline():
     assert "permissions:\n  contents: read" in text
 
 
+def test_workflow_creates_the_report_directory_before_redirecting():
+    """`> report/daily.md` mở file TRƯỚC khi python chạy → phải mkdir trước.
+
+    Đây là lỗi thật đã làm workflow đỏ ở lần chạy đầu: shell báo
+    "report/daily.md: No such file or directory" và thoát 1, dù script đúng.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    run = text[text.index("Build the daily report"):text.index("Upload the report")]
+
+    mkdir_at = run.find("mkdir -p report")
+    first_redirect = min((i for i in (run.find("> report/daily.md"),
+                                      run.find("> report/daily.json")) if i != -1), default=-1)
+    assert mkdir_at != -1, "thiếu mkdir -p report"
+    assert first_redirect != -1
+    assert mkdir_at < first_redirect, "mkdir phải đứng trước lệnh redirect"
+    # Mỗi chế độ đều ghi ra file có ngày để lưu trữ
+    assert "-cw-report.md" in run and "-cw-report.json" in run
+
+
+def test_workflow_shell_snippet_is_valid_bash(tmp_path):
+    """Trích step ra file .sh và chạy `bash -n` — bắt lỗi cú pháp trước khi lên CI."""
+    import shutil
+    import subprocess
+
+    text = WORKFLOW.read_text(encoding="utf-8")
+    run = text[text.index("        run: |\n", text.index("Build the daily report")):]
+    lines = []
+    for line in run.splitlines()[1:]:
+        if line.strip() and not line.startswith("          "):
+            break
+        lines.append(line[10:] if line.startswith(" " * 10) else "")
+    script = tmp_path / "step.sh"
+    script.write_text("\n".join(lines), encoding="utf-8")
+    if shutil.which("bash"):
+        result = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+    assert "mkdir -p report" in script.read_text(encoding="utf-8")
+
+
 def test_published_docs_mention_the_new_workflow():
     deploy = (ROOT / "docs" / "CRONJOB.md").read_text(encoding="utf-8")
     assert "daily_analysis.yml" in deploy
