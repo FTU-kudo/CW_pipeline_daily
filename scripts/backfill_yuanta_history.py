@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 from cwintel import yuanta_history as hist  # noqa: E402
 from cwintel.yuanta_analytics import build_analytics  # noqa: E402
 from cwintel.yuanta_board import BoardIntegrityError, clean_board, write_json  # noqa: E402
+from cwintel.yuanta_intraday import ref_continuity  # noqa: E402
 from scripts.analyze_yuanta_warrants import extract_rows  # noqa: E402
 from scripts.yuanta_client import YuantaHTTPError, fetch_board  # noqa: E402
 
@@ -138,6 +139,29 @@ def main(argv: list[str] | None = None) -> int:
               f"{cov['missingSessions'][:10]}{'…' if len(cov['missingSessions']) > 10 else ''}")
     else:
         print("Không có phiên nào bị thiếu trong khoảng dữ liệu.")
+    # ── Kiểm tra liên tục bằng RefP (= giá đóng cửa phiên trước) ──
+    # Chỉ có thể làm được khi kho đã có phiên trước; đây là chẩn đoán dữ liệu, không phải
+    # chỉ báo. Nếu RefP không khớp close phiên trước, hoặc phiên trước mất khỏi kho, ta biết
+    # chính xác chỗ đứt thay vì phát hiện muộn qua một chuỗi giá trông vẫn liền.
+    try:
+        analytics_frame = clean_board(rows, fetched_at=snapshot_session.fetched_at)
+        cont = ref_continuity(analytics_frame, hist.load_history(args.store))
+    except Exception as exc:  # noqa: BLE001 - chẩn đoán không được làm hỏng lần ghi
+        cont = {"available": False, "reason": f"bỏ qua kiểm tra liên tục: {exc}"}
+
+    if cont.get("available"):
+        c = cont["summary"]
+        print(f"Liên tục RefP vs close {cont['prevSession']}: "
+              f"{c['linked']}/{c['checked']} khớp ({c['linkedPct']}%) · "
+              f"lệch>{c['tolerancePct']}%: {c['mismatch']} · "
+              f"thiếu phiên: {c['missingSession']} · "
+              f"không có close để so: {c['untradedRef']} → {c['verdict']}")
+        if c["mismatch"] or c["missingSession"]:
+            print("  Chi tiết đứt gãy: " + ", ".join(
+                f"{r['t']}({r['status']})" for r in cont["rows"][:8]))
+    else:
+        print(f"Kiểm tra liên tục: {cont.get('reason')}")
+
     print(f"Chuỗi: {args.sessions_out} · Phân tích: {args.analytics_out}")
     return 0
 

@@ -57,11 +57,15 @@
     <button type="button" class="tab" data-view="liquidity" role="tab">Thanh khoản</button>
     <button type="button" class="tab" data-view="underlyings" role="tab">Theo cơ sở</button>
     <button type="button" class="tab" data-view="stale" role="tab">Mã không giao dịch</button>
+    <button type="button" class="tab" data-view="intraday" role="tab">Trong phiên</button>
+    <button type="button" class="tab" data-view="band" role="tab">Trần–sàn</button>
     <button type="button" class="tab" data-view="history" role="tab">Lịch sử</button>
   </nav>
   <section class="view" id="view-liquidity" hidden></section>
   <section class="view" id="view-underlyings" hidden></section>
   <section class="view" id="view-stale" hidden></section>
+  <section class="view" id="view-intraday" hidden></section>
+  <section class="view" id="view-band" hidden></section>
   <section class="view" id="view-history" hidden></section>
   <section class="view" id="view-board">
   <div class="toolbar"><input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"><button id="download" type="button">Tải JSON snapshot</button><span class="summary" id="summary"></span></div>
@@ -160,6 +164,9 @@ const fmtVnd = (v) => v === null || v === undefined ? '—'
   : v >= 1e9 ? `${(v / 1e9).toFixed(2)} tỷ` : v >= 1e6 ? `${(v / 1e6).toFixed(1)} tr`
   : v.toLocaleString('vi-VN');
 const fmtPct = (v, d = 2) => v === null || v === undefined ? '—' : `${v.toFixed(d)}%`;
+// Giá trị có thể rất lớn (dải trần–sàn khi FloorP = 10 VND) — vẫn in bình thường, chỉ thêm
+// dấu phân cách nghìn để đọc được; KHÔNG cắt bớt hay đổi đơn vị.
+const medianKnown = (v) => (v === null || v === undefined || Number.isNaN(v)) ? null : Number(v);
 const tierClass = (chg) => chg > 0 ? 'positive' : chg < 0 ? 'negative' : '';
 const escAttr = (v) => esc(v).replace(/"/g, '&quot;');
 
@@ -294,11 +301,90 @@ function renderHistory() {
   `;
 }
 
+// ── Trong phiên: biên độ thật của từng mã + chất lượng lệnh khớp cuối ──
+function renderIntraday() {
+  const host = document.querySelector('#view-intraday');
+  const block = analytics?.intraday;
+  const last = analytics?.lastTrade;
+  if (!block || block.available === false) {
+    host.innerHTML = `<div class="empty">${esc(block?.reason || 'Chưa có dữ liệu phân tích trong phiên.')}</div>`;
+    return;
+  }
+  const s2 = block.summary || {};
+  host.innerHTML = `
+    <h2>Biên độ trong phiên</h2>
+    <p class="caption">Tính trên đúng các trường của nguồn: OpenP, HighestP, LowestP, LastMP. Mẫu số là
+      <strong>RefP — giá đóng cửa phiên trước</strong>, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap.
+      Trung vị biên độ ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} bước giá;
+      ${num(s2.countFlatSession, 0)} mã đứng giá cả phiên (biên độ 0).</p>
+    <p class="caption">Vị trí giá đóng cửa trong khoảng [LowestP, HighestP]: <strong>${num(s2.countCloseInUpperHalf, 0)}</strong>
+      mã đóng ở nửa trên, <strong>${num(s2.countCloseInLowerHalf, 0)}</strong> mã đóng ở nửa dưới.
+      0 = đóng ở đáy, 1 = đóng ở đỉnh. Đây là mô tả phiên đã xảy ra, không phải tín hiệu.</p>
+    ${simpleTable(['Mã', 'Cơ sở', 'RefP', 'Mở', 'Cao', 'Thấp', 'Đóng', 'Biên độ', 'Bước giá', 'Vị trí đóng', '%Ngày', 'Giá trị'], block.rows,
+      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td class="num">${num(r.ref)}</td>`
+        + `<td class="num">${num(r.open)}</td><td class="num">${num(r.high)}</td><td class="num">${num(r.low)}</td>`
+        + `<td class="num">${num(r.close)}</td><td class="num">${fmtPct(r.rangePct, 1)}</td>`
+        + `<td class="num">${num(r.rangeTicks, 1)}</td><td class="num">${num(r.closeLocation, 2)}</td>`
+        + `<td class="num ${r.chgPct > 0 ? 'positive' : (r.chgPct < 0 ? 'negative' : '')}">${fmtPct(r.chgPct)}</td>`
+        + `<td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
+    ${last?.available ? `
+      <h2>Chất lượng lệnh khớp cuối</h2>
+      <p class="caption">LastMVol là khối lượng của <em>riêng lệnh khớp cuối</em>. Trung vị
+        ${fmtPct(last.summary.medianLastSharePct, 1)} khối lượng phiên; <strong>${num(last.summary.countSingleTradeClose, 0)}
+        / ${num(last.summary.countTraded, 0)}</strong> mã (${fmtPct(last.summary.singleTradeSharePct, 1)}) đóng cửa
+        bằng đúng một lệnh — giá đóng cửa của các mã này kém đại diện cho cả phiên.</p>
+      ${simpleTable(['Mã', 'Đóng', 'KL lệnh cuối', 'KL phiên', 'Tỷ lệ', 'Giá trị'], last.rows,
+        r => `<tr><td>${esc(r.t)}</td><td class="num">${num(r.close)}</td><td class="num">${num(r.lastTradeVol, 0)}</td>`
+          + `<td class="num">${num(r.volume, 0)}</td><td class="num">${fmtPct(r.lastSharePct, 1)}</td>`
+          + `<td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}` : ''}
+  `;
+}
+
+// ── Trần–sàn: đọc thẳng CeilingP/FloorP, không suy ra ±7% ──
+function renderBand() {
+  const host = document.querySelector('#view-band');
+  const block = analytics?.priceBand;
+  const cont = analytics?.refContinuity;
+  if (!block || block.available === false) {
+    host.innerHTML = `<div class="empty">${esc(block?.reason || 'Chưa có dữ liệu dải trần–sàn.')}</div>`;
+    return;
+  }
+  const s2 = block.summary || {};
+  host.innerHTML = `
+    <h2>Khoảng cách tới trần / sàn</h2>
+    <p class="caption">CeilingP và FloorP <strong>đọc trực tiếp từ nguồn</strong>, không suy ra bằng công thức.
+      Tỷ lệ dải trần–sàn không cố định: trong snapshot này trung vị ${num(medianKnown(s2.medianBandPct), 1)}%,
+      trải từ ${num(medianKnown(s2.minBandPct), 1)}% tới ${num(medianKnown(s2.maxBandPct), 1)}% — vì giá CW
+      có thể xuống sát bước giá tối thiểu (FloorP = 10 VND). Vì thế không bao giờ dùng ±7%.</p>
+    <p class="caption">Chạm trần: <strong>${num(s2.countAtCeiling, 0)}</strong> mã
+      ${s2.atCeiling?.length ? `(${esc(s2.atCeiling.join(', '))})` : ''} ·
+      chạm sàn: <strong>${num(s2.countAtFloor, 0)}</strong> mã
+      ${s2.atFloor?.length ? `(${esc(s2.atFloor.join(', '))})` : ''} ·
+      còn ≤ 1 bước giá tới trần: <strong>${num(s2.countNearCeiling, 0)}</strong> mã.</p>
+    ${simpleTable(['Mã', 'Cơ sở', 'Sàn', 'Trần', 'Đóng', 'Dải', 'Còn tới trần', 'Bước giá', 'Còn tới sàn', 'Trạng thái'], block.rows,
+      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td class="num">${num(r.floor)}</td>`
+        + `<td class="num">${num(r.ceiling)}</td><td class="num">${num(r.close)}</td>`
+        + `<td class="num">${num(medianKnown(r.bandPct), 0)}%</td><td class="num">${fmtPct(r.toCeilingPct, 1)}</td>`
+        + `<td class="num">${num(r.toCeilingTicks, 1)}</td><td class="num">${fmtPct(r.toFloorPct, 1)}</td>`
+        + `<td>${r.atCeiling ? '<span class="flag">chạm trần</span>' : (r.atFloor ? '<span class="flag">chạm sàn</span>' : '—')}</td></tr>`)}
+    <h2>Kiểm tra liên tục bằng RefP</h2>
+    ${cont?.available
+      ? `<p class="caption">So <strong>RefP hôm nay</strong> với <strong>close phiên liền trước trong kho</strong>
+          (${esc(cont.prevSession)}). Khớp: ${num(cont.summary.linked, 0)}/${num(cont.summary.checked, 0)}
+          (${fmtPct(cont.summary.linkedPct, 1)}) · lệch &gt; ${num(cont.summary.tolerancePct, 0)}%:
+          ${num(cont.summary.mismatch, 0)} · thiếu phiên: ${num(cont.summary.missingSession, 0)} ·
+          không có close để so: ${num(cont.summary.untradedRef, 0)} →
+          <strong>${esc(cont.summary.verdict)}</strong></p>
+        <p class="caption">${esc(cont.summary.basis)}</p>`
+      : `<div class="empty">${esc(cont?.reason || 'Chưa có phiên trước trong kho để đối chiếu RefP.')}</div>`}
+  `;
+}
+
 function setView(name) {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.view === name);
   });
-  for (const view of ['board', 'liquidity', 'underlyings', 'stale', 'history']) {
+  for (const view of ['board', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
     const node = document.querySelector(`#view-${view}`);
     if (node) node.hidden = view !== name;
   }
@@ -342,6 +428,8 @@ try {
 renderLiquidity();
 renderUnderlyings();
 renderStale();
+renderIntraday();
+renderBand();
 renderHistory();
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => setView(tab.dataset.view));

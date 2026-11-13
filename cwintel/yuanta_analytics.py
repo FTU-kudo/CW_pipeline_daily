@@ -17,6 +17,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .yuanta_intraday import (
+    intraday_moves,
+    last_trade_profile,
+    price_band_profile,
+    ref_continuity,
+)
+
 #: Nhãn nhóm thanh khoản, từ cao xuống thấp. Ranh giới = phân vị của snapshot hiện tại.
 LIQUIDITY_TIERS: tuple[str, ...] = ("rất cao", "cao", "trung bình", "thấp", "rất thấp")
 TIER_QUANTILES: tuple[float, ...] = (0.80, 0.60, 0.30, 0.10)
@@ -320,9 +327,19 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         "tickerCoverage": _ticker_coverage(history, asof=asof),
         "sessions": session_comparison(history, current_summary=summary),
         "historyCoverage": cov,
+        # Bốn khối dưới đây dùng đúng ngữ nghĩa payload: RefP = giá đóng cửa phiên trước,
+        # CeilingP/FloorP = dải trần–sàn (không suy ra công thức), LastMVol = khối lượng
+        # lệnh khớp cuối. Tất cả đều mô tả phiên đã xảy ra, không dự báo.
+        "intraday": intraday_moves(frame),
+        "priceBand": price_band_profile(frame),
+        "lastTrade": last_trade_profile(frame),
+        "refContinuity": ref_continuity(frame, history),
         "caveats": [
             "Nhóm thanh khoản dùng phân vị của chính snapshot, không phải ngưỡng VND cố định.",
             "Mã không khớp lệnh không có OHLC của phiên; RefP không được dùng làm giá.",
+            "RefP là giá đóng cửa phiên trước, nên % thay đổi và kiểm tra liên tục dùng RefP làm mốc.",
+            "CeilingP/FloorP đọc trực tiếp từ nguồn; tỷ lệ dải trần–sàn không cố định nên không dùng ±7%.",
+            "Biến động trong phiên là mô tả phiên đã xảy ra, không phải tín hiệu hay dự báo.",
             "So sánh nhiều phiên chỉ có khi kho data/cw_history đã tích luỹ ≥ 2 phiên.",
             "Không có định giá, Greeks hay khuyến nghị: nguồn không có strike/hạn mức/chuỗi quá khứ.",
         ],

@@ -97,6 +97,53 @@ Ba giới hạn được giữ chặt, không "làm đầy" cho đẹp:
 Vì endpoint không có dữ liệu quá khứ, lịch sử **bắt đầu từ lần chạy đầu tiên** và dày lên
 mỗi ngày — đây là lý do duy nhất có thể có chuỗi OHLCV đúng nghĩa từ nguồn này.
 
+### Ngữ nghĩa từng trường — dùng đúng, không suy diễn
+
+| Trường | Nghĩa | Cách dùng trong dự án |
+|---|---|---|
+| `RefP` | Giá tham chiếu = **giá đóng cửa phiên trước** | Mốc tính `%Ngày`, `%gap mở cửa`, và là **chốt kiểm tra liên tục** (xem dưới) |
+| `OpenP` | Giá khớp đầu phiên | Bar `open`; `%gap` so với `RefP` |
+| `HighestP`/`LowestP` | Giá cao nhất/thấp nhất phiên | Bar `high`/`low`; biên độ trong phiên |
+| `LastMP` | **Giá đóng cửa hôm nay** (giá khớp cuối) | Bar `close`; `null` khi mã không khớp lệnh |
+| `LastMVol` | Khối lượng **của riêng lệnh khớp cuối** | Đo chất lượng giá đóng cửa (`LastMVol/TotalVol`) |
+| `AvgP` | Giá khớp bình quân | Đồng nhất thức `TotalVal ≈ TotalVol × AvgP` |
+| `TotalVol`/`TotalVal` | Khối lượng / giá trị giao dịch phiên | Xếp hạng thanh khoản |
+| `CeilingP`/`FloorP` | Giá trần / sàn của phiên | Khoảng cách tới biên, phát hiện chạm trần/sàn |
+
+Vì `RefP` là giá đóng cửa hôm qua, **% thay đổi có ngay từ phiên đầu tiên** — không cần chờ
+phiên thứ hai trong kho.
+
+Ba phân tích mới dựa trực tiếp vào đó (`cwintel/yuanta_intraday.py`):
+
+- **Biên độ trong phiên**: `(HighestP − LowestP) / RefP`, và vị trí giá đóng cửa trong khoảng
+  `[LowestP, HighestP]` (0 = đóng đáy, 1 = đóng đỉnh). Ngày 13/11: trung vị 7,3% ≈ 3 bước
+  giá, 63 mã đứng giá cả phiên, 188 mã đóng nửa trên / 102 mã đóng nửa dưới.
+- **Trần–sàn**: đọc thẳng `CeilingP`/`FloorP`. Tỷ lệ dải **không cố định** — trung vị 3.800%,
+  trải 32,8%–25.800% — vì giá CW có thể xuống sát bước giá tối thiểu (`FloorP` = 10 VND).
+  Nên không bao giờ dùng công thức ±7%. Ngày 13/11: 2 mã chạm trần, 6 mã chạm sàn.
+- **Chất lượng lệnh khớp cuối**: `LastMVol/TotalVol`. 36/353 mã (10,2%) đóng cửa bằng đúng
+  một lệnh → giá đóng cửa của các mã này kém đại diện cho cả phiên.
+
+### RefP là chốt kiểm tra tính liên tục
+
+Vì `RefP` hôm nay chính là `close` hôm qua, mỗi phiên có sẵn một phép đối chiếu độc lập với
+kho dữ liệu. `backfill_yuanta_history.py` in ra kết quả, và trang hiển thị ở tab **Trần–sàn**:
+
+```
+Liên tục RefP vs close 2026-11-12: 353/407 khớp (86.7%) · lệch>25%: 0 · thiếu phiên: 0 → Liền mạch
+```
+
+Ba trạng thái, khác nhau về bản chất:
+
+- `linked` — phiên gần nhất trong kho đúng là phiên liền trước **và** `RefP` khớp `close`.
+- `missingSession` — phiên liền trước **không có** trong kho. Đây là chẩn đoán đáng tin nhất,
+  vì nó không phụ thuộc việc so giá: giá có tình cờ khớp cũng vẫn bị báo đứt.
+- `mismatch` — có phiên liền trước nhưng `RefP` lệch `close` quá 25% → nghi bar phiên trước
+  không phải giá đóng cửa thật (hoặc nguồn đã điều chỉnh).
+
+Nhờ vậy khoảng trống dữ liệu được phát hiện **ngay phiên sau khi nó xảy ra**, thay vì phải
+suy đoán từ một chuỗi giá trông vẫn liền.
+
 ### Nối vào bộ máy CW Analytics cũ
 
 `cwintel.yuanta_history.to_cwintel_ohlcv()` chuyển kho lịch sử sang đúng schema

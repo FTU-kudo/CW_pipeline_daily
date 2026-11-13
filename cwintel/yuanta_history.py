@@ -444,6 +444,13 @@ def series_payload(history: pd.DataFrame, *, limit: int = SERIES_LIMIT,
             "v": [_clean(v) for v in group["volume"]],
             "val": [_clean(v) for v in group["value"]],
             "ref": [_clean(v) for v in group["ref"]],
+            # RefP là giá đóng cửa phiên trước → % thay đổi có ngay từ phiên đầu tiên,
+            # không cần chờ phiên thứ hai trong kho.
+            "refChangePct": [
+                None if (r is None or c is None or not r) else round((c / r - 1) * 100, 2)
+                for r, c in zip((_clean(v) for v in group["ref"]),
+                                (_clean(v) for v in group["close"]))
+            ],
             "traded": [1 if t else 0 for t in group["traded"].astype(bool)],
             "provisional": [1 if t else 0 for t in group["provisional"].astype(bool)],
             "gaps": (gaps or {}).get(str(ticker), []),

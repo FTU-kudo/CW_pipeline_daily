@@ -306,3 +306,29 @@ One row per (ticker, session). Written by `cwintel/yuanta_history.py`, appended 
 Rules enforced in code: a `provisional` row never overwrites a closed row of the same
 `(ticker, session)`, a closed row may upgrade a provisional one, and re-running for the same
 session leaves the row count unchanged.
+
+## Field semantics confirmed against the source
+
+| Field | Meaning | Where it is used |
+|---|---|---|
+| `RefP` | Reference price = **previous session's close** | `%Day`, `%open gap`, continuity check; stored in the `ref` column, never as `close` |
+| `OpenP` | First matched price of the session | `open` column; gap vs `RefP` |
+| `HighestP` / `LowestP` | Session high / low | `high` / `low`; intraday range |
+| `LastMP` | **Today's close** (last matched price) | `close` column; null when the warrant did not trade |
+| `LastMVol` | Volume **of the last matched trade only** | `LastMVol / TotalVol` → how representative the close is |
+| `AvgP` | Session average matched price | Identity check `TotalVal ≈ TotalVol × AvgP` |
+| `TotalVol` / `TotalVal` | Session volume / traded value | Liquidity ranking |
+| `CeilingP` / `FloorP` | Session ceiling / floor price | Distance to band edges, ceiling/floor touches |
+
+Two consequences worth stating explicitly:
+
+1. Because `RefP` is yesterday's close, **percent change is available from the first session**;
+   no second session is needed in the store.
+2. Because `CeilingP`/`FloorP` are read from the source, the band ratio is **not** a fixed ±7%.
+   In the 2026-11-13 snapshot it ranges from 32.8% to 25,800%, since a CW price can sit near the
+   10 VND minimum tick. Any code that assumes ±7% is wrong; `bandPct` is descriptive only.
+
+`RefP` also serves as a data-integrity check: comparing today's `RefP` against yesterday's
+`close` in the store (and checking the previous session is actually present) detects missing
+sessions the session after they happen. Statuses are `linked`, `missingSession`, `mismatch`
+and `untradedRef`; see `cwintel/yuanta_intraday.py:ref_continuity`.

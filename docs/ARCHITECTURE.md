@@ -45,6 +45,13 @@ cwintel/yuanta_history.py
                        - untraded / recovered warrant monitor
                        - session-over-session comparison (only with ≥ 2 sessions)
               │
+              │
+              └──► cwintel/yuanta_intraday.py (uses confirmed field semantics)
+                     - intraday_moves(): (High-Low)/RefP, close location in [Low, High]
+                     - price_band_profile(): CeilingP/FloorP read as-is, never ±7%
+                     - last_trade_profile(): LastMVol/TotalVol
+                     - ref_continuity(): today's RefP vs yesterday's close in the store
+              │
               └──► cwintel.yuanta_history.to_cwintel_ohlcv()
                      Ticker/time/open/high/low/close/volume for the legacy CW Analytics app
 ```
