@@ -160,6 +160,9 @@ def main(argv: list[str] | None = None) -> int:
         merged[symbol] = hist.merge_history(existing, fresh)
     hist.write_store(merged, args.out)
 
+    # Lịch thị trường suy từ chính dữ liệu: ngày lễ 2010–2020 không có trong config, nên nếu
+    # đối chiếu bằng lịch cứng thì mỗi dịp Tết sẽ bị báo "thiếu" — sai và che mất lỗ hổng thật.
+    market = hist.market_calendar(merged)
     report = {
         "generatedAt": hist.utc_now(),
         "fromDate": args.from_date,
@@ -167,8 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         "store": str(args.out),
         "symbols": len(merged),
         "errors": errors,
-        "coverage": {s: hist.coverage(f) for s, f in sorted(merged.items())},
-        "summary": {s: hist.summarize(f) for s, f in sorted(merged.items())},
+        "marketSessions": len(market),
+        "coverage": {s: hist.coverage(f, market=market) for s, f in sorted(merged.items())},
+        "summary": {s: hist.summarize(f, market=market) for s, f in sorted(merged.items())},
     }
 
     total_rows = sum(len(f) for f in merged.values())
@@ -178,6 +182,14 @@ def main(argv: list[str] | None = None) -> int:
     complete = [s for s, c in report["coverage"].items()
                 if c.get("available") and not c.get("missingCount")]
     print(f"Liền mạch (không thiếu phiên): {len(complete)}/{len(merged)} mã")
+    print(f"Lịch thị trường suy từ dữ liệu: {len(market)} phiên "
+          f"(ngày mà ≥60% số mã giao dịch)")
+    holes = {s: c["missing"] for s, c in report["coverage"].items() if c.get("missingCount")}
+    if holes:
+        print("Lỗ hổng thật (thị trường mở nhưng mã này không giao dịch):")
+        for symbol, days in sorted(holes.items()):
+            print(f"  {symbol}: {len(days)} phiên — {days[:6]}"
+                  f"{' …' if len(days) > 6 else ''}")
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

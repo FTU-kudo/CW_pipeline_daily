@@ -195,6 +195,19 @@ phần HV, không làm đỏ pipeline.
 nội suy sẽ làm HV thấp giả tạo, đúng loại lỗi khó phát hiện nhất. Phiên `Volume = 0` vẫn được
 lưu nhưng bị loại khỏi phép tính lợi suất, không bị coi là "giá đứng".
 
+**Ngày lễ không phải lỗ hổng — và cách phân biệt.** Lịch lễ Việt Nam 2010–2020 không có trong
+`config.MARKET_HOLIDAYS` (chỉ khai báo từ 2021), nên đối chiếu bằng lịch cứng sẽ biến mỗi dịp
+Tết thành "thiếu dữ liệu" và che mất lỗ hổng thật. Vì vậy `market_calendar()` suy lịch thị
+trường **từ chính dữ liệu**: ngày được coi là phiên nếu ≥60% số mã đã lưu có giao dịch. Ngày
+lễ toàn thị trường tự rơi ra ngoài; mã bị đình chỉ riêng lẻ vẫn lộ ra thành lỗ hổng vì các mã
+khác vẫn giao dịch ngày đó.
+
+Kết quả trên 20 cổ phiếu cơ sở (62.162 dòng, 2010-01-04 → 2026-11-13): **16/20 mã liền mạch
+tuyệt đối**; 26 phiên thiếu còn lại đều là đình chỉ giao dịch thật — ACB 6 phiên (12/2020),
+LPB 10 phiên (10–11/2020), VIB 7 phiên (10–11/2020), SHB 3 phiên (10/2021). Kiểm chứng: giá
+phiên cuối trước gap và phiên đầu sau gap chênh nhau trong biên độ bình thường của chính mã đó,
+tức không có phiên giao dịch nào bị bỏ khỏi dữ liệu.
+
 **Khối ngoại là khối lượng, không phải tiền.** Payload cho `ForeignVolumeBuy`/`Sell`; muốn ra
 tiền phải nhân với giá khớp của riêng phần khối ngoại — dữ liệu đó không có, và nhân với
 `Average` của cả phiên sẽ tạo ra con số trông chính xác nhưng sai. Vì vậy `unit` trong payload
