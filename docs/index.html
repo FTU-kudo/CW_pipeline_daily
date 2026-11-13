@@ -423,6 +423,13 @@ function renderValuation() {
       giá đóng cửa thật của Yuanta khi đã tải được mã đó; mã chưa có lịch sử thì suy từ chính
       điều khoản (premium và đòn bẩy, kiểm chứng chéo lẫn nhau, lệch quá 1% thì loại).
       Cột <em>Nguồn S</em> ở bảng dưới ghi rõ từng mã dùng nguồn nào.</p>
+    <p class="caption"><strong>Vì sao loại ${num((val.excluded || {})['S hai nguồn lệch quá biên giá (±7%)'] || 0, 0)} mã.</strong>
+      Đối chiếu S suy từ Vietstock với giá đóng cửa thật cho thấy nguồn dùng cặp
+      (S, strike) <em>trước điều chỉnh cổ tức</em> cho một phần hợp đồng —
+      độ lệch khớp đúng hệ số thưởng (TCB 1,50 = thưởng 3:2; MBB 1,20 = 6:5; FPT 1,10 = 10%).
+      Dùng giá thật với strike chưa điều chỉnh sẽ cho IV trông hợp lệ nhưng sai hoàn toàn,
+      nên mã nào lệch quá <strong>±7%</strong> — biên độ tối đa một phiên của cổ phiếu Việt Nam —
+      đều bị loại thay vì đoán.</p>
     <p class="caption"><strong>IV trung vị ${num(sum.medianIv, 1)}%</strong>
       (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) ·
       ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM

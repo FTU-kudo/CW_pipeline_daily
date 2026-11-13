@@ -284,3 +284,48 @@ def test_coverage_reports_calendar_basis():
 
 def test_market_calendar_of_empty_store_is_empty():
     assert hist.market_calendar({}) == set()
+
+
+# ── chặn S lệch quá biên giá Việt Nam ───────────────────────────────────
+def _terms_row(**over) -> pd.DataFrame:
+    base = {"session": "2026-11-13", "ticker": "CXXX2601", "underlying": "XXX",
+            "strike": 26000.0, "ratio": 2.0,
+            "maturity": "2026-12-17", "underlyingPrice": 23600.0, "crosscheckPct": 0.0,
+            "termsSource": "test"}
+    base.update(over)
+    return pd.DataFrame([base])
+
+
+def _board_row(price: float = 120.0) -> pd.DataFrame:
+    return pd.DataFrame([{"StockCode": "CXXX2601", "Traded": True, "LastPrice": price,
+                          "RefPrice": price, "UnderlyingPrice": 23600.0}])
+
+
+def _history(closes: list[float]) -> pd.DataFrame:
+    days = pd.bdate_range("2026-08-01", periods=len(closes)).strftime("%Y-%m-%d").tolist()
+    return hist.parse_history(_payload(days, closes), "XXX")
+
+
+def test_derived_price_that_violates_daily_limit_is_excluded():
+    """Vietstock đôi khi dùng giá cũ: S suy ra cách giá thật >7% là bất khả thi trong 1 phiên."""
+    from cwintel.yuanta_valuation import price_warrants
+
+    priced, diag = price_warrants(_board_row(), _terms_row(),
+                                  session="2026-11-13", underlying_history={})
+    assert len(priced) == 1                       # không có lịch sử → dùng S suy ra
+
+    priced, diag = price_warrants(_board_row(), _terms_row(), session="2026-11-13",
+                                  underlying_history={"XXX": _history([20350.0] * 30)})
+    assert priced.empty
+    assert diag["excluded"]["S hai nguồn lệch quá biên giá (±7%)"] == 1
+
+
+def test_price_history_within_limit_is_used_and_recorded():
+    from cwintel.yuanta_valuation import price_warrants
+
+    priced, _ = price_warrants(_board_row(), _terms_row(underlyingPrice=23500.0),
+                               session="2026-11-13",
+                               underlying_history={"XXX": _history([23000.0] * 30)})
+    assert len(priced) == 1
+    assert priced.iloc[0]["underlyingPrice"] == 23000.0
+    assert "lịch sử Yuanta" in priced.iloc[0]["underlyingSource"]

@@ -78,6 +78,11 @@ def years_to_maturity(session: str | date, maturity: str | date | None) -> float
 #: Số phiên dùng để tính HV dài hạn (3 tháng giao dịch).
 HV_LONG_WINDOW = 63
 
+#: Biên độ tối đa một phiên của cổ phiếu Việt Nam (HOSE/HNX chặn ±7%). Nếu S suy từ nguồn
+#: khác lệch S đo trực tiếp quá mức này thì một trong hai đã dùng giá cũ — không thể là biến
+#: động thật trong một phiên.
+UNDERLYING_DRIFT_TOLERANCE_PCT = 7.0
+
 #: Số phiên tối thiểu để ước lượng biến động từ chuỗi giá CW.
 MIN_VOL_SESSIONS = 10
 #: Số phiên dùng để ước lượng biến động gần nhất.
@@ -250,8 +255,19 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         # Ghi lại nguồn để người đọc biết con số đến từ đâu.
         history_row = underlyings.get(str(term.get("underlying") or "").upper())
         if history_row and history_row["close"]:
+            derived_s = underlying              # S suy từ Vietstock, giữ lại để đối chiếu
             underlying = float(history_row["close"])
             underlying_source = f"lịch sử Yuanta ({history_row['date']})"
+            # Đối chiếu với S suy từ Vietstock. Vietstock đôi khi dùng giá đã cũ (ví dụ dữ
+            # liệu ngày cũ hơn phiên đang xét), khi đó S suy ra vi phạm biên ±7%/phiên của
+            # Việt Nam — điều bất khả thi trên thực tế. Lệch quá ngưỡng nghĩa là một trong
+            # hai nguồn đã cũ, và IV tính từ giá sai thì vô nghĩa, nên loại thay vì đoán.
+            if derived_s and derived_s > 0:
+                drift_pct = (derived_s / underlying - 1) * 100
+                if abs(drift_pct) > UNDERLYING_DRIFT_TOLERANCE_PCT:
+                    excluded["S hai nguồn lệch quá biên giá (±7%)"] = (
+                        excluded.get("S hai nguồn lệch quá biên giá (±7%)", 0) + 1)
+                    continue
         else:
             underlying_source = "suy từ premium/đòn bẩy Vietstock"
 

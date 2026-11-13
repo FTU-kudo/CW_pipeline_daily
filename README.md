@@ -188,8 +188,34 @@ phần HV, không làm đỏ pipeline.
    Có lịch sử thì `S` là giá đóng cửa thật; mã chưa tải được lịch sử vẫn dùng cách suy cũ và
    payload ghi rõ từng mã (`underlyingSource`).
 2. **IV − HV thành số đo, không còn là câu nói.** HV = độ lệch chuẩn log-return 21 và 63 phiên,
-   quy năm theo 252 phiên. Ngày 2026-11-13, trên 20 cổ phiếu cơ sở đã tải: **IV − HV trung vị
-   +26,5 điểm** (p25–p75 = +5,8 → +32,6), 18 mã IV trên HV / 2 mã dưới.
+   quy năm theo 252 phiên.
+
+### Đối chiếu S suy ra với S thật — và một lỗi của nguồn Vietstock
+
+Có lịch sử thật thì phải đối chiếu, và kết quả không đồng đều: **11/20 cổ phiếu cơ sở khớp
+<0,1%** (VHM lệch 0,07%, ACB 0,009%), chứng minh **phương pháp** suy S từ premium/đòn bẩy là
+đúng. Nhưng 9 cổ phiếu cơ sở lệch 1,5–33%, và độ lệch không phải nhiễu:
+
+| Cơ sở | S suy / S thật | Tỉ lệ | Hệ số điều chỉnh khớp |
+|---|---|---|---|
+| TCB | 1,499 | thưởng 3:2 |
+| MBB | 1,199 | thưởng 6:5 |
+| FPT | 1,100 | thưởng 10% |
+| VPB | 1,261 | thưởng 5:4 |
+
+Các tỉ lệ này gần đúng hệ số điều chỉnh cổ tức/thưởng → Vietstock dùng cặp **(S, strike) trước
+điều chỉnh** cho một phần hợp đồng, trộn với hợp đồng đã điều chỉnh trong cùng một phiên. Ví
+dụ rõ nhất ở ACB: 6 mã có S suy ra ≈23.600 với strike 24.800–31.800 (phát hành trước chia),
+16 mã có S suy ra ≈20.350 khớp giá thật.
+
+Hệ quả: **không thể định giá nhóm chưa điều chỉnh** — strike quá cao so với giá thật thì IV bị
+đẩy lên vô lý (HDB: 49,4% → 90,1%; TCB: 39,1% → 52,4%). Vì vậy `price_warrants` **loại** mã
+nào có S suy ra lệch S thật quá **±7%** — biên độ tối đa một phiên của cổ phiếu Việt Nam, nên
+lệch quá mức đó chắc chắn là một nguồn dùng giá cũ, không phải biến động thật. Ngày 2026-11-13:
+**250/353 mã định giá được**, 100 mã bị loại vì lý do này.
+
+Loại chứ không đoán: dùng S thật với strike chưa điều chỉnh sẽ cho IV trông hợp lệ nhưng sai
+hoàn toàn — đúng loại lỗi tệ nhất vì không có gì báo động.
 
 **Không nội suy phiên thiếu.** Phiên nguồn không trả về thì để trống và ghi vào `missing` —
 nội suy sẽ làm HV thấp giả tạo, đúng loại lỗi khó phát hiện nhất. Phiên `Volume = 0` vẫn được
