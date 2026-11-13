@@ -99,6 +99,46 @@ Ba giới hạn được giữ chặt, không "làm đầy" cho đẹp:
 Vì endpoint không có dữ liệu quá khứ, lịch sử **bắt đầu từ lần chạy đầu tiên** và dày lên
 mỗi ngày — đây là lý do duy nhất có thể có chuỗi OHLCV đúng nghĩa từ nguồn này.
 
+## Xếp hạng và chấm điểm CW (`cwintel/yuanta_scoring.py`)
+
+Mỗi phiên, mọi CW **có khớp lệnh** được chấm điểm 0–100 trên bốn trục đo được từ bảng giá:
+
+| Trục | Trọng số | Đo cái gì | Vì sao |
+|---|---|---|---|
+| Thanh khoản | 45% | giá trị giao dịch (80%) + khối lượng (20%) | thước đo trực tiếp khả năng vào/ra; khối lượng một mình dễ đánh lừa (CW giá 100 VND khớp 1 triệu đơn vị chỉ là 100 triệu đồng) |
+| Chi phí | 30% | spread quanh giá giữa: ≤1% → 100, ≥10% → 0 | 1 bước giá trên CW 100 VND là 10%, chi phí vòng 20% |
+| Chất lượng giá | 15% | `LastMVol/TotalVol` | đóng cửa bằng đúng một lệnh thì giá kém đại diện |
+| Độ ổn định | 10% | tỷ lệ phiên có khớp lệnh (cần ≥ 5 phiên) | mã im lặng nhiều phiên thì không thoát được |
+
+Mã không giao dịch **không được chấm** — không có giá thì không có gì để chấm. Trục nào
+thiếu dữ liệu thì **bỏ khỏi phép chia** (tính lại trọng số) chứ không cộng 0, và mỗi dòng
+ghi `coveragePct` để biết điểm dựa trên bao nhiêu phần trăm trọng số.
+
+Điểm này **không phải khuyến nghị mua/bán**. Nó trả lời một câu hẹp: mã này có giao dịch
+được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?
+
+### Vì sao không có Black–Scholes / IV / Greeks trong điểm
+
+Không phải vì chưa làm, mà vì **không thể** với nguồn này. Black–Scholes cần bốn biến:
+
+| Biến | Endpoint `stock_type=EW` |
+|---|---|
+| `S` — giá cổ phiếu cơ sở | không có |
+| `K` — strike | không có |
+| `T` — ngày đáo hạn | không có |
+| `n` — tỷ lệ chuyển đổi | không có |
+
+Payload chỉ có 34 trường bảng giá. Engine `cwintel/bs.py` (`price_and_greeks`,
+`implied_vol`, `price_vector`) **đã có sẵn và đúng chuẩn** — nó chỉ chờ dữ liệu đầu vào.
+Khi có nguồn điều khoản, chỉ cần nối vào `score_valuation` của `cwintel/scoring.py`.
+
+Không suy ra strike từ tên mã: `CVPB2622` cho biết cơ sở là VPB (quy ước đặt tên, dự án đã
+dùng đúng cách này để nhóm), nhưng hai chữ số cuối không mã hoá strike, và các CW cùng cơ
+sở có strike khác nhau. Gán một con số cho đẹp sẽ sinh ra Greeks trông hợp lý nhưng vô nghĩa.
+
+Trang ghi rõ danh sách biến còn thiếu ngay trên tab **Xếp hạng**, và
+`scripts/check_cw_analytics_bridge.py` in ra cùng thông tin đó ở dạng kiểm tra được.
+
 ### Ngữ nghĩa từng trường — dùng đúng, không suy diễn
 
 | Trường | Nghĩa | Cách dùng trong dự án |

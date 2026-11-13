@@ -160,6 +160,7 @@ def build_report(*, snapshot_path: Path = DEFAULT_SNAPSHOT,
 
     if analytics:
         liq = analytics.get("liquidity", {})
+        report["scoring"] = analytics.get("scoring", {})
         report["liquidity"] = {
             "top": (liq.get("ranking") or [])[:10],
             "thresholds": liq.get("thresholds"),
@@ -257,6 +258,34 @@ def render_markdown(report: dict, *, compact: bool = False) -> str:
         if thresholds:
             lines += ["", "Ngưỡng chia nhóm (phân vị của chính phiên này): " + " · ".join(
                 f"{t.get('quantile')} = {_vnd(t.get('valueVND'))} VND" for t in thresholds)]
+        lines.append("")
+
+    scoring = report.get("scoring") or {}
+    if scoring.get("ranking"):
+        dist = scoring.get("distribution") or {}
+        lines += ["## Xếp hạng CW theo ngày (điểm 0–100)", "",
+                  f"- Đã chấm **{_vnd(scoring.get('scored'))}** mã có khớp lệnh "
+                  f"({_vnd(scoring.get('unscored'))} mã không giao dịch không được chấm)",
+                  f"- Trung vị {_vnd(dist.get('median'), 1)} · p25–p75 = "
+                  f"{_vnd(dist.get('p25'), 1)}–{_vnd(dist.get('p75'), 1)}"]
+        weights = scoring.get("weights") or {}
+        if weights:
+            labels = {"liquidity": "thanh khoản", "cost": "chi phí", "priceQuality": "chất lượng giá",
+                      "consistency": "độ ổn định"}
+            lines.append("- Trọng số: " + " · ".join(
+                f"{labels.get(k, k)} {round(v * 100)}%" for k, v in weights.items()))
+        lines += ["", *_table(
+            ["#", "Mã", "Cơ sở", "Điểm", "Giá", "%Ngày", "Giá trị (VND)", "Thanh khoản", "Chi phí"],
+            [[str(r.get("rank")), str(r.get("t")), str(r.get("u") or "—"),
+              _vnd(r.get("score"), 1), _vnd(r.get("price")), _pct(r.get("chgPct")),
+              _vnd(r.get("valueVND")), _vnd((r.get("parts") or {}).get("liquidity")),
+              _vnd((r.get("parts") or {}).get("cost"))]
+             for r in (scoring.get("ranking") or [])[:10]])]
+        valuation = scoring.get("valuation") or {}
+        if valuation.get("available") is False:
+            lines += ["", f"- **Không có Black–Scholes/IV/Greeks**: thiếu "
+                          f"{', '.join(valuation.get('blockedBy') or [])}. "
+                          f"{valuation.get('reason', '')}"]
         lines.append("")
 
     intraday = report.get("intraday") or {}

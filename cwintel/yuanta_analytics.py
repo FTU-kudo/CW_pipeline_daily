@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .yuanta_scoring import score_warrants
 from .yuanta_intraday import (
     intraday_moves,
     last_trade_profile,
@@ -298,6 +299,17 @@ def _ticker_coverage(history: pd.DataFrame | None, *, asof: str | None = None,
     return rows[:limit]
 
 
+def _attach_tiers(frame: pd.DataFrame, liquidity: dict) -> pd.DataFrame:
+    """Gắn cột ``LiquidityTier`` từ kết quả ``liquidity_ranking`` (không tính lại phân vị)."""
+    thresholds = liquidity.get("thresholds") or []
+    traded = frame["Traded"].fillna(False)
+    tiers = pd.Series("không giao dịch", index=frame.index, dtype="object")
+    if traded.any() and thresholds:
+        tiers.loc[traded] = assign_tier(
+            frame.loc[traded, "TradingValueVND"], thresholds).to_numpy()
+    return frame.assign(LiquidityTier=tiers)
+
+
 def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                     asof: str | None = None) -> dict:
     """Gói toàn bộ phân tích mở rộng thành dict JSON-safe."""
@@ -317,11 +329,20 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         cov = {"sessions": 0, "tickers": 0, "first": None, "last": None,
                "missingSessions": [], "rows": 0, "tradedRows": 0,
                "tradedSharePct": None, "provisionalRows": 0, "expectedSessions": 0}
+    liquidity = liquidity_ranking(frame)
+    # Điểm số dùng chính bảng tier của liquidity (frame đã có cột LiquidityTier) để hai
+    # phần không bao giờ nói hai chuyện khác nhau.
+    tiered = _attach_tiers(frame, liquidity)
+
+    trade_value = pd.to_numeric(frame["TotalVol"], errors="coerce").where(lambda s: s > 0)
+    last_share = (pd.to_numeric(frame["LastMVol"], errors="coerce") / trade_value * 100)
+
     return {
         "schemaVersion": 1,
         "kind": "yuanta-cw-analytics",
         "asof": asof,
-        "liquidity": liquidity_ranking(frame),
+        "liquidity": liquidity,
+        "scoring": score_warrants(tiered, history=history, last_share=last_share),
         "underlyings": underlying_breakdown(frame),
         "stale": stale_monitor(frame, history, asof=asof),
         "tickerCoverage": _ticker_coverage(history, asof=asof),
