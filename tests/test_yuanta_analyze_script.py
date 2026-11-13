@@ -93,4 +93,10 @@ def test_quality_failure_returns_exit_code_three(tmp_path):
         "LowestP": 300, "HighestP": 200, "OpenP": 150, "AvgP": 120, "LastMP": 110,
         "TotalVol": 3000, "TotalVal": 999999, "B1P": 0, "S1P": 0,
     }]}, ensure_ascii=False), encoding="utf-8")
-    assert script.main(["--offline", str(broken), "--csv", str(tmp_path / "cw.csv")]) == 3
+    out_json = tmp_path / "b.json"
+    assert script.main(["--offline", str(broken), "--csv", str(tmp_path / "cw.csv"),
+                        "--json", str(out_json)]) == 3
+    # Dữ liệu hỏng KHÔNG được ghi đè artifact đã publish (nếu không Pages sẽ phục vụ
+    # đúng cái bảng sai đó và bản tốt gần nhất bị mất).
+    assert not out_json.exists()
+    assert not (tmp_path / "cw.csv").exists()

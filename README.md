@@ -48,7 +48,9 @@ python scripts/analyze_yuanta_warrants.py --offline tests/fixtures/yuanta_ew_sam
 ```
 
 Script in ra bảng Markdown (10 dòng đầu + top 5 giá trị), tổng hợp phiên và các cảnh báo
-chất lượng. Mã thoát: `0` ổn, `1` lỗi mạng/schema, `3` kiểm tra chất lượng mức fail.
+chất lượng. Mã thoát: `0` ổn, `1` lỗi mạng/schema, `3` kiểm tra chất lượng mức fail — và khi
+đó **không ghi đè** file CSV/JSON đã publish, để Pages không phục vụ một bảng sai và bản tốt
+gần nhất không bị mất.
 
 Endpoint nằm sau WAF: ngoài `User-Agent`/`Referer`, client còn ghé trang chủ lấy cookie và
 tự đi theo JS interstitial (`jsKey`). Nếu đã cài `curl_cffi` (có trong
@@ -171,6 +173,33 @@ Những gì **không** làm, vì nguồn không có dữ liệu: giá lý thuy�
 định giá, khuyến nghị, backtest. Payload cũng không có ngày đáo hạn, strike, tỷ lệ chuyển
 đổi hay tổ chức phát hành. Mã không khớp lệnh trong phiên để trống giá thay vì dùng lại
 `LastMP` của phiên trước (tránh biến động ảo).
+
+## Ba workflow và báo cáo hằng ngày
+
+| Workflow | File | Việc |
+|---|---|---|
+| `CW Yuanta EW snapshot — publish` | `cw_pipeline.yml` | 17:30 ICT T2–T6: lấy snapshot (1 request), làm sạch, ghi bar vào lịch sử, publish Pages |
+| `CW Pipeline — offline tests` | `cw_tests.yml` | Chạy test khi push/PR — không gọi mạng |
+| `CW Yuanta — daily analysis` | `daily_analysis.yml` | 18:10 ICT T2–T6, hoặc gọi từ cronjob.org: sinh báo cáo Markdown/JSON từ dữ liệu đã publish |
+
+`pages-build-deployment` trong danh sách Actions là workflow **GitHub tự sinh** cho Pages,
+không nằm trong repo — nên cộng lại thành 4 mục, không phải "chỉ có 3".
+
+Báo cáo hằng ngày chạy độc lập với việc lấy dữ liệu:
+
+```bash
+python scripts/daily_analysis_report.py --summary        # gọn, cho log
+python scripts/daily_analysis_report.py --out report/x.md # đầy đủ, ghi file
+python scripts/daily_analysis_report.py --format json     # cho hệ thống khác
+```
+
+Mã thoát: `0` bình thường, `1` chưa có snapshot, `3` **dữ liệu cũ hơn ngưỡng** (36 giờ mặc
+định) — dùng để cronjob.org cảnh báo khi workflow publish thất bại. Cách dựng cronjob.org,
+token và lịch: `docs/CRONJOB.md`.
+
+Vì sao workflow phân tích **không** tự gọi API: chỉ có một nơi chạm mạng (`publish`), nên một
+lần WAF chặn không thể vừa làm hỏng việc lấy dữ liệu vừa ghi snapshot rỗng vào lịch sử. Lần
+chạy phân tích hoặc phản ánh dữ liệu thật, hoặc báo "dữ liệu cũ" — cả hai đều đúng.
 
 ## Mã cũ
 

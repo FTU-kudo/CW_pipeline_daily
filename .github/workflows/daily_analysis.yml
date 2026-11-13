@@ -1,0 +1,107 @@
+name: CW Yuanta — daily analysis
+
+# Ba cách chạy, cùng một job:
+#
+# 1. cronjob.org (hoặc scheduler ngoài bất kỳ) gọi endpoint "Create workflow dispatch event":
+#      POST https://api.github.com/repos/FTU-kudo/CW_pipeline_daily/actions/workflows/
+#           daily_analysis.yml/dispatches
+#      body: {"ref": "main", "inputs": {"notify": "summary"}}
+#    Cần header Authorization: Bearer <token> có scope `actions:write` (classic) hoặc quyền
+#    Actions: write (fine-grained). Xem docs/CRONJOB.md để biết cách dựng.
+#
+# 2. Lịch nội bộ của GitHub (mặc định 18:10 ICT, sau workflow publish 17:30).
+#
+# 3. Bấm "Run workflow" trên giao diện Actions.
+#
+# Workflow này KHÔNG lấy dữ liệu mới. Nó đọc snapshot + phân tích đã publish trong repo, nên
+# không phụ thuộc mạng, không tốn thêm request tới Yuanta, và không thể sinh ra dữ liệu giả
+# khi nguồn lỗi. Nếu muốn lấy dữ liệu mới trước khi phân tích, dùng workflow publish.
+
+on:
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: "Mức chi tiết trong log và artifact"
+        type: choice
+        options: [summary, full, json]
+        default: summary
+      max_age_hours:
+        description: "Cảnh báo khi dữ liệu cũ hơn ngưỡng này (giờ); 0 = không cảnh báo"
+        type: string
+        default: "36"
+  schedule:
+    # 18:10 ICT = 11:10 UTC, sau workflow publish (17:30 ICT) để đọc dữ liệu vừa cập nhật.
+    - cron: "10 11 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yuanta-daily-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-core.txt
+
+      # Chỉ cần pandas/pyarrow; không gọi mạng nên không cần transport đặc biệt.
+      - name: Install analysis dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-core.txt
+
+      # Bước chính: sinh báo cáo. Exit code 3 = dữ liệu cũ, và job sẽ đỏ để cronjob.org thấy.
+      # artifacts: nội dung báo cáo được đưa vào $GITHUB_STEP_SUMMARY để đọc ngay trên
+      # trang Actions, không cần tải file.
+      - name: Build the daily report
+        env:
+          NOTIFY: ${{ inputs.notify || 'summary' }}
+          MAX_AGE_HOURS: ${{ inputs.max_age_hours || '36' }}
+        run: |
+          set -o pipefail
+          REPORT_FLAGS="--out report/$(date -u +%F)-cw-report.md --max-age-hours $MAX_AGE_HOURS"
+          case "$NOTIFY" in
+            json)   python scripts/daily_analysis_report.py --format json $REPORT_FLAGS \
+                      > report/daily.json ;;
+            full)   python scripts/daily_analysis_report.py $REPORT_FLAGS > report/daily.md ;;
+            *)      python scripts/daily_analysis_report.py --summary $REPORT_FLAGS \
+                      > report/daily.md ;;
+          esac
+          STATUS=$?
+
+          # Đưa báo cáo vào phần tóm tắt của lần chạy để mở là đọc được.
+          if [ -s report/daily.md ]; then
+            { echo "## Báo cáo CW Yuanta — $(date -u +%F)"; echo; cat report/daily.md; } \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -s report/daily.json ]; then
+            { echo '## Báo cáo (JSON)'; echo '```json'; head -c 60000 report/daily.json;
+              echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$STATUS" -eq 3 ]; then
+            echo "::error::Dữ liệu cũ hơn ${MAX_AGE_HOURS} giờ — workflow publish có thể đã thất bại."
+            exit 3
+          fi
+          exit "$STATUS"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cw-daily-report
+          path: report/
+          if-no-files-found: warn
+          retention-days: 30
