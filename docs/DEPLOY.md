@@ -12,7 +12,11 @@ Response dự kiến theo ảnh mẫu: object `{success: true, response: [...]}`
 
 ## GitHub Actions
 
-`CW Yuanta EW snapshot — publish` chạy thủ công hoặc 17:30 giờ Việt Nam từ thứ Hai đến thứ Sáu. Nó cài `requirements-core.txt`, gọi API **một lần** trong runner GitHub, validate payload, ghi đè `docs/data/yuanta_snapshot.json`, rồi chạy `scripts/analyze_yuanta_warrants.py --offline docs/data/yuanta_snapshot.json` để sinh `docs/data/yuanta_board_analysis.json` (commit) và `yuanta_covered_warrants.csv` (upload làm artifact của lần chạy, không commit). Không có API key, OTP hoặc secret được truyền.
+`CW Yuanta EW snapshot — publish` chạy thủ công hoặc 17:30 giờ Việt Nam từ thứ Hai đến thứ Sáu. Nó cài `requirements-core.txt`, gọi API **một lần** trong runner GitHub, validate payload, ghi đè `docs/data/yuanta_snapshot.json`, rồi chạy `scripts/analyze_yuanta_warrants.py --offline docs/data/yuanta_snapshot.json` để sinh `docs/data/yuanta_board_analysis.json` (commit) và `yuanta_covered_warrants.csv` (upload làm artifact của lần chạy, không commit).
+
+Tiếp đó bước `Append session bar to the OHLCV history store` chạy `scripts/backfill_yuanta_history.py --offline`, ghi bar của phiên vào `data/cw_history/YYYY-MM.csv` (commit — đây là kho tích luỹ, mất nó là mất toàn bộ lịch sử) và xuất `docs/data/yuanta_sessions.json` + `docs/data/yuanta_analytics.json`. Bước này idempotent: chạy lại trong cùng phiên chỉ cập nhật, không nhân đôi dòng. Toàn bộ kho CSV cũng được upload làm artifact để giữ bản sao ngoài Git.
+
+Tiền đề: bar chỉ được coi là hoàn chỉnh khi snapshot chụp sau 15:10 ICT. Nếu cron bị trễ sang sau nửa đêm, hoặc một ngày lịch không chạy, phiên đó nằm trong `coverage.missingSessions` và **không** được nội suy — lịch sử sẽ có lỗ hổng đúng như thực tế. Không có API key, OTP hoặc secret được truyền.
 
 ### WAF của Yuanta: hai lớp chặn, ba lớp phòng vệ
 

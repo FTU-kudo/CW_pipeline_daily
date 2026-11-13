@@ -150,6 +150,21 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # CSV: ghi qua buffer rồi thay thế để tránh file dở dang khi process bị kill.
+    # Kiểm tra chất lượng THẤT BẠI: không ghi đè artifact đã publish.
+    # Một payload lỗi (ví dụ FloorP > CeilingP) mà vẫn ghi đè thì trang Pages sẽ phục vụ
+    # đúng cái bảng hỏng đó, và không ai biết dữ liệu cũ đã bị mất. Giữ nguyên bản tốt
+    # gần nhất, in chẩn đoán, và thoát bằng mã 3.
+    quality = artifact["quality"]
+    if quality["status"] == "fail":
+        print("\nKiểm tra chất lượng: FAIL — KHÔNG ghi đè artifact đã publish.", file=sys.stderr)
+        for check in quality["checks"]:
+            if check["status"] in {"fail", "warn"}:
+                print(f"  [{check['status']}] {check['title']} — {check['amount']} dòng "
+                      f"{check['value']}", file=sys.stderr)
+        print(f"Dữ liệu cũ vẫn giữ nguyên: {args.csv}"
+              + ("" if args.skip_json else f" · {args.json}"), file=sys.stderr)
+        return 3
+
     buffer_path = args.csv.with_suffix(args.csv.suffix + ".tmp")
     write_csv(frame, buffer_path)
     _atomic_write(args.csv, buffer_path.read_text(encoding="utf-8"))
@@ -177,7 +192,6 @@ def main(argv: list[str] | None = None) -> int:
     print(markdown_table(frame.nlargest(5, "TradingValueVND"), DISPLAY_COLUMNS,
                          DISPLAY_TITLES, limit=5, digits=digits))
 
-    quality = artifact["quality"]
     print(f"\nKiểm tra chất lượng: {quality['status']} "
           f"({quality['failed']} fail, {quality['warned']} warn)")
     for check in quality["checks"]:
@@ -189,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_json:
         print(f"JSON: {args.json}")
     print("Lưu ý: đây là mặt cắt bảng giá, không có lịch sử/định giá/khuyến nghị.")
-    return 3 if quality["status"] == "fail" else 0
+    return 0  # nhánh "fail" đã thoát ở trên (mã 3)
 
 
 if __name__ == "__main__":

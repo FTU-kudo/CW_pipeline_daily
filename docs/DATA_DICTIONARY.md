@@ -281,3 +281,54 @@ Mặt cắt thanh khoản của phiên dữ liệu:
 ## 10. `methodology.json`
 
 `{version, currency_units, conventions[], scoring{weights, formula, note}, recommendation{thresholds, gates, note}, trading_plan, backtest, data_quality_rules[], limitations[], sources[]}`.
+
+## OHLCV history store — `data/cw_history/YYYY-MM.csv`
+
+One row per (ticker, session). Written by `cwintel/yuanta_history.py`, appended by
+`scripts/backfill_yuanta_history.py`; never interpolated.
+
+| Column | Unit | Meaning |
+|---|---|---|
+| `session` | ISO date | Trading session the bar belongs to (not the fetch date) |
+| `ticker` | text | Covered warrant code, e.g. `CVPB2622` |
+| `exchange` | text | Exchange code carried from the source row |
+| `traded` | bool | Whether the warrant matched any order in this session |
+| `provisional` | bool | `true` when captured before the 15:10 ICT close gate |
+| `ref` | VND/CW | Reference price as published (`RefP`) — **not** a close |
+| `open` / `high` / `low` / `close` | VND/CW | `OpenP` / `HighestP` / `LowestP` / `LastMP`; all null when `traded = false` |
+| `avg` | VND/CW | `AvgP`, null when untraded |
+| `last` | VND/CW | Last matched price as carried by the source |
+| `volume` | CW | `TotalVol` |
+| `value` | VND | `TotalVal` |
+| `b1` / `s1` | VND/CW | Best bid / best ask at snapshot time |
+| `fetchedAt` | ISO datetime | Timestamp of the snapshot that produced the bar |
+
+Rules enforced in code: a `provisional` row never overwrites a closed row of the same
+`(ticker, session)`, a closed row may upgrade a provisional one, and re-running for the same
+session leaves the row count unchanged.
+
+## Field semantics confirmed against the source
+
+| Field | Meaning | Where it is used |
+|---|---|---|
+| `RefP` | Reference price = **previous session's close** | `%Day`, `%open gap`, continuity check; stored in the `ref` column, never as `close` |
+| `OpenP` | First matched price of the session | `open` column; gap vs `RefP` |
+| `HighestP` / `LowestP` | Session high / low | `high` / `low`; intraday range |
+| `LastMP` | **Today's close** (last matched price) | `close` column; null when the warrant did not trade |
+| `LastMVol` | Volume **of the last matched trade only** | `LastMVol / TotalVol` → how representative the close is |
+| `AvgP` | Session average matched price | Identity check `TotalVal ≈ TotalVol × AvgP` |
+| `TotalVol` / `TotalVal` | Session volume / traded value | Liquidity ranking |
+| `CeilingP` / `FloorP` | Session ceiling / floor price | Distance to band edges, ceiling/floor touches |
+
+Two consequences worth stating explicitly:
+
+1. Because `RefP` is yesterday's close, **percent change is available from the first session**;
+   no second session is needed in the store.
+2. Because `CeilingP`/`FloorP` are read from the source, the band ratio is **not** a fixed ±7%.
+   In the 2026-11-13 snapshot it ranges from 32.8% to 25,800%, since a CW price can sit near the
+   10 VND minimum tick. Any code that assumes ±7% is wrong; `bandPct` is descriptive only.
+
+`RefP` also serves as a data-integrity check: comparing today's `RefP` against yesterday's
+`close` in the store (and checking the previous session is actually present) detects missing
+sessions the session after they happen. Statuses are `linked`, `missingSession`, `mismatch`
+and `untradedRef`; see `cwintel/yuanta_intraday.py:ref_continuity`.
