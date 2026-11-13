@@ -1,4 +1,6 @@
 # Cần cho workflow publish Yuanta: lấy snapshot, làm sạch bằng pandas, xuất CSV.
-# pandas đi cùng requests vì bước phân tích dùng DataFrame; job vẫn chỉ ~30s cài đặt.
 requests>=2.31.0
 pandas>=2.2
+# TLS fingerprint giống Chrome: WAF của Yuanta (cdn.vnis.vn) thử thách client có
+# fingerprint lạ như python-requests. Thiếu gói này code vẫn chạy bằng requests.
+curl_cffi>=0.7

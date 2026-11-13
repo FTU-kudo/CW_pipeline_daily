@@ -14,21 +14,35 @@ Response dự kiến theo ảnh mẫu: object `{success: true, response: [...]}`
 
 `CW Yuanta EW snapshot — publish` chạy thủ công hoặc 17:30 giờ Việt Nam từ thứ Hai đến thứ Sáu. Nó cài `requirements-core.txt`, gọi API **một lần** trong runner GitHub, validate payload, ghi đè `docs/data/yuanta_snapshot.json`, rồi chạy `scripts/analyze_yuanta_warrants.py --offline docs/data/yuanta_snapshot.json` để sinh `docs/data/yuanta_board_analysis.json` (commit) và `yuanta_covered_warrants.csv` (upload làm artifact của lần chạy, không commit). Không có API key, OTP hoặc secret được truyền.
 
-### Header bắt buộc
+### WAF của Yuanta: hai lớp chặn, ba lớp phòng vệ
 
-Lần chạy đầu tiên fail với `Expecting value: line 1 column 1 (char 0)`: client cũ gửi
-`User-Agent: CW-Intelligence/1.0` và không có `Referer`, nên WAF/CDN trả trang HTML chặn
-truy cập thay vì JSON. `scripts/yuanta_client.py` gửi cố định:
+Endpoint nằm sau WAF của CDN (`*.cdn.vnis.vn`) và chặn theo hai kiểu khác nhau:
 
-```text
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
-Referer:    https://ysradar.yuanta.com.vn/
-Accept:     application/json, text/plain, */*
-```
+| Triệu chứng trong log | Nghĩa | Xử lý trong `scripts/yuanta_client.py` |
+|---|---|---|
+| `Expecting value: line 1 column 1 (char 0)` | HTML/403 do thiếu header | gửi `User-Agent` Chrome + `Referer` + `Accept` |
+| `HTTP cuối=200, content-type=text/html` + `<title>Attention Required!</title>` + `jsKey` | **JS interstitial**: WAF yêu cầu chạy script rồi gọi lại cùng URL kèm token | đọc `jsKey` từ body, gọi lại như trình duyệt (giữ cookie qua `Session`), tối đa 2 vòng |
+| `HTTP 404` / interstitial trỏ lại URL gốc | endpoint đổi, hoặc WAF chặn theo TLS/IP | dừng ngay, không retry vô ích; in đầy đủ body |
 
-Lỗi giờ được báo kèm HTTP status, `Content-Type`, 220 ký tự đầu của body và số lần thử,
-nên phân biệt được "bị chặn" với "JSON hỏng" ngay trong log CI. 403/429/5xx và lỗi mạng
-được retry 3 lần với backoff luỹ thừa (1s, 2s).
+Ngoài header, client còn:
+
+- **warm-up**: ghé `https://ysradar.yuanta.com.vn/` một lần để nhận cookie CDN (lỗi warm-up
+  không chặn luồng chính);
+- **TLS fingerprint**: dùng `curl_cffi` với `impersonate="chrome120"` (JA3 giống Chrome thật)
+  vì WAF thường chỉ thử thách client có fingerprint lạ như `python-requests`. Thiếu
+  `curl_cffi` thì tự lùi về `requests`; chọn bằng `--transport auto|curl_cffi|requests`.
+
+Lỗi được báo kèm HTTP status, `Content-Type`, body (không cắt mất chỗ chứa `jsKey`) và số
+lần thử. 403/429/5xx và lỗi mạng được retry 3 lần với backoff luỹ thừa (1s, 2s); lỗi cấu
+trúc (404, interstitial không giải được) dừng ngay.
+
+### Nếu vẫn fail sau bản này
+
+Log sẽ cho biết đang ở tình huống nào. Nếu là interstitial lặp lại, WAF đang chặn theo
+thứ không thể giải bằng HTTP thuần (IP datacenter của runner, hoặc yêu cầu cookie phiên
+đăng nhập). Khi đó cần một trong hai: (a) xác nhận lại với Yuanta về quyền/điều kiện truy
+cập API cho client tự động, hoặc (b) chạy lấy dữ liệu từ máy có mạng/IP phù hợp rồi commit
+snapshot — workflow vẫn dùng lại được nhờ `--offline`.
 
 `CW Pipeline — offline tests only` chỉ chạy unit tests. Nó không gọi nguồn dữ liệu.
 

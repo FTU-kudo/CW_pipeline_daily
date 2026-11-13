@@ -32,8 +32,27 @@ jobs:
       - name: Install fetch and analysis dependencies
         run: python -m pip install --disable-pip-version-check -r requirements-core.txt
 
+      # Không chặn pipeline nếu wheel không cài được: client tự lùi về requests.
+      - name: Install optional Chrome-fingerprint transport
+        run: |
+          python -m pip install --disable-pip-version-check "curl_cffi>=0.7" \
+            || echo "::warning::Không cài được curl_cffi — sẽ dùng requests (TLS fingerprint khác Chrome)"
+          python -c "import curl_cffi; print('curl_cffi', curl_cffi.__version__)" \
+            || echo "curl_cffi không import được; client sẽ dùng requests"
+
+      # WAF/CDN có thể chập chờn với IP datacenter: thử lại ở cấp workflow, có nghỉ.
       - name: Fetch current EW board snapshot from Yuanta
-        run: python scripts/fetch_yuanta_snapshot.py
+        run: |
+          for attempt in 1 2 3; do
+            if python scripts/fetch_yuanta_snapshot.py --transport auto; then
+              echo "Lấy snapshot thành công ở lần thử $attempt"
+              exit 0
+            fi
+            echo "::warning::Lần thử $attempt thất bại (xem log phía trên để biết HTTP status/body)"
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
+          echo "::error::Không lấy được bảng giá Yuanta sau 3 lần thử"
+          exit 1
 
       # Đọc lại snapshot vừa lấy thay vì gọi API lần hai: workflow chỉ tốn đúng một request.
       - name: Clean, analyse and export the board (CSV + analysis JSON)

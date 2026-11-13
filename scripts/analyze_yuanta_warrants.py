@@ -104,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV, help="đường dẫn CSV đầu ra")
     parser.add_argument("--json", type=Path, default=DEFAULT_JSON, help="đường dẫn JSON phân tích")
     parser.add_argument("--retries", type=int, default=3, help="số lần thử khi gọi API (mặc định 3)")
+    parser.add_argument("--transport", choices=("auto", "curl_cffi", "requests"),
+                        default="auto",
+                        help="auto: dùng curl_cffi (TLS giống Chrome) nếu đã cài")
+    parser.add_argument("--no-warmup", action="store_true",
+                        help="bỏ bước ghé trang chủ lấy cookie CDN trước khi gọi API")
     parser.add_argument("--md-rows", type=int, default=10, help="số dòng bảng Markdown (mặc định 10)")
     parser.add_argument("--skip-json", action="store_true",
                         help="chỉ ghi CSV (dùng khi chỉ cần dữ liệu sạch)")
@@ -118,12 +123,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Nguồn: file offline {args.offline}")
     else:
         try:
-            payload = fetch_board(retries=args.retries)
+            payload = fetch_board(retries=args.retries, transport=args.transport,
+                                  warmup=not args.no_warmup)
         except (YuantaHTTPError, ValueError) as exc:
             print(f"LỖI: không gọi được API Yuanta: {exc}", file=sys.stderr)
-            detail = getattr(exc, "snippet", None)
-            if detail:
-                print(f"  body (rút gọn): {detail}", file=sys.stderr)
+            body = getattr(exc, "body", None)
+            if body:
+                print(f"--- body ({len(body)} ký tự) ---", file=sys.stderr)
+                print(body, file=sys.stderr)
             return 1
         print(f"Nguồn: {API_URL}")
 
