@@ -11,7 +11,14 @@ import pytest
 
 DATA = Path(__file__).resolve().parents[1] / "docs" / "data"
 
-pytestmark = pytest.mark.skipif(not DATA.exists(), reason="chưa build docs/data")
+# Chỉ bỏ qua khi thư mục artifact cũ chưa được build. Lưu ý docs/data cũng chứa
+# snapshot Yuanta (yuanta_snapshot.json / yuanta_board_analysis.json); sự tồn tại
+# của riêng thư mục đó không có nghĩa là các artifact phân tích đã có.
+_LEGACY_ARTIFACT = DATA / "meta.json"
+
+pytestmark = pytest.mark.skipif(
+    not _LEGACY_ARTIFACT.exists(), reason="chưa build artifact phân tích trong docs/data"
+)
 
 
 def _load(name):

@@ -7,33 +7,17 @@ import json
 import os
 import sys
 import tempfile
-import time
 from pathlib import Path
-
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.yuanta_snapshot import API_URL, normalize_payload  # noqa: E402
+from scripts.yuanta_client import API_URL, fetch_board  # noqa: E402
+from scripts.yuanta_snapshot import normalize_payload  # noqa: E402
 
 
-def fetch_payload(session: requests.Session | None = None, *, retries: int = 3) -> dict:
-    session = session or requests.Session()
-    last_error: Exception | None = None
-    for attempt in range(retries):
-        try:
-            response = session.get(
-                API_URL,
-                headers={"Accept": "application/json", "User-Agent": "CW-Intelligence/1.0"},
-                timeout=(5, 25),
-            )
-            response.raise_for_status()
-            return response.json()
-        except (requests.RequestException, ValueError) as exc:
-            last_error = exc
-            if attempt + 1 < retries:
-                time.sleep(2 ** attempt)
-    raise RuntimeError(f"Yuanta request failed after {retries} attempts: {last_error}")
+def fetch_payload(*, retries: int = 3) -> dict:
+    """Gọi endpoint EW qua lớp client dùng chung (header trình duyệt + retry)."""
+    return fetch_board(retries=retries)
 
 
 def write_atomic(path: Path, data: dict) -> None:
@@ -60,6 +44,7 @@ def main() -> int:
     snapshot = normalize_payload(payload)
     write_atomic(args.out, snapshot)
     print(f"Yuanta EW snapshot: {snapshot['count']} symbols; fetchedAt={snapshot['fetchedAt']}; output={args.out}")
+    print(f"Endpoint: {API_URL}")
     print("Historical warrant OHLCV is unavailable; this output contains the current board only.")
     return 0
 

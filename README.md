@@ -20,6 +20,10 @@ Workflow **CW Yuanta EW snapshot — publish**:
 
 - chạy thủ công bằng `workflow_dispatch` hoặc tự chạy ngày làm việc lúc 17:30 ICT;
 - lấy snapshot mới, kiểm tra schema rồi ghi `docs/data/yuanta_snapshot.json`;
+- làm sạch snapshot đó thành DataFrame, xuất `yuanta_covered_warrants.csv` và
+  `docs/data/yuanta_board_analysis.json` (tổng hợp, top biến động, nhóm theo cổ phiếu
+  cơ sở, spread, báo cáo chất lượng) — dùng lại chính snapshot vừa lấy nên workflow chỉ
+  gọi API **một lần**;
 - chỉ commit khi nội dung thay đổi; GitHub Pages cần được cấu hình phục vụ `main:/docs` để cập nhật site;
 - nếu lần gọi API thất bại hoặc schema đổi, job fail và snapshot cũ không bị ghi đè.
 
@@ -28,10 +32,21 @@ Không có credentials trong workflow hoặc repo. Workflow kiểm thử offline
 ## Chạy / kiểm thử cục bộ
 
 ```bash
-python -m pip install requests
-python scripts/fetch_yuanta_snapshot.py
+python -m pip install -r requirements-core.txt
+python scripts/fetch_yuanta_snapshot.py                 # 1 request, ghi snapshot
+python scripts/analyze_yuanta_warrants.py               # làm sạch + CSV + JSON phân tích
 python -m http.server 8000 --directory docs
 ```
+
+Không muốn gọi mạng? Dùng lại payload đã lưu (API gốc hoặc snapshot đã publish):
+
+```bash
+python scripts/analyze_yuanta_warrants.py --offline tests/fixtures/yuanta_ew_sample.json \
+  --csv /tmp/yuanta_covered_warrants.csv --json /tmp/board.json
+```
+
+Script in ra bảng Markdown (10 dòng đầu + top 5 giá trị), tổng hợp phiên và các cảnh báo
+chất lượng. Mã thoát: `0` ổn, `1` lỗi mạng/schema, `3` kiểm tra chất lượng mức fail.
 
 Mở `http://127.0.0.1:8000`. Để chạy test:
 
@@ -39,6 +54,27 @@ Mở `http://127.0.0.1:8000`. Để chạy test:
 python -m pip install -r requirements-core.txt
 pytest -q
 ```
+
+## Lớp phân tích bảng giá (`cwintel/yuanta_board.py`)
+
+Phân tích chỉ dùng những gì **một mặt cắt bảng giá** thực sự chứa được:
+
+| Nhóm | Chỉ số | Cách tính / kiểm chứng |
+|---|---|---|
+| Quy mô | `TradingValueVND`, `TotalVol`, `ValueSharePct`, `ValueRank` | `TotalVol × AvgP`, **đối chiếu** với `TotalVal` của nguồn |
+| Biến động | `LastPrice`, `PriceChangePct`, `OpenChangePct` | so `RefP`; chỉ tính khi mã có khớp lệnh |
+| Chi phí khớp lệnh | `SpreadAbs`, `SpreadPct`, `SpreadTicks`, `MidQuote` | `(S1P − B1P)` / giá giữa, chia bước giá 10 VND |
+| Nhóm | `Underlying` | suy ra từ quy ước mã CW (không phải trường của API) |
+| Chất lượng | 10 phép kiểm tra | high/low, giá trong dải trần–sàn, đồng nhất thức giá trị, độ sâu sổ lệnh… |
+
+Đơn vị được **xác nhận bằng bằng chứng trong chính payload**: trên dữ liệu mẫu
+`2.775.000 / 17.700 = 156,78` khớp `AvgP`, nên `TotalVal` là VND và giá là VND/CW. Dòng
+nào lệch quá 0,5% bị gắn cảnh báo, không bị tự sửa.
+
+Những gì **không** làm, vì nguồn không có dữ liệu: chuỗi ngày, giá lý thuyết, Greeks, IV,
+định giá, khuyến nghị, backtest. Payload cũng không có ngày đáo hạn, strike, tỷ lệ chuyển
+đổi hay tổ chức phát hành. Mã không khớp lệnh trong phiên để trống giá thay vì dùng lại
+`LastMP` của phiên trước (tránh biến động ảo).
 
 ## Mã cũ
 

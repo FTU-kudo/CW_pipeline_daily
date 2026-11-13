@@ -66,3 +66,38 @@ def test_yuanta_payload_requires_a_fetch_timestamp_timezone():
         normalize_payload({"success": True, "response": [{
             "StockCode": "CW1", "Exchange": "HSX", "SymbolType": "EW",
         }]}, fetched_at=datetime(2026, 11, 4))
+
+
+def test_fetch_payload_uses_browser_headers(monkeypatch):
+    """Job publish từng fail vì gửi UA lạ và thiếu Referer → WAF trả HTML."""
+    from scripts import fetch_yuanta_snapshot as script
+
+    captured: dict = {}
+
+    def fake_fetch_board(*, retries=3):
+        captured["retries"] = retries
+        return {"success": True, "response": [{
+            "StockCode": "CACB2515", "Exchange": "HSX", "SymbolType": "EW",
+            "RefP": 170, "AvgP": 156.78, "TotalVol": 17700, "TotalVal": 2775000,
+        }]}
+
+    monkeypatch.setattr(script, "fetch_board", fake_fetch_board)
+    payload = script.fetch_payload()
+    snapshot = normalize_payload(payload)
+    assert captured == {"retries": 3}
+    assert snapshot["count"] == 1
+
+
+def test_snapshot_shape_is_accepted_by_the_analysis_layer():
+    """Snapshot đã publish phải đọc lại được mà không gọi API lần hai."""
+    from cwintel.yuanta_board import clean_board
+    from scripts.analyze_yuanta_warrants import extract_rows
+
+    snapshot = normalize_payload({"success": True, "response": [{
+        "StockCode": "CACB2515", "Exchange": "HSX", "SymbolType": "EW",
+        "RefP": 170, "AvgP": 156.78, "TotalVol": 17700, "TotalVal": 2775000,
+        "B1P": 150, "S1P": 160,
+    }]})
+    frame = clean_board(extract_rows(snapshot))
+    assert list(frame["StockCode"]) == ["CACB2515"]
+    assert frame.iloc[0]["Underlying"] == "ACB"
