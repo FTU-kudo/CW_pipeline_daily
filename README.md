@@ -48,6 +48,12 @@ python scripts/analyze_yuanta_warrants.py --offline tests/fixtures/yuanta_ew_sam
 Script in ra bảng Markdown (10 dòng đầu + top 5 giá trị), tổng hợp phiên và các cảnh báo
 chất lượng. Mã thoát: `0` ổn, `1` lỗi mạng/schema, `3` kiểm tra chất lượng mức fail.
 
+Endpoint nằm sau WAF: ngoài `User-Agent`/`Referer`, client còn ghé trang chủ lấy cookie và
+tự đi theo JS interstitial (`jsKey`). Nếu đã cài `curl_cffi` (có trong
+`requirements-core.txt`), request dùng TLS fingerprint của Chrome — sát trình duyệt thật
+hơn `python-requests`. Chọn thủ công bằng `--transport auto|curl_cffi|requests`, bỏ warm-up
+bằng `--no-warmup`.
+
 Mở `http://127.0.0.1:8000`. Để chạy test:
 
 ```bash

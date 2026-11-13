@@ -5,6 +5,8 @@
 - Luồng phát hành hiện tại chỉ lấy snapshot `stock_type=EW` từ endpoint Yuanta do chủ dự án cung cấp.
 - `scripts/yuanta_snapshot.py` kiểm tra envelope và nhận diện mã/sàn/loại EW, đồng thời giữ nguyên các trường/value gốc; không tự đổi đơn vị.
 - Lần chạy đầu fail (`Expecting value: line 1 column 1`) vì request thiếu `Referer` và dùng User-Agent lạ → WAF trả HTML. `scripts/yuanta_client.py` sửa header, thêm retry/backoff và báo lỗi kèm status/content-type/body để chẩn đoán.
+- Lần chạy thứ hai (sau khi thêm header) fail ở dạng khác: `HTTP 200, content-type=text/html`, body `<title>Attention Required!</title>` + `jsKey`. Đây là JS interstitial của WAF, **không** phải JSON hỏng và không thể vượt chỉ bằng header. Client nay đọc `jsKey` và gọi lại như trình duyệt, ghé trang chủ lấy cookie, và dùng `curl_cffi` (TLS Chrome) khi có. Chẩn đoán cũ ("chỉ thiếu header") là chưa đủ và đã được sửa trong tài liệu.
+- Giới hạn: nếu WAF chặn theo IP datacenter hoặc đòi cookie phiên đăng nhập, không có cách vượt bằng HTTP thuần trong CI; cần xác nhận quyền truy cập với Yuanta hoặc lấy snapshot từ mạng phù hợp rồi dùng `--offline`.
 - `cwintel/yuanta_board.py` + `scripts/analyze_yuanta_warrants.py` làm sạch snapshot thành DataFrame, xuất CSV (artifact, không commit) và JSON phân tích (commit). Đơn vị được xác nhận bằng đồng nhất thức `TotalVal ≈ TotalVol × AvgP` trong chính payload; không có trường nào bị tự quy đổi.
 - Mã không khớp lệnh trong phiên không được gán giá hiện tại: `LastMP` có thể là giá phiên trước nên `LastPrice`/`PriceChangePct` để trống.
 - Snapshot mới ghi đè `docs/data/yuanta_snapshot.json`. Không có chuỗi OHLCV ngày cho từng CW nên không tạo chart/backtest/Greeks/khuyến nghị.

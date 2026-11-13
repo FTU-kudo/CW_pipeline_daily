@@ -74,8 +74,8 @@ def test_fetch_payload_uses_browser_headers(monkeypatch):
 
     captured: dict = {}
 
-    def fake_fetch_board(*, retries=3):
-        captured["retries"] = retries
+    def fake_fetch_board(*, retries=3, transport="auto", warmup=True):
+        captured.update(retries=retries, transport=transport, warmup=warmup)
         return {"success": True, "response": [{
             "StockCode": "CACB2515", "Exchange": "HSX", "SymbolType": "EW",
             "RefP": 170, "AvgP": 156.78, "TotalVol": 17700, "TotalVal": 2775000,
@@ -84,7 +84,7 @@ def test_fetch_payload_uses_browser_headers(monkeypatch):
     monkeypatch.setattr(script, "fetch_board", fake_fetch_board)
     payload = script.fetch_payload()
     snapshot = normalize_payload(payload)
-    assert captured == {"retries": 3}
+    assert captured == {"retries": 3, "transport": "auto", "warmup": True}
     assert snapshot["count"] == 1
 
 

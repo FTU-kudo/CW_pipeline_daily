@@ -2,8 +2,11 @@
 
 ```text
 Yuanta YS Radar current board endpoint (stock_type=EW)
-              │ scripts/yuanta_client.py — browser headers, retry, diagnosable errors
-              │ exactly one server-side request per run, weekdays
+              │ scripts/yuanta_client.py
+              │   browser headers + landing-page warm-up + Chrome TLS (curl_cffi)
+              │   WAF JS interstitial (jsKey) followed like a browser
+              │   retry/backoff, diagnosable errors with full body
+              │ one API call per run, weekdays
               ▼
 scripts/fetch_yuanta_snapshot.py
   - validate success/response/StockCode/Exchange/SymbolType
