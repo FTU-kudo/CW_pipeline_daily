@@ -4,10 +4,18 @@ from pathlib import Path
 HTML = (Path(__file__).resolve().parents[1] / "docs" / "index.html").read_text(encoding="utf-8")
 
 
-def test_board_explains_snapshot_and_missing_history():
+def test_board_explains_how_history_is_obtained():
+    """Lịch sử nay được TÍCH LUỸ từ snapshot, không phải lấy từ nguồn có sẵn.
+
+    Trang phải nói rõ hai điều: (1) endpoint không có dữ liệu quá khứ, (2) bar chỉ hoàn
+    chỉnh khi chụp sau giờ đóng cửa, và mã không khớp lệnh không có giá.
+    """
     assert "Yuanta" in HTML
-    assert "không có OHLCV ngày riêng" in HTML
-    assert "không hiển thị lịch sử" in HTML
+    assert "tích luỹ dần" in HTML
+    assert "không backfill quá khứ" in HTML
+    assert "Mã không khớp lệnh không có giá đóng cửa" in HTML
+    # Không được hứa hẹn định giá/Greeks/khuyến nghị từ nguồn không có dữ liệu đó
+    assert "Greeks" in HTML and "khuyến nghị" in HTML
     assert "historicalOhlcvAvailable" not in HTML  # Only metadata is read, not assumed.
 
 

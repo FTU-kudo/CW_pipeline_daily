@@ -7,12 +7,25 @@ PUBLISHER = (ROOT / ".github" / "workflows" / "cw_pipeline.yml").read_text(encod
 TESTS = (ROOT / ".github" / "workflows" / "cw_tests.yml").read_text(encoding="utf-8")
 
 
-def test_dashboard_does_not_claim_history_or_derived_signals():
-    assert "không có OHLCV ngày riêng" in HTML
-    assert "không hiển thị lịch sử" in HTML
+def test_dashboard_scopes_what_the_source_can_support():
+    """Không được claim thứ nguồn không có: backtest, định giá, Greeks, khuyến nghị.
+
+    Lịch sử OHLCV thì nay có, nhưng phải kèm giới hạn "tích luỹ từ workflow, không backfill".
+    """
+    assert "tích luỹ dần" in HTML and "không backfill quá khứ" in HTML
     assert "backtest" in HTML.lower()
     assert "khuyến nghị" in HTML.lower()
     assert "data/yuanta_snapshot.json" in HTML
+    # Các artifact mới phải được tải tĩnh, không gọi API provider từ trình duyệt
+    assert "data/yuanta_analytics.json" in HTML
+    assert "data/yuanta_sessions.json" in HTML
+    assert "ysradar.yuanta.com.vn" not in HTML
+
+
+def test_workflow_commits_the_history_store():
+    assert "scripts/backfill_yuanta_history.py" in PUBLISHER
+    assert "data/cw_history/*.csv" in PUBLISHER
+    assert "docs/data/yuanta_sessions.json" in PUBLISHER
 
 
 def test_github_has_separate_snapshot_publisher_and_offline_test_workflow():

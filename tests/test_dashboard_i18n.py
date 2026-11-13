@@ -58,7 +58,10 @@ def test_yuanta_snapshot_shell_has_only_current_board_controls() -> None:
     assert 'id="search"' in html
     assert 'id="download"' in html
     assert 'id="rows"' in html
-    assert "không có OHLCV ngày riêng" in html
+    assert "tích luỹ dần" in html          # lịch sử có, nhưng phải nói rõ nguồn gốc
+    assert 'id="tabs"' in html
+    for view in ("liquidity", "underlyings", "stale", "history"):
+        assert f'id="view-{view}"' in html
     assert 'data-lang-set=' not in html
 
 

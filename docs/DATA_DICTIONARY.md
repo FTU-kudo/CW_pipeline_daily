@@ -281,3 +281,28 @@ Mặt cắt thanh khoản của phiên dữ liệu:
 ## 10. `methodology.json`
 
 `{version, currency_units, conventions[], scoring{weights, formula, note}, recommendation{thresholds, gates, note}, trading_plan, backtest, data_quality_rules[], limitations[], sources[]}`.
+
+## OHLCV history store — `data/cw_history/YYYY-MM.csv`
+
+One row per (ticker, session). Written by `cwintel/yuanta_history.py`, appended by
+`scripts/backfill_yuanta_history.py`; never interpolated.
+
+| Column | Unit | Meaning |
+|---|---|---|
+| `session` | ISO date | Trading session the bar belongs to (not the fetch date) |
+| `ticker` | text | Covered warrant code, e.g. `CVPB2622` |
+| `exchange` | text | Exchange code carried from the source row |
+| `traded` | bool | Whether the warrant matched any order in this session |
+| `provisional` | bool | `true` when captured before the 15:10 ICT close gate |
+| `ref` | VND/CW | Reference price as published (`RefP`) — **not** a close |
+| `open` / `high` / `low` / `close` | VND/CW | `OpenP` / `HighestP` / `LowestP` / `LastMP`; all null when `traded = false` |
+| `avg` | VND/CW | `AvgP`, null when untraded |
+| `last` | VND/CW | Last matched price as carried by the source |
+| `volume` | CW | `TotalVol` |
+| `value` | VND | `TotalVal` |
+| `b1` / `s1` | VND/CW | Best bid / best ask at snapshot time |
+| `fetchedAt` | ISO datetime | Timestamp of the snapshot that produced the bar |
+
+Rules enforced in code: a `provisional` row never overwrites a closed row of the same
+`(ticker, session)`, a closed row may upgrade a provisional one, and re-running for the same
+session leaves the row count unchanged.

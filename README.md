@@ -35,6 +35,8 @@ Không có credentials trong workflow hoặc repo. Workflow kiểm thử offline
 python -m pip install -r requirements-core.txt
 python scripts/fetch_yuanta_snapshot.py                 # 1 request, ghi snapshot
 python scripts/analyze_yuanta_warrants.py               # làm sạch + CSV + JSON phân tích
+python scripts/backfill_yuanta_history.py --offline     # ghi bar phiên + chuỗi + phân tích
+python scripts/check_cw_analytics_bridge.py             # báo cáo nối dashboard cũ
 python -m http.server 8000 --directory docs
 ```
 
@@ -77,7 +79,48 @@ Phân tích chỉ dùng những gì **một mặt cắt bảng giá** thực s�
 `2.775.000 / 17.700 = 156,78` khớp `AvgP`, nên `TotalVal` là VND và giá là VND/CW. Dòng
 nào lệch quá 0,5% bị gắn cảnh báo, không bị tự sửa.
 
-Những gì **không** làm, vì nguồn không có dữ liệu: chuỗi ngày, giá lý thuyết, Greeks, IV,
+## OHLCV theo ngày (`cwintel/yuanta_history.py`)
+
+Mỗi lần workflow chạy **sau khi phiên đóng** (≥ 15:10 ICT; cron là 17:30), payload chứa
+đúng bar của phiên đó: `OpenP` (giá khớp đầu), `HighestP`/`LowestP`, `LastMP` (khớp cuối),
+`TotalVol`, `TotalVal`. Các bar được nối thành chuỗi ngày trong `data/cw_history/`.
+
+Ba giới hạn được giữ chặt, không "làm đầy" cho đẹp:
+
+| Tình huống | Xử lý |
+|---|---|
+| Ngày workflow không chạy / thất bại | Ghi vào `coverage.missingSessions`; **không** nội suy, không lặp giá |
+| Mã không khớp lệnh | `close = null`, `traded = false`; `RefP` (giá tham chiếu = giá phiên trước) giữ ở cột riêng, **không** dùng làm close |
+| Chạy tay giữa phiên | Bar đánh dấu `provisional`; **không** ghi đè bar đã đóng của cùng phiên (nhưng bar đã đóng thì nâng cấp được bar dở dang) |
+| Chạy lại trong cùng phiên | Idempotent: upsert theo `(ticker, session)`, không nhân đôi dòng |
+
+Vì endpoint không có dữ liệu quá khứ, lịch sử **bắt đầu từ lần chạy đầu tiên** và dày lên
+mỗi ngày — đây là lý do duy nhất có thể có chuỗi OHLCV đúng nghĩa từ nguồn này.
+
+### Nối vào bộ máy CW Analytics cũ
+
+`cwintel.yuanta_history.to_cwintel_ohlcv()` chuyển kho lịch sử sang đúng schema
+`cwintel.data` đọc (`Ticker/time/open/high/low/close/volume`, ngày `dd/mm/yyyy`, giá theo
+nghìn VND để `_price_to_vnd` nhân lại thành VND). Ghi cache bằng
+`write_cwintel_cache()`, hoặc `scripts/backfill_yuanta_history.py --cwintel-cache PATH`.
+
+Dashboard cũ (`docs/legacy.html`) **chưa** build được, và đây là lý do cụ thể — kiểm tra
+bằng `python scripts/check_cw_analytics_bridge.py`:
+
+| Dashboard cũ cần | Yuanta EW có? |
+|---|---|
+| OHLCV theo ngày | **có** (tích luỹ như trên) |
+| Strike, tỷ lệ chuyển đổi, ngày đáo hạn | **không** — payload chỉ có trường bảng giá |
+| Giá cổ phiếu cơ sở | **không** |
+| Chuỗi lợi suất phi rủi ro | **không** |
+| Quyền công bố dữ liệu dẫn xuất | xem `docs/DATA_RIGHTS.md` |
+
+Thiếu strike/maturity nghĩa là không thể tính intrinsic, premium, moneyness, Greeks, IV,
+điểm hay khuyến nghị — những thứ dashboard cũ hiển thị. Không có giá cổ phiếu cơ sở thì
+không có HV/IV. Vì vậy phần nối dừng đúng ở OHLCV và dữ liệu thanh khoản, thay vì bịa điều
+khoản để lấp chỗ trống.
+
+Những gì **không** làm, vì nguồn không có dữ liệu: giá lý thuyết, Greeks, IV,
 định giá, khuyến nghị, backtest. Payload cũng không có ngày đáo hạn, strike, tỷ lệ chuyển
 đổi hay tổ chức phát hành. Mã không khớp lệnh trong phiên để trống giá thay vì dùng lại
 `LastMP` của phiên trước (tránh biến động ảo).

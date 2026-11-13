@@ -43,3 +43,8 @@ vnstock-migration/
 # CSV chứng quyền Yuanta là dữ liệu nguồn dẫn xuất: chỉ upload làm artifact của workflow,
 # không commit. Ghi cục bộ vào /tmp khi tự chạy.
 yuanta_covered_warrants.csv
+
+# Kho OHLCV theo ngày của CW: ĐƯỢC commit (workflow ghi thêm mỗi phiên).
+# Chỉ bỏ qua file tạm trong lúc ghi.
+data/cw_history/*.tmp
+data/cw_history/*.csv.tmp

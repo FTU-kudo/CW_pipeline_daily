@@ -27,6 +27,26 @@ docs/index.html                     scripts/analyze_yuanta_warrants.py
                         ▼                                    ▼
 docs/data/yuanta_board_analysis.json          yuanta_covered_warrants.csv
 (committed; Pages serves it)                  (workflow artifact only, never committed)
+
+docs/data/yuanta_snapshot.json
+              │ scripts/backfill_yuanta_history.py
+              ▼
+cwintel/yuanta_history.py
+  - resolve_session(): a bar is complete only if captured after 15:10 ICT
+  - bars_from_rows(): untraded warrant → close = null (RefP is never a close)
+  - upsert_bars(): idempotent; provisional bars cannot overwrite closed ones
+              │
+              ├──► data/cw_history/YYYY-MM.csv    (committed: accumulated daily store)
+              ├──► docs/data/yuanta_sessions.json (series + coverage + per-ticker gaps)
+              └──► docs/data/yuanta_analytics.json
+                     cwintel/yuanta_analytics.py
+                       - liquidity tiers from the snapshot's own quantiles
+                       - grouping by underlying
+                       - untraded / recovered warrant monitor
+                       - session-over-session comparison (only with ≥ 2 sessions)
+              │
+              └──► cwintel.yuanta_history.to_cwintel_ohlcv()
+                     Ticker/time/open/high/low/close/volume for the legacy CW Analytics app
 ```
 
 `cwintel/yuanta_board.py` never fetches: it is pure pandas, so results are reproducible from
@@ -41,9 +61,29 @@ rows beyond 0.5% are flagged, never silently rewritten. Fields whose meaning is 
 documented in the payload (`FRoom`, `DeemP`/`DeemVol`, `SymbolAdminStatusCode`) are carried
 through untouched and are not interpreted.
 
+## Daily OHLCV history: what is real and what is not
+
+A snapshot taken after the close carries the session's own bar (`OpenP`, `HighestP`,
+`LowestP`, `LastMP`, `TotalVol`). Bars are appended to `data/cw_history/`, so a genuine daily
+OHLCV series accumulates **from the first workflow run onwards**. There is no backfill: the
+endpoint carries no past data, missing sessions are listed in `coverage.missingSessions`, and
+nothing is interpolated.
+
+Untraded warrants get `close = null`, because the source only offers `RefP` — the *previous*
+session's reference price, not a traded price. Using it as a close would manufacture
+zero-return days that never happened.
+
+The legacy CW Analytics dashboard (`docs/legacy.html`) still cannot be built: `cwintel`
+requires contract terms (strike, conversion ratio, maturity), underlying prices and a risk-free
+curve to produce intrinsic value, premium, Greeks, IV and recommendations. The EW endpoint has
+none of those fields, and `scripts/check_cw_analytics_bridge.py` reports exactly what is
+missing (exit code 2) rather than inventing terms to fill the gap.
+
 ## Explicitly unsupported in this generation
 
-The supplied endpoint does not provide daily historical OHLCV per individual covered warrant. The new Pages app is therefore a current-board view only. It does not expose charts, model prices, Greeks, recommendations, technical signals, backtests, underlying-stock history, or derived historical data. Old snapshots are overwritten rather than accumulated.
+No model prices, Greeks, IV, recommendations, technical signals, backtests, underlying-stock
+history. The board renders only what the snapshot says, and the history view renders only bars
+that were actually captured.
 
 ## Workflows
 
