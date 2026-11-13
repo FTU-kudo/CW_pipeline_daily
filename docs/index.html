@@ -54,6 +54,7 @@
   <div class="quality" id="quality" hidden></div>
   <nav class="tabs" id="tabs" role="tablist">
     <button type="button" class="tab active" data-view="board" role="tab">Bảng giá</button>
+    <button type="button" class="tab" data-view="scoring" role="tab">Xếp hạng</button>
     <button type="button" class="tab" data-view="liquidity" role="tab">Thanh khoản</button>
     <button type="button" class="tab" data-view="underlyings" role="tab">Theo cơ sở</button>
     <button type="button" class="tab" data-view="stale" role="tab">Mã không giao dịch</button>
@@ -61,6 +62,7 @@
     <button type="button" class="tab" data-view="band" role="tab">Trần–sàn</button>
     <button type="button" class="tab" data-view="history" role="tab">Lịch sử</button>
   </nav>
+  <section class="view" id="view-scoring" hidden></section>
   <section class="view" id="view-liquidity" hidden></section>
   <section class="view" id="view-underlyings" hidden></section>
   <section class="view" id="view-stale" hidden></section>
@@ -189,7 +191,7 @@ function barList(items, labelKey, valueKey, valueFormat) {
 function renderLiquidity() {
   const host = document.querySelector('#view-liquidity');
   const liq = analytics?.liquidity;
-  if (!liq) { host.innerHTML = '<div class="empty">Chưa có dữ liệu thanh khoản. Chạy workflow để sinh <code>yuanta_analytics.json</code>.</div>'; return; }
+  if (!liq) { host.innerHTML = emptyNotice('thanh khoản'); return; }
   const tiers = liq.tiers || [];
   const ranking = liq.ranking || [];
   const thresholds = (liq.thresholds || []).map(t => `${t.quantile} = ${fmtVnd(t.valueVND)} VND`).join(' · ') || '—';
@@ -212,7 +214,7 @@ function renderLiquidity() {
 function renderUnderlyings() {
   const host = document.querySelector('#view-underlyings');
   const rows = analytics?.underlyings || [];
-  if (!rows.length) { host.innerHTML = '<div class="empty">Chưa có dữ liệu nhóm cổ phiếu cơ sở.</div>'; return; }
+  if (!rows.length) { host.innerHTML = emptyNotice('nhóm cổ phiếu cơ sở'); return; }
   host.innerHTML = `
     <h2>Nhóm theo cổ phiếu cơ sở</h2>
     <p class="caption">Mã cơ sở suy ra từ quy ước tên CW (C + mã + 4 số), không phải trường do Yuanta công bố. Giá trị tính trên các mã có khớp lệnh.</p>
@@ -228,7 +230,7 @@ function renderUnderlyings() {
 function renderStale() {
   const host = document.querySelector('#view-stale');
   const stale = analytics?.stale;
-  if (!stale) { host.innerHTML = '<div class="empty">Chưa có dữ liệu giám sát.</div>'; return; }
+  if (!stale) { host.innerHTML = emptyNotice('giám sát mã không giao dịch'); return; }
   const recovered = stale.recovered || [];
   host.innerHTML = `
     <h2>Không giao dịch trong phiên: ${stale.count} mã (${fmtPct(stale.sharePct, 1)})</h2>
@@ -380,11 +382,74 @@ function renderBand() {
   `;
 }
 
+// Thông báo trống phải nói ĐÚNG nguyên nhân. Hai nguyên nhân khác hẳn nhau:
+//   (a) file phân tích chưa được sinh (workflow cũ chưa có bước backfill), hoặc
+//   (b) file có nhưng thiếu đúng khối này.
+// Gộp cả hai thành "Chạy workflow" là chẩn đoán sai và làm người đọc đi sai hướng.
+function emptyNotice(what) {
+  const stamp = analytics?.asof ? ` Dữ liệu phân tích đang có: phiên ${esc(analytics.asof)}.` : '';
+  if (!analytics) {
+    return `<div class="empty">Trang không tải được <code>yuanta_analytics.json</code> — file này
+      chưa được sinh cho lần chạy gần nhất. Workflow publish phải chạy tới bước
+      <em>Append session bar</em> thì file mới tồn tại; nếu lần chạy gần nhất dùng code cũ
+      (trước khi có bước đó), bấm <em>Run workflow</em> để sinh lại.</div>`;
+  }
+  return `<div class="empty">Không có khối ${esc(what)} trong file phân tích.${stamp}</div>`;
+}
+
+// ── Xếp hạng: điểm 0–100 từ các trục ĐO ĐƯỢC, kèm lý do không có Black–Scholes ──
+function renderScoring() {
+  const host = document.querySelector('#view-scoring');
+  const sc = analytics?.scoring;
+  if (!sc) { host.innerHTML = emptyNotice('xếp hạng'); return; }
+  const dist = sc.distribution || {};
+  const val = sc.valuation || {};
+  const rows = sc.ranking || [];
+  const parts = [
+    ['Thanh khoản', 'liquidity'], ['Chi phí', 'cost'],
+    ['Chất lượng giá', 'priceQuality'], ['Độ ổn định', 'consistency'],
+  ];
+  host.innerHTML = `
+    <h2>Điểm CW theo ngày</h2>
+    <p class="caption">Điểm 0–100 trên <strong>${num(sc.scored, 0)} mã có khớp lệnh</strong>
+      (${num(sc.unscored, 0)} mã không giao dịch không được chấm — không có giá thì không có gì để chấm).
+      Trung vị ${num(dist.median, 1)}, p25–p75 = ${num(dist.p25, 1)}–${num(dist.p75, 1)}.
+      Trọng số: ${parts.map(([label, key]) => `${esc(label)} ${Math.round((sc.weights?.[key] || 0) * 100)}%`).join(' · ')}.</p>
+    <p class="caption"><strong>Điểm này không phải khuyến nghị mua/bán.</strong> Nó trả lời một câu hẹp:
+      mã này có giao dịch được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?</p>
+
+    <h2>Vì sao không có Black–Scholes / IV / Greeks</h2>
+    <p class="caption">Thiếu đầu vào bắt buộc: <strong>${esc((val.blockedBy || []).join(' · '))}</strong>.
+      ${esc(val.reason || '')}</p>
+    <p class="caption">Engine đã có sẵn (${esc(val.engineReady || '—')}) và sẽ tự bật khi có điều khoản;
+      không phải viết lại. Cho tới lúc đó, điểm số dùng các trục thay thế:
+      ${esc(val.alternativeUsed || '')}</p>
+
+    ${simpleTable(['#', 'Mã', 'Cơ sở', 'Điểm', 'Độ phủ', 'Giá', '%Ngày', 'Giá trị', 'Thanh khoản', 'Chi phí', 'Chất lượng giá', 'Độ ổn định', 'Cảnh báo'], rows.slice(0, 50),
+      r => `<tr><td class="num">${r.rank}</td><td><strong>${esc(r.t)}</strong></td><td>${esc(r.u || '—')}</td>`
+        + `<td class="num"><strong>${num(r.score, 1)}</strong></td><td class="num">${num(r.coveragePct, 0)}%</td>`
+        + `<td class="num">${num(r.price)}</td>`
+        + `<td class="num ${r.chgPct > 0 ? 'positive' : (r.chgPct < 0 ? 'negative' : '')}">${fmtPct(r.chgPct)}</td>`
+        + `<td class="num">${fmtVnd(r.valueVND)}</td>`
+        + `<td class="num">${num(r.parts?.liquidity, 0)}</td><td class="num">${num(r.parts?.cost, 0)}</td>`
+        + `<td class="num">${num(r.parts?.priceQuality, 0)}</td>`
+        + `<td class="num">${r.parts?.consistency === null ? '—' : num(r.parts?.consistency, 0)}</td>`
+        + `<td>${r.nearCeiling ? '<span class="flag">sát trần</span>' : '—'}</td></tr>`)}
+
+    <h2>CW tốt nhất theo từng cổ phiếu cơ sở</h2>
+    <p class="caption">Chọn cơ sở trước rồi chọn CW thường hợp lý hơn là đọc một bảng phẳng 353 dòng.</p>
+    ${simpleTable(['Cơ sở', 'Số CW', 'Mã điểm cao nhất', 'Điểm', 'Trung vị nhóm', 'Giá trị nhóm'], sc.byUnderlying || [],
+      r => `<tr><td><strong>${esc(r.u || '—')}</strong></td><td class="num">${r.count}</td>`
+        + `<td>${esc(r.bestTicker)}</td><td class="num"><strong>${num(r.bestScore, 1)}</strong></td>`
+        + `<td class="num">${num(r.medianScore, 1)}</td><td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
+  `;
+}
+
 function setView(name) {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.view === name);
   });
-  for (const view of ['board', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
+  for (const view of ['board', 'scoring', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
     const node = document.querySelector(`#view-${view}`);
     if (node) node.hidden = view !== name;
   }
@@ -425,6 +490,7 @@ try {
   loadOptional('analytics', ANALYTICS_URL),
   loadOptional('sessions', SESSIONS_URL),
 ]);
+renderScoring();
 renderLiquidity();
 renderUnderlyings();
 renderStale();

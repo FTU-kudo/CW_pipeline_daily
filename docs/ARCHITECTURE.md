@@ -46,6 +46,13 @@ cwintel/yuanta_history.py
                        - session-over-session comparison (only with ≥ 2 sessions)
               │
               │
+              ├──► cwintel/yuanta_scoring.py
+              │       - score_warrants(): 0-100 on liquidity, trading cost,
+              │         close quality and trade consistency
+              │       - valuation_status(): names the four inputs Black-Scholes
+              │         needs and the endpoint does not provide (S, K, T, n)
+              │       - cwintel/bs.py stays unused until contract terms exist
+              │
               └──► cwintel/yuanta_intraday.py (uses confirmed field semantics)
                      - intraday_moves(): (High-Low)/RefP, close location in [Low, High]
                      - price_band_profile(): CeilingP/FloorP read as-is, never ±7%
