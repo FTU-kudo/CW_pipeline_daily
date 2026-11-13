@@ -29,20 +29,37 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install HTTP client
-        run: python -m pip install --disable-pip-version-check requests
+      - name: Install fetch and analysis dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-core.txt
 
       - name: Fetch current EW board snapshot from Yuanta
         run: python scripts/fetch_yuanta_snapshot.py
 
-      - name: Publish snapshot for GitHub Pages
+      # Đọc lại snapshot vừa lấy thay vì gọi API lần hai: workflow chỉ tốn đúng một request.
+      - name: Clean, analyse and export the board (CSV + analysis JSON)
+        run: |
+          python scripts/analyze_yuanta_warrants.py \
+            --offline docs/data/yuanta_snapshot.json \
+            --csv yuanta_covered_warrants.csv \
+            --json docs/data/yuanta_board_analysis.json
+
+      - name: Publish snapshot and analysis for GitHub Pages
         run: |
           git config user.name "yuanta-snapshot-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -f docs/data/yuanta_snapshot.json
+          git add -f docs/data/yuanta_snapshot.json docs/data/yuanta_board_analysis.json
+          # CSV là dữ liệu nguồn dẫn xuất: đính kèm vào lần chạy, không commit vào Git.
           if git diff --cached --quiet; then
             echo "Snapshot unchanged; no commit needed."
-            exit 0
+          else
+            git commit -m "data: update Yuanta EW board snapshot and analysis"
+            git push origin HEAD:main
           fi
-          git commit -m "data: update Yuanta EW board snapshot"
-          git push origin HEAD:main
+
+      - name: Upload cleaned CSV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuanta-covered-warrants-csv
+          path: yuanta_covered_warrants.csv
+          if-no-files-found: error
+          retention-days: 30

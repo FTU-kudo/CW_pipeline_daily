@@ -12,6 +12,40 @@ Schema dưới đây mô tả artifact cục bộ trong `output/private-data/das
 
 ---
 
+## 0. Artifact công khai từ Yuanta
+
+Hai tệp dưới đây là **nguồn công khai hiện hành** (Pages phục vụ `main:/docs`), schema riêng với phần CW Intelligence cũ:
+
+- `docs/data/yuanta_snapshot.json` — trường gốc của API, không đổi tên, không đổi đơn vị. `schemaVersion = 1`, `count`, `rows[]`.
+- `docs/data/yuanta_board_analysis.json` — kết quả làm sạch/phân tích, `schemaVersion = 1`, `kind = "yuanta-cw-board-analysis"`.
+
+`yuanta_board_analysis.json`:
+
+| Trường | Đơn vị | Ghi chú |
+|---|---|---|
+| `source` | obj | `endpoint`, `stockType=EW`, `fetchedAt` (ISO UTC, do client ghi), `rowsInSnapshot` |
+| `units` | obj | Đơn vị đang dùng và **bằng chứng**: `TotalVal ≈ TotalVol × AvgP` |
+| `caveats` | list[str] | Giới hạn bắt buộc phải hiển thị cùng số liệu |
+| `summary.rows` / `traded` / `untraded` | CW | `traded` = `TotalVol > 0` và `AvgP > 0` |
+| `summary.totalValueVND` | VND | Σ `TotalVol × AvgP` của các mã có khớp lệnh — **một phiên**, không phải ADV |
+| `summary.medianValueVND`, `p90ValueVND` | VND | Trung vị / phân vị 90 trên các mã có khớp lệnh |
+| `summary.top10ValueSharePct` | % | Tỷ trọng GT của 10 mã lớn nhất — đo mức tập trung |
+| `summary.gainers/losers/unchanged` | CW | Theo `PriceChangePct` (chỉ mã có khớp lệnh) |
+| `summary.medianSpreadAbsVND`, `medianSpreadPct`, `medianSpreadTicks` | VND, %, bước giá | Spread từ B1P/S1P; 1 bước = 10 VND |
+| `summary.rowsWithDepth` | CW | Số mã có cả B1P > 0 và S1P > 0 |
+| `movers.all[]` | — | `{t, u, traded, lastPrice, refPrice, priceChangePct, volume, valueVND, spreadTicks, spreadPct, valueSharePct}` cho **mọi** mã |
+| `movers.gainers[]`, `movers.losers[]` | — | 10 mã thay đổi mạnh nhất, chỉ mã có khớp lệnh |
+| `byUnderlying[]` | — | `{underlying, warrants, traded, valueVND, valueSharePct, volume, medianValueVND, medianSpreadPct, bestChangePct, worstChangePct}` |
+| `spread.available`, `median`, `p25`, `p75`, `p90` | %, % | Phân bố chênh lệch mua–bán (proxy chi phí) |
+| `spread.buckets[]` | — | `{label: "≤1%"/"1–2%"/"2–5%"/">5%", count}` |
+| `spread.cheapestAmongTopValue[]` | % | 5 mã GT lớn nhất có spread hẹp nhất |
+| `quality.status` | `ok`/`warn`/`fail` | `fail` khi có lỗi toàn vẹn (workflow trả exit 3) |
+| `quality.checks[]` | — | `{id, title, status, severity, amount, value[], detail}` |
+
+CSV `yuanta_covered_warrants.csv` (một dòng/CW): toàn bộ trường gốc của API + `Underlying`, `Traded` (1/0), `LastPrice`, `PriceChangePct`, `OpenChangePct`, `TradingValueVND`, `TradingValueReconDiffPct`, `SpreadAbs`, `SpreadPct`, `SpreadTicks`, `MidQuote`, `ValueSharePct`, `ValueRank`, `FetchedAt`. Tệp này **không** được commit; tải từ artifact của workflow.
+
+---
+
 ## 1. `meta.json`
 
 | Trường | Kiểu | Ý nghĩa |

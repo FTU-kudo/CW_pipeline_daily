@@ -39,3 +39,7 @@ output/legal/
 
 # Vnstock migration work folder contains source data and must not be committed
 vnstock-migration/
+
+# CSV chứng quyền Yuanta là dữ liệu nguồn dẫn xuất: chỉ upload làm artifact của workflow,
+# không commit. Ghi cục bộ vào /tmp khi tự chạy.
+yuanta_covered_warrants.csv

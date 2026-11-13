@@ -17,7 +17,15 @@
     table{border-collapse:collapse;width:100%;min-width:1200px;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#172330;color:#b7c7d7;font-weight:600;z-index:1}
     th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}th:first-child{z-index:2;background:#172330}td:first-child{font-weight:700;color:var(--accent)}
     tr:hover td{background:#172330}td:first-child a{color:var(--accent);text-decoration:none}details{text-align:left;white-space:normal;min-width:150px}summary{cursor:pointer;color:#a9c8df}pre{max-width:460px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#091019;padding:10px;border-radius:6px;color:#d7e2ed;font-size:12px}
-    #state{padding:26px;text-align:center;color:var(--muted)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
+    #state{padding:26px;text-align:center;color:var(--muted)}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 6px}
+    .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+    .stat .k{color:var(--muted);font-size:12px}.stat .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+    .stat .n{color:var(--muted);font-size:11px;margin-top:2px}
+    .quality{margin:14px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;font-size:12px;color:var(--muted)}
+    .quality b{color:var(--text)}.quality .warn{color:var(--warn)}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px 4px 2px 0}
+    td.num{font-variant-numeric:tabular-nums}.idle{color:var(--warn)}
+    .negative{color:#ff8a7a}.positive{color:var(--accent)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
   </style>
 </head>
 <body>
@@ -26,33 +34,97 @@
     <div><h1>Covered Warrants — Yuanta</h1><div class="sub">Bảng giá hiện tại từ endpoint stock_type=EW · dữ liệu được cập nhật theo lịch, không phải realtime</div></div>
     <div class="stamp" id="stamp">Đang đọc snapshot…</div>
   </header>
-  <div class="notice"><strong>Khoảng trống dữ liệu:</strong> Yuanta endpoint được cung cấp chỉ trả bảng giá hiện tại, không có OHLCV ngày riêng cho từng mã CW. Vì vậy trang này không hiển thị lịch sử, biểu đồ, Greeks, định giá, tín hiệu, backtest hay khuyến nghị. Giá trị số được giữ nguyên theo payload; chưa tự quy đổi đơn vị.</div>
+  <div class="notice"><strong>Khoảng trống dữ liệu:</strong> Yuanta endpoint được cung cấp chỉ trả bảng giá hiện tại, không có OHLCV ngày riêng cho từng mã CW. Vì vậy trang này không hiển thị lịch sử, biểu đồ, Greeks, định giá, tín hiệu, backtest hay khuyến nghị. Đơn vị đã được đối chiếu trên chính payload (TotalVal ≈ TotalVol × AvgP ⇒ giá là VND/CW, giá trị là VND); các trường chưa kiểm chứng được giữ nguyên, không diễn giải.</div>
+  <div class="stats" id="stats"></div>
+  <div class="quality" id="quality" hidden></div>
   <div class="toolbar"><input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"><button id="download" type="button">Tải JSON snapshot</button><span class="summary" id="summary"></span></div>
   <div class="table-wrap"><table>
-    <thead><tr><th>Mã</th><th>RefP</th><th>CeilingP</th><th>FloorP</th><th>OpenP</th><th>HighestP</th><th>LowestP</th><th>AvgP</th><th>LastMP</th><th>LastMVol</th><th>TotalVol</th><th>TotalVal</th><th>FTBuyVol</th><th>FTSellVol</th><th>FRoom</th><th>Bid 1–3</th><th>Ask 1–3</th><th>Payload</th></tr></thead>
-    <tbody id="rows"><tr><td colspan="18" id="state">Đang tải…</td></tr></tbody>
+    <thead><tr><th>Mã</th><th>RefP</th><th>CeilingP</th><th>FloorP</th><th>OpenP</th><th>HighestP</th><th>LowestP</th><th>AvgP</th><th>LastMP</th><th>LastMVol</th><th>TotalVol</th><th>TotalVal</th><th>FTBuyVol</th><th>FTSellVol</th><th>FRoom</th><th>Giá (VND)</th><th>%Ngày</th><th>Spread (bước giá)</th><th>Tỷ trọng GT</th><th>Bid 1–3</th><th>Ask 1–3</th><th>Payload</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
   </table></div>
-  <footer>Trường dữ liệu mang tên gốc từ API Yuanta. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng; không diễn giải đơn vị khi API chưa công bố trong payload. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công.</footer>
+  <footer>Trường dữ liệu mang tên gốc từ API Yuanta. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; mã không giao dịch để trống thay vì dùng lại giá phiên trước. <b>Spread</b> = (S1P − B1P) / giá giữa, chia bước giá 10 VND. <b>Cơ sở</b> trong JSON phân tích suy ra từ quy ước mã, không phải trường của API. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công.</footer>
 </main>
 <script type="module">
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
+const ANALYSIS_URL = 'data/yuanta_board_analysis.json';
 const FIELDS = ['StockCode','Exchange','RefP','CeilingP','FloorP','OpenP','HighestP','LowestP','AvgP','LastMP','LastMVol','TotalVol','TotalVal','FTBuyVol','FTSellVol','FRoom','S1P','S1V','S2P','S2V','S3P','S3V','B1P','B1V','B2P','B2V','B3P','B3V'];
 let snapshot = null;
+let analysis = null;
 const esc = (value) => String(value ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cell = (row,key) => row[key] === null || row[key] === undefined ? '—' : esc(row[key]);
+const num = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
+  ? '—' : value.toLocaleString('vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
+const pct = (value, digits = 2) => (value === null || value === undefined) ? '—' : `${value.toFixed(digits)}%`;
+// Dòng phân tích được key theo mã để bảng có thể hiển thị cả cột suy ra.
+// Phải dựng SAU khi tải xong analysis — dựng ở cấp module sẽ luôn rỗng.
+let derived = new Map();
+function indexAnalysis(){
+  derived = new Map(((analysis?.movers?.all) || []).map(r => [String(r.t).toUpperCase(), r]));
+}
+
+function renderStats(){
+  const host = document.querySelector('#stats');
+  const s = analysis?.summary;
+  if(!s){host.innerHTML = ''; return;}
+  const cards = [
+    ['CW trong snapshot', num(s.rows), `${num(s.traded)} mã có khớp lệnh`],
+    ['Giá trị giao dịch', num(s.totalValueVND), 'VND trong phiên — không phải ADV'],
+    ['Spread trung vị', pct(s.medianSpreadPct, 2), `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`],
+    ['Cổ phiếu cơ sở', num(s.underlyings), 'nhóm suy ra từ mã CW'],
+    ['Tăng / giảm', `${num(s.gainers)} / ${num(s.losers)}`, `${num(s.unchanged)} mã đứng giá`],
+  ];
+  host.innerHTML = cards.map(([k, v, n]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n)}</div></div>`).join('');
+}
+
+function renderQuality(){
+  const host = document.querySelector('#quality');
+  const q = analysis?.quality;
+  if(!q){host.hidden = true; return;}
+  host.hidden = false;
+  const issues = (q.checks || []).filter(c => c.status === 'fail' || c.status === 'warn');
+  const head = `<b>Kiểm tra chất lượng dữ liệu: ${esc(q.status.toUpperCase())}</b> — ${num(q.failed)} fail, ${num(q.warned)} cảnh báo trên ${num((q.checks||[]).length)} phép kiểm tra.`;
+  const chips = issues.map(c => `<div><span class="chip ${c.status === 'fail' ? 'negative' : 'warn'}">${esc(c.title)}</span>${esc((c.value || []).slice(0, 6).join(', '))}</div>`).join('');
+  host.innerHTML = head + chips;
+}
+
 function render(){
   const query = document.querySelector('#search').value.trim().toUpperCase();
   const list = (snapshot?.rows || []).filter(r => !query || String(r.StockCode).toUpperCase().includes(query));
   document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
   const tbody = document.querySelector('#rows');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="18" id="state">Không có mã phù hợp.</td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="22" id="state">Không có mã phù hợp.</td></tr>';return;}
   tbody.innerHTML = list.map(r => {
     const raw = JSON.stringify(r,null,2);
+    const code = String(r.StockCode ?? '').trim().toUpperCase();
+    const d = derived.get(code) || {};
     const bid = ['B1P','B1V','B2P','B2V','B3P','B3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
     const ask = ['S1P','S1V','S2P','S2V','S3P','S3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
-    return `<tr><td>${cell(r,'StockCode')}</td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
+    const chgCls = d.priceChangePct > 0 ? 'positive' : (d.priceChangePct < 0 ? 'negative' : '');
+    const price = d.traded ? num(d.lastPrice) : '<span class="idle" title="Không khớp lệnh trong phiên">—</span>';
+    return `<tr><td>${cell(r,'StockCode')}</td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
   }).join('');
 }
+
+// Phân tích là file riêng: nếu thiếu/lỗi, bảng vẫn dùng được ở chế độ trường gốc.
+async function loadAnalysis(){
+  try {
+    const response = await fetch(`${ANALYSIS_URL}?v=${Date.now()}`, {cache:'no-store'});
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if(payload.schemaVersion !== 1) throw new Error('Sai schema phân tích');
+    analysis = payload;
+  } catch(error) {
+    analysis = null;
+    const host = document.querySelector('#quality');
+    host.hidden = false;
+    host.innerHTML = `<b>Chưa có lớp phân tích</b> (${esc(error.message)}): bảng vẫn hiển thị trường gốc của Yuanta, chưa có cột suy ra.`;
+  }
+}
+
+await loadAnalysis();
+indexAnalysis();
+renderStats();
+renderQuality();
 try {
   const response = await fetch(`${SNAPSHOT_URL}?v=${Date.now()}`, {cache:'no-store'});
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -67,7 +139,7 @@ try {
   render();
 } catch(error) {
   document.querySelector('#stamp').textContent='Snapshot chưa có';
-  document.querySelector('#rows').innerHTML=`<tr><td colspan="18" id="state">Không tải được snapshot Yuanta: ${esc(error.message)}. Workflow cần lấy thành công trước khi Pages có dữ liệu.</td></tr>`;
+  document.querySelector('#rows').innerHTML=`<tr><td colspan="22" id="state">Không tải được snapshot Yuanta: ${esc(error.message)}. Workflow cần lấy thành công trước khi Pages có dữ liệu.</td></tr>`;
 }
 </script>
 </body>

@@ -1,2 +1,4 @@
-# Dependencies for the Yuanta EW snapshot fetch/publish script.
+# Cần cho workflow publish Yuanta: lấy snapshot, làm sạch bằng pandas, xuất CSV.
+# pandas đi cùng requests vì bước phân tích dùng DataFrame; job vẫn chỉ ~30s cài đặt.
 requests>=2.31.0
+pandas>=2.2

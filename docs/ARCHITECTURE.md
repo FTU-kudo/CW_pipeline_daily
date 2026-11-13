@@ -2,18 +2,41 @@
 
 ```text
 Yuanta YS Radar current board endpoint (stock_type=EW)
-              │ one server-side request, weekdays
+              │ scripts/yuanta_client.py — browser headers, retry, diagnosable errors
+              │ exactly one server-side request per run, weekdays
               ▼
 scripts/fetch_yuanta_snapshot.py
   - validate success/response/StockCode/Exchange/SymbolType
   - preserve raw row fields and values; no unit conversion
               │ atomic write
               ▼
-docs/data/yuanta_snapshot.json
-              │ Pages serves the latest snapshot
-              ▼
-docs/index.html (filterable board + raw JSON per symbol)
+docs/data/yuanta_snapshot.json ─────────────────┐
+              │                                 │ re-read offline (no second request)
+              ▼                                 ▼
+docs/index.html                     scripts/analyze_yuanta_warrants.py
+  filterable board + raw JSON          └─► cwintel/yuanta_board.py
+  + derived columns read from the          - clean_board(): typed, derived columns
+    analysis JSON                          - quality_checks(): 10 integrity checks
+                                           - summarize / top_movers / by_underlying
+                                           - spread_profile (bid–ask cost proxy)
+                                          │
+                        ┌─────────────────┴──────────────────┐
+                        ▼                                    ▼
+docs/data/yuanta_board_analysis.json          yuanta_covered_warrants.csv
+(committed; Pages serves it)                  (workflow artifact only, never committed)
 ```
+
+`cwintel/yuanta_board.py` never fetches: it is pure pandas, so results are reproducible from
+a saved payload and tests run offline (`tests/fixtures/yuanta_ew_sample.json`).
+
+## Units are evidenced, not assumed
+
+The payload satisfies `TotalVal ≈ TotalVol × AvgP` across the snapshot (sample row:
+`2,775,000 / 17,700 = 156.78`, matching `AvgP`). That identity is what justifies reading
+prices as VND/CW and `TotalVal` as VND. `quality_checks` re-tests the identity on every run;
+rows beyond 0.5% are flagged, never silently rewritten. Fields whose meaning is not
+documented in the payload (`FRoom`, `DeemP`/`DeemVol`, `SymbolAdminStatusCode`) are carried
+through untouched and are not interpreted.
 
 ## Explicitly unsupported in this generation
 
