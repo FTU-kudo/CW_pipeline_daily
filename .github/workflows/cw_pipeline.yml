@@ -2,6 +2,15 @@ name: CW Yuanta EW snapshot — publish
 
 on:
   workflow_dispatch:
+  # Chạy ngay khi có thay đổi mã nguồn trên main, để dữ liệu không phải chờ tới cron kế tiếp.
+  # Bỏ qua các đường dẫn dữ liệu: job này tự commit snapshot ngược lên main, nên nếu không
+  # loại trừ thì mỗi lần cập nhật dữ liệu lại kích hoạt chính nó. (Push bằng GITHUB_TOKEN vốn
+  # đã không tạo run mới, đây là lớp bảo vệ thứ hai.)
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/data/**"
+      - "data/**"
   schedule:
     # 17:30 ICT on weekdays, after the regular trading session.
     - cron: "30 10 * * 1-5"
