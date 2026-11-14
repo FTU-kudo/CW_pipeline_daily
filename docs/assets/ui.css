@@ -26,6 +26,17 @@ html[data-theme="dark"] {
   --shadow: 0 18px 48px rgba(0, 0, 0, .55);
   --overlay: rgba(4, 8, 12, .62);
   --track: #0e1620;
+  /* Nền khi rê chuột lên một dòng bảng. Ở chế độ tối là sáng hơn nền panel một chút —
+     trước đây dòng này hard-code #172330 trong index.html nên chế độ sáng bị đen. */
+  --row-hover: #1a2836;
+  /* Ba trạng thái tiền. Không dùng --up/--down vì ý nghĩa khác: đây là ITM/ATM/OTM,
+     không phải tăng/giảm giá. */
+  --itm: #43d3a0;
+  --atm: #f3c969;
+  --otm: #ff8a7a;
+  --itm-soft: rgba(67, 211, 160, .14);
+  --atm-soft: rgba(243, 201, 105, .16);
+  --otm-soft: rgba(255, 138, 122, .14);
 }
 
 html[data-theme="light"] {
@@ -45,6 +56,13 @@ html[data-theme="light"] {
   --shadow: 0 18px 44px rgba(16, 24, 32, .16);
   --overlay: rgba(24, 34, 44, .38);
   --track: #e9eef4;
+  --row-hover: #eef3f9;
+  --itm: #00795d;
+  --atm: #8a5b00;
+  --otm: #c62d2d;
+  --itm-soft: rgba(0, 121, 93, .10);
+  --atm-soft: rgba(138, 91, 0, .12);
+  --otm-soft: rgba(198, 45, 45, .10);
 }
 
 /* Trang gốc dùng tên biến riêng (--bg/--panel/--line/--text/--muted/--accent) nên chỉ cần
@@ -288,4 +306,169 @@ html[data-theme="light"] .book-row.ask { background: rgba(198, 45, 45, .07); }
   .dgrid { grid-template-columns: 1fr; }
   .clock time { font-size: 16px; min-width: 80px; }
   .topbar { gap: 10px; }
+}
+
+
+/* ============================================================
+   Bộ lọc, trạng thái tiền, tab nổi bật, toàn cảnh thị trường
+   ============================================================ */
+
+/* ---------- Việc 4: rê chuột sáng lên, không còn màu đen ---------- */
+/* `tr:hover td` đã chuyển sang var(--row-hover) trong index.html. Ở đây chỉ bổ sung
+   chuyển màu mượt để dòng không nháy, và làm mã nổi bật hơn khi rê vào. */
+tbody tr { transition: background-color .12s ease; }
+tbody tr:hover td:first-child .ticker-btn { color: var(--text); border-bottom-color: var(--accent); }
+tbody tr:hover td:first-child .ticker-btn::after { opacity: 1; }
+tbody tr:hover .mtag { filter: brightness(1.18); }
+
+/* ---------- Việc 5: bộ lọc ---------- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin: 0 0 12px;
+}
+.filter { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.filter[hidden] { display: none; }
+.filter > span { padding-left: 2px; }
+.filter select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  min-width: 150px;
+  cursor: pointer;
+}
+.filter select:hover { border-color: var(--accent); }
+.filter select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  align-self: flex-end;
+}
+button.ghost:hover { color: var(--text); border-color: var(--accent); }
+
+/* ---------- Việc 6: trạng thái tiền + biến động ---------- */
+/* Nhãn nhỏ cạnh mã. Chỉ mã đã định giá mới có — mã không giao dịch chưa xác định được
+   trạng thái, và tô màu cho nó sẽ là đoán. */
+.mtag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: 1px;
+}
+.money-itm { color: var(--itm); background: var(--itm-soft); border: 1px solid var(--itm); }
+.money-atm { color: var(--atm); background: var(--atm-soft); border: 1px solid var(--atm); }
+.money-otm { color: var(--otm); background: var(--otm-soft); border: 1px solid var(--otm); }
+
+/* Tăng xanh, giảm đỏ, đứng giá vàng. Tách khỏi .positive/.negative để không đổi màu
+   các bảng khác đang dùng hai lớp đó. */
+.chg-up { color: var(--up); font-weight: 600; }
+.chg-down { color: var(--down); font-weight: 600; }
+.chg-flat { color: var(--atm); }
+
+/* ---------- Việc 8: năm tab đầu nổi bật ---------- */
+.tab { display: inline-flex; align-items: center; gap: 7px; }
+.tab .t-ico { font-size: 15px; line-height: 1; }
+.tabs .tab.feature {
+  background: var(--panel);
+  border-color: var(--line-soft);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .04);
+}
+.tabs .tab.feature:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.tabs .tab.feature .t-ico {
+  background: var(--accent-soft);
+  border-radius: 7px;
+  padding: 3px 5px;
+  font-size: 14px;
+}
+.tabs .tab.feature.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft), 0 2px 10px var(--accent-soft);
+}
+
+/* ---------- Việc 10: toàn cảnh thị trường ---------- */
+.overview { margin: 18px 0 4px; }
+.ov-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.ov-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.ov-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-soft); }
+.ov-big { grid-column: span 2; }
+.ov-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ov-ico { font-size: 14px; }
+.ov-v {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 3px 0 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.ov-big .ov-v { font-size: 26px; }
+.ov-n { font-size: 11px; color: var(--muted); }
+
+/* ---------- Việc 7: trang thuật ngữ ---------- */
+.glossary-group { margin: 0 0 22px; }
+.glossary-group h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+.glossary-item {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 4px 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.glossary-item:last-child { border-bottom: 0; }
+.glossary-item dt { font-weight: 650; color: var(--accent); }
+.glossary-item dd { margin: 0; color: var(--text); font-size: 13px; }
+.glossary-item .g-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+@media (max-width: 700px) {
+  .ov-big { grid-column: span 1; }
+  .glossary-item { grid-template-columns: 1fr; }
+  .filter select { min-width: 130px; }
 }

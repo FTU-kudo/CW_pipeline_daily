@@ -72,6 +72,35 @@ def build_sessions_payload(history, coverage: dict, *, gaps: dict[str, list[str]
     }
 
 
+def _rows_in_file(path: Path) -> int | None:
+    """Số dòng của payload đang nằm trên đĩa; None nếu chưa có hoặc không đọc được."""
+    try:
+        existing = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    rows = existing.get("rows") if isinstance(existing, dict) else None
+    return len(rows) if isinstance(rows, list) else None
+
+
+def _guard_published_overwrite(payload: dict, path: Path, existing_count: int | None) -> None:
+    """Chặn ghi đè một file publish bằng payload nhỏ hơn hẳn.
+
+    Lý do: ``--details-out`` mặc định trỏ vào ``docs/data/``. Một lần test gọi ``main()``
+    với fixture 12 dòng đã ghi đè file 407 dòng — trang mất 395 mã định giá và bộ lọc chỉ
+    còn 3 lựa chọn, trong khi mọi thứ vẫn "chạy đúng". Ghi đè co lại quá 25% gần như luôn là
+    lỗi (fixture, snapshot rỗng, API trả thiếu), nên dừng lại thay vì publish.
+    """
+    if existing_count is None or existing_count == 0:
+        return
+    new_count = len(payload.get("rows") or [])
+    if new_count and new_count < existing_count * 0.75:
+        raise SystemExit(
+            f"LỖI: từ chối ghi đè {path} — file đang có {existing_count} dòng, "
+            f"payload mới chỉ {new_count} dòng. Nếu đây là chủ ý (ví dụ chạy test với "
+            "fixture), hãy truyền --details-out trỏ vào thư mục tạm."
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -83,6 +112,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="thư mục kho CSV theo tháng (mặc định data/cw_history)")
     parser.add_argument("--sessions-out", type=Path, default=DEFAULT_SESSIONS)
     parser.add_argument("--analytics-out", type=Path, default=DEFAULT_ANALYTICS)
+    # --details-out mặc định trỏ thẳng vào đường publish. Test từng không truyền cờ này nên
+    # backfill.main() trong test đã ghi đè file thật bằng fixture 12 dòng, làm trang mất 395
+    # mã định giá mà không có lỗi nào. Chốt chặn nằm ở _guard_published_overwrite bên dưới.
     parser.add_argument("--details-out", type=Path, default=DEFAULT_DETAILS,
                         help="file chi tiết từng chứng quyền cho trang bấm vào mã")
     parser.add_argument("--board-analysis", type=Path, default=DEFAULT_BOARD_ANALYSIS,
@@ -184,7 +216,10 @@ def main(argv: list[str] | None = None) -> int:
         analytics=published.get("analytics") or analytics,
         history_bars=bars,
         history_meta=history_meta,
+        terms=terms,
+        session=snapshot_session.iso,
     )
+    _guard_published_overwrite(details, args.details_out, _rows_in_file(args.details_out))
     write_json(details, args.details_out)
     priced = sum(1 for row in details["rows"] if row.get("valuation"))
     print(f"Chi tiết: {details['count']} mã, {priced} mã có khối định giá "
