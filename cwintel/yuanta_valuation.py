@@ -78,6 +78,73 @@ def years_to_maturity(session: str | date, maturity: str | date | None) -> float
 #: Số phiên dùng để tính HV dài hạn (3 tháng giao dịch).
 HV_LONG_WINDOW = 63
 
+#: Chặn tin cậy cho hệ số điều chỉnh ``f``. ``f`` là tỷ lệ nghịch đảo giữa giá cổ phiếu cơ sở
+#: mà Vietstock dùng khi tính premium/đòn bẩy và giá đóng cửa thật: ``f = S_nguồn / S_thật``.
+#: CW Việt Nam điều chỉnh strike và tỷ lệ chuyển đổi khi cổ phiếu cơ sở chia thưởng/cổ tức, nên
+#: ``f > 1`` là bình thường. Ngoài khoảng này thì nhiều khả năng là giá nguồn đã cũ (dữ liệu
+#: lệch phiên) chứ không phải một đợt điều chỉnh thật — khi đó không được dựng lại điều khoản.
+MIN_CORRECTION_FACTOR = 0.5
+MAX_CORRECTION_FACTOR = 4.0
+
+
+def resolve_terms(*, strike: float, ratio: float, maturity: str | None,
+                  strike_adj: float | None, ratio_adj: float | None,
+                  maturity_adj: str | None,
+                  derived_s: float | None, real_s: float | None,
+                  ) -> dict:
+    """Quy điều khoản CW về **hệ giá đóng cửa thật** của cổ phiếu cơ sở.
+
+    Vì sao cần: Vietstock trả strike/tỷ lệ **chưa điều chỉnh** (``gia_thuc_hien``,
+    ``ty_le_chuyen_doi``) cùng một giá cổ phiếu cơ sở **cũng chưa điều chỉnh** (ẩn trong
+    premium/đòn bẩy). Ghép cặp đó với giá đóng cửa *thật* là trộn hai hệ quy chiếu: CW bị coi
+    là OTM sâu, giá lý thuyết về ~0, và IV suy ngược nổ tung (TCB 101%, HDB 167%, VHM 219%).
+
+    Ba đường, ưu tiên giảm dần:
+
+    1. ``nguồn``      — dùng ``gia_th_dieu_chinh`` + ``tlcd_dieu_chinh`` nếu nguồn đã trả.
+    2. ``dựng lại``   — nhân nghịch đảo hệ số ``f`` để đưa strike/tỷ lệ về hệ giá thật.
+       Kiểm chứng: với CACB2515, cách này cho K=27.419,6 và n=1,7245, khớp chính xác trang
+       Vietstock (27.420 · 1,7245). IV thì **bất biến** theo hệ quy chiếu, nên dựng lại không
+       làm sai IV; nó chỉ đưa Greeks về đúng hệ (delta lệch 16% nếu để sai hệ).
+    3. ``gốc``        — không có ``f`` đáng tin; giữ nguyên và ghi rõ là chưa điều chỉnh.
+
+    Trả dict gồm ``strike``/``ratio``/``maturity`` đã quy về hệ thật, ``basis`` (nguồn gốc của
+    phép quy đổi) và ``factor`` (hệ số đã dùng). Không bao giờ im lặng: ``basis`` luôn nói
+    con số đến từ đâu.
+    """
+    factor = None
+    if derived_s and real_s and derived_s > 0 and real_s > 0:
+        candidate = derived_s / real_s
+        if MIN_CORRECTION_FACTOR <= candidate <= MAX_CORRECTION_FACTOR:
+            factor = candidate
+
+    # (1) Nguồn đã trả điều khoản điều chỉnh → dùng thẳng, không dựng lại.
+    if strike_adj and ratio_adj and strike_adj > 0 and ratio_adj > 0:
+        return {
+            "strike": strike_adj, "ratio": ratio_adj,
+            "maturity": maturity_adj or maturity,
+            "basis": "điều chỉnh từ nguồn", "factor": factor,
+        }
+
+    # (2) Không có từ nguồn → dựng lại từ chênh lệch giá, chỉ khi lệch đủ lớn để đáng làm.
+    if factor and abs(factor - 1.0) * 100 > ADJUSTMENT_TRIGGER_PCT:
+        return {
+            "strike": strike / factor, "ratio": ratio / factor,
+            "maturity": maturity, "basis": "dựng lại từ chênh lệch giá", "factor": factor,
+        }
+
+    # (3) Không lệch (hoặc lệch không đáng) → giữ nguyên.
+    return {"strike": strike, "ratio": ratio, "maturity": maturity,
+            "basis": BASE_TERMS_BASIS, "factor": factor}
+
+
+#: Nhãn ``termsBasis`` khi điều khoản vẫn ở hệ gốc, chưa quy đổi được sang hệ giá thật.
+BASE_TERMS_BASIS = "gốc, chưa điều chỉnh"
+
+#: Ngưỡng lệch (%) để coi là có điều chỉnh và cần quy đổi. Dưới mức này sai số làm tròn của
+#: nguồn (premium 2 chữ số, đòn bẩy 2 chữ số) đã đủ giải thích, dựng lại chỉ thêm nhiễu.
+ADJUSTMENT_TRIGGER_PCT = 0.5
+
 #: Biên độ tối đa một phiên của cổ phiếu Việt Nam (HOSE/HNX chặn ±7%). Nếu S suy từ nguồn
 #: khác lệch S đo trực tiếp quá mức này thì một trong hai đã dùng giá cũ — không thể là biến
 #: động thật trong một phiên.
@@ -254,24 +321,46 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         # Ưu tiên S từ lịch sử cổ phiếu cơ sở (đo trực tiếp) hơn S suy từ premium/đòn bẩy.
         # Ghi lại nguồn để người đọc biết con số đến từ đâu.
         history_row = underlyings.get(str(term.get("underlying") or "").upper())
+        derived_s = underlying                  # S suy từ Vietstock, giữ lại để đối chiếu
         if history_row and history_row["close"]:
-            derived_s = underlying              # S suy từ Vietstock, giữ lại để đối chiếu
             underlying = float(history_row["close"])
             underlying_source = f"lịch sử Yuanta ({history_row['date']})"
-            # Đối chiếu với S suy từ Vietstock. Vietstock đôi khi dùng giá đã cũ (ví dụ dữ
-            # liệu ngày cũ hơn phiên đang xét), khi đó S suy ra vi phạm biên ±7%/phiên của
-            # Việt Nam — điều bất khả thi trên thực tế. Lệch quá ngưỡng nghĩa là một trong
-            # hai nguồn đã cũ, và IV tính từ giá sai thì vô nghĩa, nên loại thay vì đoán.
-            if derived_s and derived_s > 0:
-                drift_pct = (derived_s / underlying - 1) * 100
-                if abs(drift_pct) > UNDERLYING_DRIFT_TOLERANCE_PCT:
-                    excluded["S hai nguồn lệch quá biên giá (±7%)"] = (
-                        excluded.get("S hai nguồn lệch quá biên giá (±7%)", 0) + 1)
-                    continue
         else:
             underlying_source = "suy từ premium/đòn bẩy Vietstock"
 
-        t_years = years_to_maturity(session, term.get("maturity"))
+        # Quy điều khoản về CÙNG hệ quy chiếu với `underlying` đang dùng. Đây là điểm sửa
+        # gốc: strike/tỷ lệ của nguồn là hệ *chưa điều chỉnh*, còn lịch sử giá là hệ *đã điều
+        # chỉnh*. Trộn hai hệ làm CW bị coi là OTM sâu và IV nổ tung. Xem `resolve_terms`.
+        adjusted = resolve_terms(
+            strike=strike, ratio=ratio, maturity=term.get("maturity"),
+            strike_adj=_f(term.get("strikeAdjusted"), 6),
+            ratio_adj=_f(term.get("ratioAdjusted"), 8),
+            maturity_adj=term.get("maturityAdjusted"),
+            derived_s=derived_s, real_s=underlying,
+        )
+        strike, ratio = adjusted["strike"], adjusted["ratio"]
+        maturity = adjusted["maturity"]
+        terms_basis = adjusted["basis"]
+
+        # Chỉ báo lệch giá còn lại dùng để *chẩn đoán*, không để loại. Sau khi đã quy về cùng
+        # hệ, độ lệch này đo mức nguồn dùng giá cũ — thông tin hữu ích nhưng không chặn định
+        # giá, vì IV không phụ thuộc hệ quy chiếu (chỉ Greeks phụ thuộc, và đã được quy đổi).
+        drift_pct = ((derived_s / underlying - 1) * 100
+                     if derived_s and underlying else None)
+        if drift_pct is not None and abs(drift_pct) > UNDERLYING_DRIFT_TOLERANCE_PCT:
+            # Đã quy đổi được điều khoản → lệch này là chuyện bình thường (CW điều chỉnh khi
+            # cổ phiếu chia thưởng) và vẫn định giá được. Chưa quy đổi được mà vẫn lệch nghĩa
+            # là hệ số nằm ngoài khoảng tin cậy: nguồn dùng giá cũ quá xa, hai hệ không ghép
+            # được với nhau, nên loại thay vì định giá bằng hai thước đo khác nhau.
+            if terms_basis == BASE_TERMS_BASIS:
+                excluded["S nguồn lệch quá biên giá (±7%) và chưa quy đổi được điều khoản"] = (
+                    excluded.get(
+                        "S nguồn lệch quá biên giá (±7%) và chưa quy đổi được điều khoản", 0) + 1)
+                continue
+            excluded["S nguồn lệch >±7% (đã quy đổi điều khoản, vẫn định giá)"] = (
+                excluded.get("S nguồn lệch >±7% (đã quy đổi điều khoản, vẫn định giá)", 0) + 1)
+
+        t_years = years_to_maturity(session, maturity)
         if t_years is None:
             exclude("đáo hạn trong quá khứ hoặc thiếu ngày")
             continue
@@ -307,9 +396,12 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             "session": str(session),
             "strike": strike,
             "ratio": ratio,
-            "maturity": term.get("maturity"),
-            "daysToMaturity": int((date.fromisoformat(str(term.get("maturity")))
+            "maturity": maturity,
+            "daysToMaturity": int((date.fromisoformat(str(maturity))
                                    - date.fromisoformat(str(session))).days),
+            # Ghi rõ điều khoản đã được quy về hệ nào để người đọc không phải đoán.
+            "termsBasis": terms_basis,
+            "correctionFactor": _f(adjusted["factor"], 6),
             "underlyingPrice": underlying,
             "cwPrice": cw_close,
             "bsPrice": _f(greeks.price, 2),

@@ -213,6 +213,17 @@ function valuationSection(row) {
     [bi('Tỷ lệ chuyển đổi', 'Conversion ratio'), num(val.ratio, 3)],
     [bi('Ngày đáo hạn', 'Maturity date'), esc(val.maturity)],
     [bi('Số ngày còn lại', 'Days to maturity'), num(val.daysToMaturity)],
+    // Điều khoản có thể đã được quy về hệ giá thật (CW điều chỉnh khi cổ phiếu chia thưởng).
+    // Người đọc phải thấy điều đó, nếu không sẽ tưởng strike hiển thị là strike gốc.
+    [bi('Cơ sở điều khoản', 'Terms basis'), esc(val.termsBasis),
+      bi('Strike/tỷ lệ đã quy về hệ giá cổ phiếu đang dùng',
+        'Strike/ratio already mapped onto the price frame in use')],
+    ...(val.correctionFactor === null || val.correctionFactor === undefined
+      || Math.abs(val.correctionFactor - 1) < 0.0005 ? [] : [
+      [bi('Hệ số điều chỉnh', 'Adjustment factor'), num(val.correctionFactor, 5),
+        bi('Strike và tỷ lệ gốc đã chia cho hệ số này',
+          'Original strike and ratio divided by this factor')],
+    ]),
     [bi('Giá cổ phiếu cơ sở', 'Underlying price'), num(val.underlyingPrice)],
     [bi('Nguồn giá cơ sở', 'Underlying price source'), esc(val.underlyingSource)],
     [bi('IV (biến động ẩn)', 'IV (implied volatility)'),

@@ -306,8 +306,13 @@ def _history(closes: list[float]) -> pd.DataFrame:
     return hist.parse_history(_payload(days, closes), "XXX")
 
 
-def test_derived_price_that_violates_daily_limit_is_excluded():
-    """Vietstock đôi khi dùng giá cũ: S suy ra cách giá thật >7% là bất khả thi trong 1 phiên."""
+def test_derived_price_drift_is_absorbed_by_rescaling_terms():
+    """S nguồn lệch >±7% KHÔNG phải dữ liệu xấu — đó là dấu hiệu CW đã được điều chỉnh.
+
+    Bản cũ của test này khẳng định loại mã. Điều đó sai: chính CACB2515 (RefP 31.800 gốc,
+    giá thật 20.350) rơi vào tình huống này, và trang Vietstock xác nhận strike điều chỉnh
+    27.420 · tỷ lệ 1,7245. Loại mã là bỏ mất 100 CW định giá được.
+    """
     from cwintel.yuanta_valuation import price_warrants
 
     priced, diag = price_warrants(_board_row(), _terms_row(),
@@ -316,8 +321,45 @@ def test_derived_price_that_violates_daily_limit_is_excluded():
 
     priced, diag = price_warrants(_board_row(), _terms_row(), session="2026-11-13",
                                   underlying_history={"XXX": _history([20350.0] * 30)})
+    assert len(priced) == 1
+    row = priced.iloc[0]
+    # f = 23600/20350 = 1.1597 → strike 26000/f, ratio 2/f
+    assert row["termsBasis"] == "dựng lại từ chênh lệch giá"
+    assert abs(row["strike"] - 26000.0 / (23600.0 / 20350.0)) < 1.0
+    assert abs(row["correctionFactor"] - 23600.0 / 20350.0) < 1e-4
+    assert diag["excluded"].get("S nguồn lệch >±7% (đã quy đổi điều khoản, vẫn định giá)") == 1
+
+
+def test_drift_beyond_confidence_range_still_excludes():
+    """Ngoài khoảng tin cậy thì không dựng lại được → vẫn phải loại, không định giá liều.
+
+    Lệch gấp nhiều lần biên ±7% không thể là điều chỉnh thật; nhiều khả năng nguồn dùng giá
+    rất cũ. Khi đó hai hệ không ghép được và định giá sẽ vô nghĩa.
+    """
+    from cwintel.yuanta_valuation import price_warrants
+
+    # S thật 20350, S nguồn 23600*10 → f = 11.6, vượt MAX_CORRECTION_FACTOR
+    terms = _terms_row(underlyingPrice=236000.0)
+    priced, diag = price_warrants(_board_row(), terms, session="2026-11-13",
+                                  underlying_history={"XXX": _history([20350.0] * 30)})
     assert priced.empty
-    assert diag["excluded"]["S hai nguồn lệch quá biên giá (±7%)"] == 1
+    assert diag["excluded"][
+        "S nguồn lệch quá biên giá (±7%) và chưa quy đổi được điều khoản"] == 1
+
+
+def test_source_adjusted_terms_take_priority_over_rescaling():
+    """Khi nguồn đã trả điều khoản điều chỉnh thì dùng thẳng, không dựng lại."""
+    from cwintel.yuanta_valuation import price_warrants
+
+    terms = _terms_row(strikeAdjusted=27420.0, ratioAdjusted=1.7245,
+                       maturityAdjusted="2027-03-08")
+    priced, _ = price_warrants(_board_row(), terms, session="2026-11-13",
+                               underlying_history={"XXX": _history([20350.0] * 30)})
+    row = priced.iloc[0]
+    assert row["termsBasis"] == "điều chỉnh từ nguồn"
+    assert row["strike"] == 27420.0
+    assert row["ratio"] == 1.7245
+    assert row["maturity"] == "2027-03-08"
 
 
 def test_price_history_within_limit_is_used_and_recorded():
