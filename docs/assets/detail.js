@@ -26,6 +26,10 @@ export function initDetail(detailsPayload) {
   DETAILS = detailsPayload && Array.isArray(detailsPayload.rows) ? detailsPayload : null;
   INDEX = new Map((DETAILS?.rows || []).map((row) => [row.ticker, row]));
   buildShell();
+  // Lưới an toàn: nếu vì bất kỳ lý do gì backdrop còn hiện sau khi khởi tạo, ẩn nó đi.
+  // Backdrop phủ kín trang nên đây là lỗi nhìn thấy được ngay, phải chặn từ gốc.
+  const backdrop = document.getElementById('detail-backdrop');
+  if (backdrop) backdrop.hidden = true;
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeDetail();
   });
@@ -50,6 +54,8 @@ export function openDetail(ticker, opts = {}) {
   const panel = document.getElementById('detail-panel');
   if (!panel) return;
   panel.hidden = false;
+  const backdrop = document.getElementById('detail-backdrop');
+  if (backdrop) backdrop.hidden = false;
   document.body.classList.add('drawer-open');
   if (!row) {
     body.innerHTML = `<div class="empty">${esc(bi('Không tìm thấy mã', 'Ticker not found'))}
@@ -75,6 +81,8 @@ export function closeDetail() {
   const panel = document.getElementById('detail-panel');
   if (!panel) return;
   panel.hidden = true;
+  const backdrop = document.getElementById('detail-backdrop');
+  if (backdrop) backdrop.hidden = true;
   document.body.classList.remove('drawer-open');
   current = null;
   const url = new URL(window.location.href);
@@ -107,6 +115,9 @@ function buildShell() {
   const backdrop = document.createElement('div');
   backdrop.className = 'drawer-backdrop';
   backdrop.id = 'detail-backdrop';
+  // BẮT BUỘC: backdrop có position:fixed + inset:0, nên nếu không ẩn ngay thì nó phủ tối
+  // toàn trang từ lúc tải. Đây là lỗi "một lớp mờ khi truy cập web".
+  backdrop.hidden = true;
   document.body.appendChild(backdrop);
   panel.querySelector('#detail-close').addEventListener('click', closeDetail);
   backdrop.addEventListener('click', closeDetail);

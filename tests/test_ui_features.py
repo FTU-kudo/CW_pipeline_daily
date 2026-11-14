@@ -171,6 +171,39 @@ def test_detail_explains_when_valuation_is_unavailable():
     assert "No valuation block for this ticker" in DETAIL_JS
 
 
+def test_detail_backdrop_starts_hidden():
+    """Backdrop có position:fixed + inset:0 — nếu không ẩn từ đầu thì nó phủ tối cả trang.
+
+    Đây chính là lỗi "một lớp mờ khi truy cập web": backdrop được tạo lúc khởi tạo nhưng
+    không được đặt `hidden`, nên người dùng thấy toàn trang bị xám ngay khi vừa mở.
+    """
+    shell = DETAIL_JS[DETAIL_JS.index("function buildShell"):]
+    shell = shell[: shell.index("function section")]
+    assert "backdrop.hidden = true" in shell, "backdrop phải ẩn ngay khi tạo"
+    # Phải ẩn TRƯỚC khi gắn vào body — nếu không sẽ có một khung hình bị phủ.
+    create = shell[shell.index("backdrop.className"):]
+    assert create.index("backdrop.hidden = true") < create.index("appendChild(backdrop)"), \
+        "phải ẩn backdrop TRƯỚC khi gắn vào body, không thì một khung hình bị phủ"
+
+
+def test_detail_panel_also_starts_hidden():
+    """Ngăn kéo cũng position:fixed — hiện sẵn lúc tải sẽ che mất một dải bên phải."""
+    shell = DETAIL_JS[DETAIL_JS.index("function buildShell"):]
+    shell = shell[: shell.index("function section")]
+    assert "panel.hidden = true" in shell
+    assert shell.index("panel.hidden = true") < shell.index("appendChild(panel)"), \
+        "phải ẩn panel TRƯỚC khi gắn vào body"
+
+
+def test_detail_backdrop_toggles_with_the_drawer():
+    open_fn = DETAIL_JS[DETAIL_JS.index("export function openDetail"):]
+    open_fn = open_fn[: open_fn.index("export function closeDetail")]
+    close_fn = DETAIL_JS[DETAIL_JS.index("export function closeDetail"):]
+    close_fn = close_fn[: close_fn.index("function buildShell")]
+    assert "backdrop.hidden = false" in open_fn, "mở ngăn kéo phải hiện backdrop"
+    assert "backdrop.hidden = true" in close_fn, "đóng phải ẩn backdrop, nếu không trang bị mờ lại"
+
+
 def test_detail_is_optional_and_never_breaks_the_board():
     """Thiếu file chi tiết thì bảng vẫn chạy — tính năng phụ không được làm sập trang."""
     assert "if (response.ok) details = await response.json();" in HTML
