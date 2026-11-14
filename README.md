@@ -234,9 +234,42 @@ liều.
 
 **Giới hạn mô hình.** BS giả định quyền chọn châu Âu, không cổ tức. CW Việt Nam có điều khoản
 đặc thù (chốt giá, điều chỉnh khi chia cổ tức) mà mô hình không mô tả, nên `bsPrice` chỉ dùng
-để xếp hạng tương đối, không phải giá mục tiêu. Lãi suất phi rủi ro là hằng số cấu hình
-(`config.DEFAULT_RISK_FREE`) — repo không có chuỗi lợi suất trái phiếu, nên đây là **tham số
-phần mềm**, và điều đó được ghi kèm trong payload (`riskFreeSource`).
+để xếp hạng tương đối, không phải giá mục tiêu.
+
+### Lãi suất phi rủi ro — từ hằng số sang đường cong TPCP
+
+Trước đây `r` là hằng số cấu hình `config.DEFAULT_RISK_FREE = 0,0444`, và payload phải tự thú
+đó là "tham số phần mềm, không phải số liệu thị trường". Nay `r` lấy từ **đường cong lợi suất
+trái phiếu chính phủ HNX**, đồng bộ hằng ngày từ repo
+[`FTU-kudo/VN_Bond_Yield_pipeline`](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline):
+
+```bash
+python scripts/sync_bond_yield.py --clone    # workflow tự chạy bước này
+```
+
+**Ba cột lợi suất của HNX, chỉ một cột dùng được.** HNX trả `par_yield`, `spot_annual` và
+`spot_continuous` cho cùng một kỳ hạn. Black–Scholes chiết khấu bằng `exp(-rT)` — đúng cơ sở
+**liên tục**, nên chỉ `spot_continuous` được dùng. Quan hệ đã kiểm chứng trên dữ liệu thật:
+`spot_continuous = ln(1 + spot_annual)` (1Y ngày 2026-11-13: 3,787896% so với
+ln(1 + 3,860552%) = 3,7879%).
+
+**Nội suy theo đúng kỳ hạn từng mã, không dùng một lãi suất chung.** CW có kỳ hạn còn lại từ 13
+đến 293 ngày — không trùng kỳ hạn chuẩn nào của HNX. Dùng một số cho cả bảng là lặp lại lỗi
+"một tham số cho mọi mã" ở mức nhỏ hơn: 3M hôm 2026-11-13 là 3,6876% còn 1Y là 3,7879%, lệch
+10 điểm cơ bản. Nay `r` được nội suy **tuyến tính theo T** giữa hai kỳ hạn kẹp hai bên, và
+**ngoại suy phẳng** ngoài dải (ngoại suy tuyến tính có thể cho lãi suất âm).
+
+Chọn nội suy thay vì đường cong Nelson–Siegel đã fit sẵn trong repo nguồn là có chủ ý: đường
+cong NS là **mô hình** (RMSE 0,03 ở ngày gần nhất), còn lợi suất quan sát là **số liệu**. Khi
+chọn giữa số liệu và mô hình cho một tham số đầu vào, chọn số liệu.
+
+**Ảnh hưởng lên kết quả:** `r` giảm từ 4,44% xuống 3,69–3,76% tuỳ kỳ hạn (thấp hơn hằng số cũ
+khoảng 75 điểm cơ bản). IV trung vị của 350 mã dịch từ 48,5% lên 48,92% — đúng chiều: lãi suất
+thấp hơn thì cùng một giá CW ngụ ý biến động ẩn cao hơn.
+
+Mỗi dòng kết quả mang `riskFree` và `riskFreeSource` **riêng**, vì mỗi mã có kỳ hạn khác nhau
+nên `r` khác nhau. Không có đường cong cho phiên thì lùi về hằng số và ghi rõ là hằng số —
+`riskFreeByTenor` trong payload cho biết đang ở nhánh nào.
 
 ### Lịch sử giá cổ phiếu cơ sở — và HV thật để so với IV
 

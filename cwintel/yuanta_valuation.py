@@ -39,6 +39,7 @@ import pandas as pd
 
 from . import bs as bs_engine
 from . import config
+from . import yield_curve as yc
 
 #: Repo Vietstock làm tròn premium 2 chữ số và đòn bẩy 2 chữ số, nên sai số tương đối nhỏ.
 #: 1% là ngưỡng đủ rộng để không loại oan, đủ hẹp để bắt lỗi thật.
@@ -225,7 +226,8 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
                    session: str | None = None,
                    risk_free: float | None = None,
                    crosscheck_tolerance_pct: float = DEFAULT_CROSSCHECK_TOLERANCE_PCT,
-                   underlying_history: dict[str, pd.DataFrame] | None = None
+                   underlying_history: dict[str, pd.DataFrame] | None = None,
+                   yield_curve: pd.DataFrame | None = None,
                    ) -> tuple[pd.DataFrame, dict]:
     """Định giá từng CW. Trả ``(bảng kết quả, chẩn đoán)``.
 
@@ -235,9 +237,14 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
 
     Chỉ mã **có khớp lệnh** được định giá: không có giá thị trường thì không có IV để suy
     ngược, và không có gì để so sánh với giá lý thuyết.
+
+    ``yield_curve`` là khung của ``cwintel.yield_curve.load_curve``: có nó thì ``r`` được
+    **nội suy theo đúng kỳ hạn từng CW** từ đường cong TPCP HNX. Không có thì lùi về
+    ``risk_free`` (mặc định hằng số cấu hình) và mỗi dòng ghi rõ nguồn là hằng số.
     """
     risk_free = config.DEFAULT_RISK_FREE if risk_free is None else risk_free
     excluded: dict[str, int] = {}
+    rate_sources: set[str] = set()
 
     def exclude(reason: str, n: int = 1) -> None:
         excluded[reason] = excluded.get(reason, 0) + n
@@ -282,6 +289,11 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             "hvLong": realized_vol_fast(closes, HV_LONG_WINDOW),
             "sessions": len(closes),
         }
+
+    # Đường cong lợi suất của đúng phiên đang định giá. Không lùi về phiên trước: nếu phiên
+    # này HNX không công bố thì dùng hằng số và ghi rõ, thay vì lặng lẽ ghép lãi suất của
+    # một ngày khác vào giá của ngày này.
+    day_curve = yc.curve_on(yield_curve, session) if yield_curve is not None else None
 
     traded = frame[frame["Traded"].fillna(False)]
     rows: list[dict] = []
@@ -365,21 +377,27 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             exclude("đáo hạn trong quá khứ hoặc thiếu ngày")
             continue
 
+        # `r` theo ĐÚNG kỳ hạn của mã này, không dùng một lãi suất chung cho cả bảng.
+        # 3M và 1Y hôm 2026-11-13 lệch 10 điểm cơ bản; CW có kỳ hạn trải từ 13 đến 293 ngày
+        # nên dùng chung một số là lặp lại lỗi "một tham số cho mọi mã" ở mức nhỏ hơn.
+        rate, rate_source = yc.risk_free_for(day_curve, t_years, risk_free)
+        rate_sources.add(rate_source)
+
         result = bs_engine.price_and_greeks(
-            S=underlying, K=strike, T=t_years, r=risk_free,
+            S=underlying, K=strike, T=t_years, r=rate,
             sigma=None, ratio=ratio, kind="call")
         # sigma=None → engine trả invalid_input; tự tính IV từ giá thị trường thay vì
         # giả định một sigma. Đây là điểm mấu chốt: sigma phải suy từ giá, không bịa.
         iv, iv_status = bs_engine.implied_vol(
             market_price=cw_close, S=underlying, K=strike, T=t_years,
-            r=risk_free, ratio=ratio, kind="call")
+            r=rate, ratio=ratio, kind="call")
 
         if iv is None or not (MIN_IV <= iv <= MAX_IV):
             exclude(f"không suy được IV ({iv_status})")
             continue
 
         greeks = bs_engine.price_and_greeks(
-            S=underlying, K=strike, T=t_years, r=risk_free,
+            S=underlying, K=strike, T=t_years, r=rate,
             sigma=iv, ratio=ratio, kind="call")
         if greeks.status != "ok":
             exclude(f"Greeks không tính được ({greeks.status})")
@@ -402,6 +420,10 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             # Ghi rõ điều khoản đã được quy về hệ nào để người đọc không phải đoán.
             "termsBasis": terms_basis,
             "correctionFactor": _f(adjusted["factor"], 6),
+            # Lãi suất thực dùng cho CHÍNH mã này, và nguồn của nó. Không ghi gộp ở cấp
+            # payload vì mỗi mã có kỳ hạn khác nhau nên `r` khác nhau.
+            "riskFree": _f(rate, 6),
+            "riskFreeSource": rate_source,
             "underlyingPrice": underlying,
             "cwPrice": cw_close,
             "bsPrice": _f(greeks.price, 2),
@@ -442,9 +464,15 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         "excluded": dict(sorted(excluded.items(), key=lambda kv: -kv[1])),
         "riskFree": risk_free,
         "riskFreeSource": (
-            "Hằng số cấu hình config.DEFAULT_RISK_FREE — repo không có chuỗi lợi suất trái "
-            "phiếu, nên đây là THAM SỐ PHẦN MỀM, không phải số liệu thị trường."
+            "Hằng số cấu hình config.DEFAULT_RISK_FREE, chỉ dùng cho mã KHÔNG nội suy được "
+            "từ đường cong TPCP. Tham số phần mềm, không phải số liệu thị trường."
+            if day_curve is None else
+            "Đường cong lợi suất TPCP HNX (spot_continuous) của đúng phiên, nội suy tuyến "
+            "tính theo kỳ hạn còn lại của từng mã."
         ),
+        "riskFreeByTenor": bool(day_curve is not None),
+        "riskFreeSourcesSeen": sorted(rate_sources),
+        "yieldCurve": yc.summarize(day_curve, str(session)),
         "model": (
             "Black–Scholes–Merton cho quyền chọn mua kiểu châu Âu, không cổ tức (q=0). "
             "CW Việt Nam có điều khoản đặc thù (chốt giá, điều chỉnh khi chia cổ tức) mà mô "
