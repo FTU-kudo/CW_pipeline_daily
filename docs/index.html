@@ -92,9 +92,9 @@
     <button type="button" class="tab active feature" data-view="board" role="tab"><span class="t-ico" aria-hidden="true">📋</span><span class="t-txt">Bảng giá</span></button>
     <button type="button" class="tab feature" data-view="scoring" role="tab"><span class="t-ico" aria-hidden="true">🏆</span><span class="t-txt">Xếp hạng</span></button>
     <button type="button" class="tab feature" data-view="valuation" role="tab"><span class="t-ico" aria-hidden="true">🧮</span><span class="t-txt">Định giá</span></button>
-    <button type="button" class="tab feature" data-view="liquidity" role="tab"><span class="t-ico" aria-hidden="true">💧</span><span class="t-txt">Thanh khoản</span></button>
+    <button type="button" class="tab feature" data-view="liquidity" role="tab"><span class="t-ico" aria-hidden="true">💵</span><span class="t-txt">Thanh khoản</span></button>
     <button type="button" class="tab feature" data-view="underlyings" role="tab"><span class="t-ico" aria-hidden="true">🏦</span><span class="t-txt">Theo cơ sở</span></button>
-    <button type="button" class="tab" data-view="stale" role="tab"><span class="t-ico" aria-hidden="true">😴</span><span class="t-txt">Mã không giao dịch</span></button>
+    <button type="button" class="tab" data-view="stale" role="tab"><span class="t-ico" aria-hidden="true">❌</span><span class="t-txt">Mã không giao dịch</span></button>
     <button type="button" class="tab" data-view="intraday" role="tab"><span class="t-ico" aria-hidden="true">⏱️</span><span class="t-txt">Trong phiên</span></button>
     <button type="button" class="tab" data-view="band" role="tab"><span class="t-ico" aria-hidden="true">📊</span><span class="t-txt">Trần–sàn</span></button>
     <button type="button" class="tab" data-view="history" role="tab"><span class="t-ico" aria-hidden="true">📈</span><span class="t-txt">Lịch sử</span></button>
@@ -218,10 +218,10 @@ function renderOverview(){
   const cards = [
     {k: 'Mã CW niêm yết', v: num(s.rows), n: `${num(s.traded)} mã có khớp lệnh · ${num(s.untraded)} không`,
      icon: '📋', big: true},
-    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), n: 'VND trong phiên — không phải ADV',
+    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), n: 'VND trong phiên',
      icon: '💰', big: true},
     {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), n: 'nhóm cổ phiếu có mã CW', icon: '🏦'},
-    {k: 'Tăng / giảm / đứng', v: `${num(s.gainers)} / ${num(s.losers)} / ${num(s.unchanged)}`,
+    {k: 'Tăng / giảm / tham chiếu', v: `${num(s.gainers)} / ${num(s.losers)} / ${num(s.unchanged)}`,
      n: `trung vị ${fmtPct(s.medianChangePct)}`, icon: '📊'},
   ];
   if (priced) {
@@ -234,15 +234,15 @@ function renderOverview(){
   }
   if (ivhv.available && ivhv.medianIvMinusHv !== null) {
     cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${num(ivhv.medianIvMinusHv, 1)} điểm`,
-      n: `${num(ivhv.countIvAboveHv)} mã IV trên HV · ${num(ivhv.countIvBelowHv)} dưới`, icon: '⚖️'});
+      n: `${num(ivhv.countIvAboveHv)} mã IV trên HV · ${num(ivhv.countIvBelowHv)} ngược lại`, icon: '⚖️'});
   }
   cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`, icon: '↔️'});
   cards.push({k: 'Giá CW trung vị', v: `${num(s.medianLastPriceVND)} đ`, n: 'trên các mã khớp lệnh', icon: '🏷️'});
   if (curve.available && curve.anchored1YPct !== null && curve.anchored1YPct !== undefined) {
     cards.push({k: 'Lãi suất phi rủi ro 1Y', v: `${fmtPct(curve.anchored1YPct, 2)}`,
-      n: 'đường cong TPCP HNX, nội suy theo kỳ hạn', icon: '🏛️'});
+      n: 'đường cong TPCP HNX', icon: '🏛️'});
   }
-  cards.push({k: 'Tập trung giá trị', v: fmtPct(s.top10ValueSharePct, 1),
+  cards.push({k: 'Tỷ trọng top 10', v: fmtPct(s.top10ValueSharePct, 1),
     n: 'tỷ trọng của 10 mã lớn nhất', icon: '📌'});
 
   grid.innerHTML = cards.map(c =>
@@ -262,7 +262,7 @@ function renderStats(){
     ['Giá trị giao dịch', num(s.totalValueVND), 'VND trong phiên — không phải ADV'],
     ['Spread trung vị', pct(s.medianSpreadPct, 2), `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`],
     ['Cổ phiếu cơ sở', num(s.underlyings), 'nhóm suy ra từ mã CW'],
-    ['Tăng / giảm', `${num(s.gainers)} / ${num(s.losers)}`, `${num(s.unchanged)} mã đứng giá`],
+    ['Tăng / giảm', `${num(s.gainers)} / ${num(s.losers)}`, `${num(s.unchanged)} mã tham chiếu`],
   ];
   host.innerHTML = cards.map(([k, v, n]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n)}</div></div>`).join('');
 }
@@ -507,7 +507,7 @@ function renderIntraday() {
     <p class="caption">Tính trên đúng các trường của nguồn: OpenP, HighestP, LowestP, LastMP. Mẫu số là
       <strong>RefP — giá đóng cửa phiên trước</strong>, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap.
       Trung vị biên độ ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} bước giá;
-      ${num(s2.countFlatSession, 0)} mã đứng giá cả phiên (biên độ 0).</p>
+      ${num(s2.countFlatSession, 0)} mã tham chiều cả phiên (biên độ 0).</p>
     <p class="caption">Vị trí giá đóng cửa trong khoảng [LowestP, HighestP]: <strong>${num(s2.countCloseInUpperHalf, 0)}</strong>
       mã đóng ở nửa trên, <strong>${num(s2.countCloseInLowerHalf, 0)}</strong> mã đóng ở nửa dưới.
       0 = đóng ở đáy, 1 = đóng ở đỉnh. Đây là mô tả phiên đã xảy ra, không phải tín hiệu.</p>
