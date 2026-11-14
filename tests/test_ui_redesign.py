@@ -276,7 +276,7 @@ def _board_thead() -> str:
 
 
 def _board_headers() -> list[str]:
-    """Nhãn hiển thị của 22 cột bảng giá, đã bỏ tooltip."""
+    """Nhãn hiển thị của 12 cột bảng giá, đã bỏ tooltip."""
     import re
     # Tách theo thẻ mở, bỏ phần thuộc tính của chính <th> đầu tiên.
     cells = re.findall(r'<th[^>]*>(.*?)</th>', _board_thead(), re.S)
@@ -285,11 +285,9 @@ def _board_headers() -> list[str]:
 
 def test_board_headers_are_investor_vocabulary():
     headers = _board_headers()
-    expected = ['Mã CW', 'Giá tham chiếu', 'Giá trần', 'Giá sàn', 'Giá mở cửa',
-                'Giá cao nhất', 'Giá thấp nhất', 'Giá bình quân', 'Giá khớp cuối',
-                'KL khớp cuối', 'Tổng KL', 'Tổng giá trị', 'KL ngoại mua', 'KL ngoại bán',
-                'Room ngoại', 'Giá (VND)', '% trong ngày', 'Chênh lệch mua–bán',
-                'Tỷ trọng GT', 'Giá mua 1–3', 'Giá bán 1–3', 'Dữ liệu gốc']
+    expected = ['Mã CW', 'Giá tham chiếu', 'Giá khớp cuối', '% trong ngày',
+                'Cao nhất', 'Thấp nhất', 'Tổng KL', 'Tổng giá trị', 'Tỷ trọng GT',
+                'Chênh lệch mua–bán', 'Room ngoại', 'Dữ liệu gốc']
     assert headers == expected
 
 
@@ -306,15 +304,15 @@ def test_no_source_field_name_appears_as_a_visible_header():
 def test_every_data_column_keeps_its_source_field_in_the_tooltip():
     """Đổi nhãn KHÔNG được làm mất khả năng đối chiếu với dữ liệu gốc."""
     thead = _board_thead()
-    for field in ('RefP', 'CeilingP', 'FloorP', 'OpenP', 'HighestP', 'LowestP', 'AvgP',
-                  'LastMP', 'LastMVol', 'TotalVol', 'TotalVal', 'FTBuyVol', 'FTSellVol',
-                  'FRoom', 'B1', 'S1'):
+    for field in ('RefP', 'HighestP', 'LowestP', 'LastMP', 'TotalVol', 'TotalVal', 'FRoom'):
         assert f'nguồn: {field}' in thead, f"tooltip thiếu trường {field}"
+    # Hai mức giá mua/bán tốt nhất nằm chung một tooltip (nguồn: S1P, B1P).
+    assert 'S1P, B1P' in thead, "tooltip Chênh lệch mua–bán phải ghi cả hai trường nguồn"
 
 
 def test_tooltips_appear_on_both_light_and_dark():
     """Tooltip là thuộc tính HTML nên không phụ thuộc theme — khoá lại để không ai gỡ."""
-    assert _board_thead().count('title="') >= 18
+    assert _board_thead().count('title="') >= 9
 
 
 def test_glossary_explains_each_column_in_plain_vietnamese():
@@ -694,3 +692,77 @@ def test_5_published_tier_data_has_a_null_group():
     values = sorted(t["valueVND"] for t in tiers if t["valueVND"])
     assert values[0] > 0
     assert values[-1] / values[0] > 1000, "dữ liệu phải trải rộng để test bề rộng có nghĩa"
+
+
+# ── 6. Bảng giá gọn: 12 cột, không phải cuộn ngang ──────────────────────
+def _board_row_template() -> str:
+    start = HTML.index("""    return `<tr><td><button type="button" class="ticker-btn\"""")
+    return HTML[start:HTML.index('</tr>`;', start)]
+
+
+def test_6_board_has_twelve_columns_not_twenty_two():
+    """Bảng giá từng có 22 cột, phải cuộn ngang mới đọc hết.
+
+    Đã cắt 10 cột: 5 cột hằng số gần như vô dụng (KL ngoại mua/bán bằng 0 ở 74% số mã,
+    KL khớp cuối, Giá mua/bán 1–3 vốn là sổ lệnh), 4 cột có tab riêng (trần/sàn → tab
+    Trần–sàn; mở cửa/bình quân → tab Trong phiên), và Giá (VND) trùng Giá khớp cuối.
+    """
+    headers = _board_headers()
+    assert len(headers) == 12, f"bảng giá còn {len(headers)} cột — mục tiêu là 12"
+
+
+def test_6_board_row_has_one_cell_per_header():
+    """Số ô phải khớp số cột, nếu không bảng sẽ lệch cột."""
+    row = _board_row_template()
+    n_cells = row.count('<td')
+    assert n_cells == len(_board_headers()), \
+        f"{n_cells} ô dữ liệu nhưng {len(_board_headers())} tiêu đề"
+    assert 'colspan="12"' in HTML, "dòng trạng thái phải colspan đúng 12"
+
+
+def test_6_cut_columns_do_not_come_back():
+    """Khoá lại danh sách đã cắt, để không ai thêm lại mà không có lý do."""
+    headers = _board_headers()
+    for gone in ('KL ngoại mua', 'KL ngoại bán', 'KL khớp cuối', 'Giá (VND)',
+                 'Giá trần', 'Giá sàn', 'Giá mở cửa', 'Giá bình quân',
+                 'Giá mua 1–3', 'Giá bán 1–3'):
+        assert gone not in headers, f"cột '{gone}' đã bị cắt, không được quay lại"
+
+
+def test_6_cut_data_is_still_reachable_somewhere():
+    """Cắt khỏi bảng KHÔNG được làm mất dữ liệu — mỗi số phải còn một đường tra."""
+    # Trần/sàn: tab riêng, đủ cho cả 407 mã.
+    band = HTML.split("function renderBand", 1)[1].split("function ", 1)[0]
+    assert 'Trần' in band and 'Sàn' in band
+    # Mở cửa / bình quân: tab Trong phiên.
+    intraday = HTML.split("function renderIntraday", 1)[1].split("function ", 1)[0]
+    assert 'Mở cửa' in intraday
+    # Sổ lệnh B1–B3 / S1–S3 đầy đủ khối lượng: bấm mã → detail.
+    detail = (ROOT / "docs" / "assets" / "detail.js").read_text(encoding="utf-8")
+    assert "'B1'" in detail and "'S1'" in detail
+    # KL ngoại mua/bán + room: trang chi tiết từng mã.
+    assert 'FTBuyVol' in detail and 'FTSellVol' in detail and 'FRoom' in detail
+    # Và toàn bộ trường gốc vẫn nằm trong cột "Dữ liệu gốc".
+    assert 'JSON gốc' in HTML
+
+
+def test_6_every_cut_column_still_has_a_glossary_entry():
+    """Cột không còn trên bảng nhưng vẫn có trong dữ liệu phải giải thích được."""
+    block = HTML.split("const GLOSSARY", 1)[1].split("function renderGlossary", 1)[0]
+    for label in ('Giá trần', 'Giá sàn', 'Giá mở cửa', 'Giá bình quân',
+                  'KL ngoại mua', 'KL ngoại bán', 'Giá mua 1–3'):
+        assert label in block, f"Thuật ngữ thiếu mục: {label}"
+
+
+def test_6_board_table_is_not_forced_to_1200px():
+    """`table{min-width:1200px}` là nguyên nhân gốc khiến phải cuộn ngang.
+
+    Nó áp cho MỌI bảng. Bảng giá 12 cột không cần 1200px; bảng xếp hạng 14 cột vẫn khai
+    báo min-width riêng ở .rank-table trong ui.css.
+    """
+    style = HTML.split("<style>", 1)[1].split("</style>", 1)[0]
+    table_rule = re.search(r"(?:^|\n)\s*table\{([^}]*)\}", style).group(1)
+    assert "min-width:1200px" not in table_rule.replace(" ", ""), \
+        "bỏ chặn min-width 1200px trên bảng chung"
+    # Nhưng bảng xếp hạng vẫn phải giữ min-width riêng của nó.
+    assert ".rank-table { min-width: 1180px; }" in CSS
