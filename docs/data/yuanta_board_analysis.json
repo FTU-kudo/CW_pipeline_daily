@@ -5,7 +5,7 @@
     "name": "Yuanta YS Radar — price board",
     "endpoint": "https://ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW",
     "stockType": "EW",
-    "fetchedAt": "2026-11-14T11:21:14+00:00",
+    "fetchedAt": "2026-11-14T11:36:44+00:00",
     "rowsInSnapshot": 407
   },
   "units": {
