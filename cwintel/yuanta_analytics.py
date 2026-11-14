@@ -393,7 +393,8 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                          .replace({np.nan: None}).to_dict(orient="records")
                          if len(priced) else []),
         },
-        "scoring": score_warrants(tiered, history=history, last_share=last_share,
+        # Không truyền history: điểm chỉ dùng các trục đo được từ snapshot hiện tại.
+        "scoring": score_warrants(tiered, last_share=last_share,
                                   priced=priced if len(priced) else None,
                                   valuation_diagnostics=valuation_diag),
         "underlyings": underlying_breakdown(frame),

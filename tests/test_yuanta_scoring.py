@@ -10,6 +10,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -83,7 +84,7 @@ def test_payload_has_no_valuation_fields_without_contract_terms():
     assert row_keys <= {"rank", "t", "u", "score", "coveragePct", "price", "chgPct",
                         "valueVND", "spreadPct", "parts", "headroomPct", "nearCeiling", "tier"}
     assert set(result["ranking"][0]["parts"]) <= {"liquidity", "cost", "valuation",
-                                                  "priceQuality", "consistency"}
+                                                  "priceQuality"}
     # Không có `priced` (chưa có điều khoản) → trục định giá KHÔNG được chấm
     assert result["ranking"][0]["parts"]["valuation"] is None
     assert result["valuation"]["available"] is False
@@ -140,35 +141,32 @@ def test_single_trade_close_is_penalised_on_price_quality():
     assert by_ticker["CONE0002"]["parts"]["priceQuality"] == 0
 
 
-def test_consistency_is_unscored_without_enough_history():
-    frame = _frame([_row()])
-    result = score_warrants(frame)
-    assert result["consistency"]["available"] is False
-    assert "Chưa có kho lịch sử" in result["consistency"]["reason"]
-    # Không chấm trục đó, nhưng điểm vẫn có (coverage < 100%)
-    assert result["ranking"][0]["parts"]["consistency"] is None
-    # coverage = phần trọng số thực sự có dữ liệu. Không có định giá (20%) và không có lịch
-    # sử (8%) → 72% trọng số được dùng. Đây là lý do coverage phải hiển thị: điểm này chỉ
-    # dựa trên 72% trọng số, không phải 100%.
-    assert result["ranking"][0]["coveragePct"] == pytest.approx(72.0)
+def test_consistency_axis_is_gone():
+    """Trục "độ ổn định" đã bị bỏ khỏi công thức điểm.
+
+    Nó cần ≥5 phiên lịch sử mà kho mới có 1, nên chưa từng chấm được mã nào. Vì trục thiếu
+    được loại ra rồi chia lại trọng số, nó cũng chưa từng ảnh hưởng điểm — chỉ làm cột
+    "chưa chấm" đầy 353/353 dòng và kẹp độ phủ ở 92%. Test này khoá việc nó không quay lại
+    một cách âm thầm.
+    """
+    result = score_warrants(_frame([_row()]))
+    assert "consistency" not in result["weights"]
+    assert "consistency" not in result["ranking"][0]["parts"]
+    assert "consistency" not in result  # không còn khối meta mô tả trục này
+    # Không có điều khoản → chỉ thiếu trục định giá (21,74%); 78,26% trọng số còn lại được dùng.
+    assert result["ranking"][0]["coveragePct"] == pytest.approx(78.3, abs=0.05)
 
 
-def test_consistency_uses_history_when_available():
-    # Cần ≥ CONSISTENCY_MIN_SESSIONS (5) phiên để tỷ lệ giao dịch có nghĩa.
-    sessions = ["2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-09"]
-    history = pd.DataFrame({
-        "session": sessions * 2,
-        "ticker": ["CAAA2501"] * 5 + ["CBBB2502"] * 5,
-        "traded": [True] * 5 + [True, False, False, False, False],
-    })
-    frame = _frame([_row(StockCode="CAAA2501"), _row(StockCode="CBBB2502")])
-    result = score_warrants(frame, history=history)
-    assert result["consistency"]["available"] is True
-    by_ticker = {r["t"]: r for r in result["ranking"]}
-    assert by_ticker["CAAA2501"]["parts"]["consistency"] == 100.0
-    assert by_ticker["CBBB2502"]["parts"]["consistency"] == 20.0
-    # Có lịch sử nhưng không có điều khoản → thiếu trục định giá 20%
-    assert by_ticker["CAAA2501"]["coveragePct"] == pytest.approx(80.0)
+def test_history_argument_no_longer_feeds_the_score():
+    """``score_warrants`` không nhận ``history`` nữa.
+
+    Để tham số lại nhưng không dùng sẽ khiến người đọc tưởng kho lịch sử vẫn nuôi điểm số.
+    """
+    import inspect
+
+    from cwintel.yuanta_scoring import score_warrants as fn
+
+    assert "history" not in inspect.signature(fn).parameters
 
 
 def test_missing_part_does_not_penalise_the_score():
@@ -189,8 +187,11 @@ def test_weights_sum_to_one():
     assert sum(DEFAULT_WEIGHTS.values()) == pytest.approx(1.0)
     # headroom là cờ cảnh báo, không phải trục điểm
     assert "headroom" not in DEFAULT_WEIGHTS
-    # valuation là trục thật, dùng khi có điều khoản hợp đồng
-    assert DEFAULT_WEIGHTS["valuation"] == pytest.approx(0.20)
+    # Bốn trục, không có trục độ ổn định.
+    assert set(DEFAULT_WEIGHTS) == {"liquidity", "cost", "valuation", "priceQuality"}
+    # valuation là trục thật, dùng khi có điều khoản hợp đồng. 0,2174 = 20/92: trọng số được
+    # chuẩn hoá lại trên bốn trục, giữ đúng tỷ lệ cũ 34/26/20/12.
+    assert DEFAULT_WEIGHTS["valuation"] == pytest.approx(20 / 92)
 
 
 def test_near_ceiling_is_flagged_not_scored():
@@ -241,3 +242,54 @@ def test_analytics_payload_includes_scoring():
 def test_scoring_handles_empty_frame():
     with pytest.raises(ValueError):
         score_warrants(pd.DataFrame())
+
+
+def test_dropping_consistency_does_not_move_a_single_score():
+    """Bỏ trục độ ổn định phải là phép biến đổi VÔ HẠI cho dữ liệu đã publish.
+
+    Đây là bằng chứng trục đó chưa từng tham gia: trọng số cũ của bốn trục còn lại là
+    34/26/20/12 trên tổng 92, và ``_weighted`` vốn đã chia cho 0,92 khi trục thứ năm thiếu.
+    Chuẩn hoá lại đúng phép chia đó ⇒ điểm giữ nguyên tuyệt đối, không chỉ "gần bằng".
+
+    Nếu ai đó thay trọng số bằng số làm tròn cho đẹp (37/28/22/13), test này sẽ bắt được:
+    cách đó đổi điểm 337 mã (tới 0,26 điểm) và xáo lại thứ hạng — sai lệch do cách viết
+    trọng số chứ không phải do bỏ trục.
+    """
+    from cwintel.yuanta_scoring import _weighted
+
+    rng = np.random.default_rng(7)
+    rows = []
+    for i in range(60):
+        rows.append(_row(
+            StockCode=f"CTEST{i:04d}",
+            TotalVol=float(rng.integers(1_000, 900_000)),
+            TotalVal=None, AvgP=float(rng.integers(400, 4_000)),
+            B1P=float(rng.integers(400, 3_900)), S1P=float(rng.integers(4_100, 4_600)),
+            LastMVol=float(rng.integers(100, 500_000)),
+        ))
+    frame = _frame(rows)
+
+    new = score_warrants(frame)
+    by_new = {r["t"]: r["parts"] for r in new["ranking"]}
+
+    # Trọng số CŨ (có trục thứ năm 8%) — mô phỏng đúng trạng thái trước khi bỏ trục, lúc
+    # trục đó thiếu dữ liệu nên bị loại khỏi phép chia.
+    old_weights = {"liquidity": 0.34, "cost": 0.26, "valuation": 0.20,
+                   "priceQuality": 0.12, "consistency": 0.08}
+    tickers = [r["t"] for r in new["ranking"]]
+    idx = pd.RangeIndex(len(tickers))
+    parts = {key: pd.Series([by_new[t][key] for t in tickers], index=idx, dtype="float64")
+             for key in ("liquidity", "cost", "valuation", "priceQuality")}
+    parts["consistency"] = pd.Series(np.nan, index=idx)   # trục có trọng số nhưng không dữ liệu
+    old_total = _weighted(parts, old_weights)
+
+    # Dung sai 0,011: `parts` trong payload đã làm tròn 2 chữ số nên không thể dựng lại điểm
+    # chính xác tuyệt đối. Vẫn bắt được cách làm tròn 37/28/22/13 — cách đó lệch tới 0,26
+    # điểm và xáo thứ hạng.
+    for i, ticker in enumerate(tickers):
+        assert new["ranking"][i]["score"] == pytest.approx(old_total.iloc[i], abs=0.011), \
+            f"{ticker}: bỏ trục độ ổn định làm đổi điểm — trọng số chuẩn hoá sai"
+    # Thứ hạng phải giữ nguyên: cái được bảo toàn là cả bảng xếp hạng, không chỉ từng con số.
+    old_order = [tickers[i] for i in old_total.sort_values(ascending=False,
+                                                           kind="stable").index]
+    assert tickers == old_order, "bỏ trục làm xáo thứ hạng"

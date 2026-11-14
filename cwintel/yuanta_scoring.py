@@ -21,7 +21,7 @@ loại lỗi mà dự án này từ chối từ đầu.
 
 Vì vậy module này chấm điểm trên các trục **đo được** từ bảng giá:
 
-    thanh khoản · chi phí giao dịch · chất lượng giá · độ ổn định lịch sử · dư địa trần–sàn
+    thanh khoản · chi phí giao dịch · định giá (khi có điều khoản) · chất lượng giá
 
 và nói thẳng trong payload rằng trục định giá bị **khoá** cho tới khi có điều khoản hợp đồng.
 Khi có nguồn điều khoản, ``cwintel.bs.price_and_greeks`` đã sẵn sàng và chỉ cần nối vào
@@ -38,13 +38,39 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-#: Trọng số điểm tổng. Chỉ gồm các trục đo được từ bảng giá.
-DEFAULT_WEIGHTS: dict[str, float] = {
+#: Trọng số điểm tổng. Chỉ gồm các trục đo được từ snapshot hiện tại.
+#:
+#: Vì sao KHÔNG có trục "độ ổn định" (tỷ lệ phiên có khớp lệnh)
+#: ------------------------------------------------------------
+#: Trục đó từng chiếm 8%. Nó chưa từng chấm được mã nào: cần ≥5 phiên lịch sử mà kho mới có
+#: 1. Vì ``_weighted`` loại bỏ trục thiếu rồi chia lại trọng số, 8% đó **chưa bao giờ** ảnh
+#: hưởng tới điểm — kiểm chứng trên 353 mã: bỏ trục, điểm không đổi và thứ hạng giữ nguyên.
+#: Cái giá phải trả thì có thật: cột "chưa chấm" ở toàn bộ 353 dòng và độ phủ kẹt ở 92%,
+#: khiến người đọc tưởng dữ liệu có lỗ hổng 8% mà thực ra không có.
+#:
+#: Ngoài ra nó trùng phần lớn với thanh khoản (mã giao dịch đều đương nhiên có giá trị giao
+#: dịch cao hơn). Nếu sau này kho đủ ≥5 phiên và trục này thật sự phân biệt được các mã, nó
+#: nên quay lại với trọng số có ý nghĩa (≥10%) chứ không phải 8% — và chỉ khi chứng minh được
+#: nó thêm thông tin so với thanh khoản.
+#: Tỷ lệ tương đối giữa các trục, giữ đúng như trước khi bỏ trục độ ổn định. Trọng số thật
+#: là tỷ lệ này chia cho tổng của chúng (xem ``DEFAULT_WEIGHTS``).
+_BASE_WEIGHTS: dict[str, float] = {
     "liquidity": 0.34,      # giá trị giao dịch — thước đo trực tiếp khả năng vào/ra
     "cost": 0.26,           # spread quanh giá giữa — chi phí vòng
     "valuation": 0.20,      # IV thấp so với nhóm cùng cơ sở = rủi ro được định giá rẻ hơn
     "priceQuality": 0.12,   # độ đại diện của giá đóng cửa
-    "consistency": 0.08,    # có giao dịch đều qua các phiên (khi đã đủ lịch sử)
+}
+
+#: Trọng số điểm tổng, chuẩn hoá để tổng bằng 1.
+#:
+#: Chia lại thay vì làm tròn thành 37/28/22/13: trọng số cũ của bốn trục này là 34/26/20/12
+#: trên tổng 92%, và ``_weighted`` vốn đã chia cho 0,92 khi trục thứ năm thiếu. Giữ đúng phép
+#: chia đó thì **bỏ trục không làm đổi điểm của bất kỳ mã nào** — đó cũng là bằng chứng trục
+#: kia chưa từng tham gia. Làm tròn thành số đẹp sẽ đổi điểm 337 mã (tới 0,26 điểm) và xáo
+#: lại thứ hạng: sai lệch do cách viết trọng số, không phải do bỏ trục. Nhãn trên trang vẫn
+#: hiện 37% / 28% / 22% / 13% vì đó là phần làm tròn khi hiển thị.
+DEFAULT_WEIGHTS: dict[str, float] = {
+    key: value / sum(_BASE_WEIGHTS.values()) for key, value in _BASE_WEIGHTS.items()
 }
 
 #: Không chấm điểm định giá khi nhóm cùng cơ sở ít hơn ngưỡng này — trung vị của 2–4 quan
@@ -57,10 +83,6 @@ MIN_GROUP_FOR_VALUATION = 5
 HEADROOM_WARN_PCT = 10.0
 
 TIER_ORDER: tuple[str, ...] = ("rất cao", "cao", "trung bình", "thấp", "rất thấp")
-
-#: Số phiên tối thiểu để trục "consistency" có nghĩa.
-CONSISTENCY_MIN_SESSIONS = 5
-
 
 def _num(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
@@ -162,23 +184,6 @@ def _price_quality_score(frame: pd.DataFrame, last_share: pd.Series | None) -> p
     return _inverse_level(last_share, best=10.0, worst=100.0)
 
 
-def _consistency_score(history: pd.DataFrame | None) -> tuple[pd.Series, dict]:
-    """Tỷ lệ phiên có khớp lệnh trên kho lịch sử. Chưa đủ phiên → không chấm."""
-    if history is None or history.empty:
-        return pd.Series(dtype="float64"), {"available": False,
-                                           "reason": "Chưa có kho lịch sử."}
-    sessions = history["session"].nunique()
-    if sessions < CONSISTENCY_MIN_SESSIONS:
-        return pd.Series(dtype="float64"), {
-            "available": False,
-            "reason": (f"Mới có {sessions} phiên; cần ≥ {CONSISTENCY_MIN_SESSIONS} phiên để "
-                       "tỷ lệ giao dịch có nghĩa."),
-        }
-    grouped = history.groupby("ticker")["traded"].agg(["sum", "count"])
-    coverage = (grouped["sum"] / grouped["count"] * 100).round(2)
-    return coverage, {"available": True, "sessions": int(sessions)}
-
-
 def _valuation_score(priced: pd.DataFrame | None,
                      tickers: pd.Series) -> tuple[pd.Series, dict]:
     """Điểm theo ``ivResidualPct``: IV thấp hơn trung vị nhóm → điểm cao hơn.
@@ -229,8 +234,7 @@ def _headroom_score(frame: pd.DataFrame) -> pd.Series:
 # ──────────────────────────────────────────────────────────────────
 # CHẤM ĐIỂM + XẾP HẠNG
 # ──────────────────────────────────────────────────────────────────
-def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
-                   last_share: pd.Series | None = None,
+def score_warrants(frame: pd.DataFrame, *, last_share: pd.Series | None = None,
                    priced: pd.DataFrame | None = None,
                    valuation_diagnostics: dict | None = None,
                    weights: dict[str, float] | None = None) -> dict:
@@ -238,6 +242,10 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
 
     Chỉ mã **có khớp lệnh** được chấm: mã không giao dịch không có giá, nên mọi trục đều
     thiếu — chấm điểm nó sẽ là bịa.
+
+    Không nhận ``history``: mọi trục đều đọc từ snapshot hiện tại. Trục độ ổn định theo lịch
+    sử đã bị bỏ (xem ``DEFAULT_WEIGHTS``) nên truyền kho lịch sử vào đây không còn làm gì;
+    giữ tham số lại sẽ khiến người đọc tưởng nó vẫn nuôi điểm số.
     """
     if frame is None or frame.empty:
         raise ValueError("cần DataFrame bảng giá không rỗng")
@@ -249,10 +257,6 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         total = _num(frame["TotalVol"]).where(lambda s: s > 0)
         last_share = (_num(frame["LastMVol"]) / total * 100).where(traded)
 
-    consistency, consistency_meta = _consistency_score(history)
-    if not consistency.empty:
-        consistency = frame["StockCode"].map(consistency)
-
     headroom = _headroom_score(frame).where(traded)
     tickers = frame["StockCode"]
     valuation, valuation_meta = _valuation_score(priced, tickers)
@@ -261,8 +265,6 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         "cost": _cost_score(frame).where(traded),
         "valuation": valuation.where(traded),
         "priceQuality": _price_quality_score(frame, last_share).where(traded),
-        "consistency": consistency.where(traded) if len(consistency) else
-                       pd.Series(np.nan, index=frame.index),
     }
 
     total = _weighted(parts, weights).where(traded)
@@ -275,7 +277,6 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
         ScoreValuation=parts["valuation"].round(2),
         ScoreCost=parts["cost"].round(2),
         ScorePriceQuality=parts["priceQuality"].round(2),
-        ScoreConsistency=parts["consistency"].round(2),
         ScoreHeadroom=headroom.round(2),
     )
     scored["CwRank"] = (
@@ -301,7 +302,6 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                 "valuation": _f(getattr(row, "ScoreValuation")),
                 "cost": _f(getattr(row, "ScoreCost")),
                 "priceQuality": _f(getattr(row, "ScorePriceQuality")),
-                "consistency": _f(getattr(row, "ScoreConsistency")),
                 # Không có "headroom" ở đây: nó là cờ cảnh báo (xem headroomPct/nearCeiling),
                 # không phải một trục của điểm — để nguyên sẽ khiến người đọc cộng sai trọng số.
             },
@@ -337,7 +337,6 @@ def score_warrants(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
             "p25": _f(score_values.quantile(0.25)) if len(score_values) else None,
             "p75": _f(score_values.quantile(0.75)) if len(score_values) else None,
         },
-        "consistency": consistency_meta,
         "valuationMeta": valuation_meta,
         "valuation": valuation_status(priced, valuation_diagnostics),
     }
