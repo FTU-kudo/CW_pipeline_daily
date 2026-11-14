@@ -16,14 +16,12 @@
     .summary{color:var(--muted);margin-left:auto}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
     table{border-collapse:collapse;width:100%;min-width:1200px;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#172330;color:#b7c7d7;font-weight:600;z-index:1}
     th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}th:first-child{z-index:2;background:#172330}td:first-child{font-weight:700;color:var(--accent)}
-    tr:hover td{background:#172330}td:first-child a{color:var(--accent);text-decoration:none}details{text-align:left;white-space:normal;min-width:150px}summary{cursor:pointer;color:#a9c8df}pre{max-width:460px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#091019;padding:10px;border-radius:6px;color:#d7e2ed;font-size:12px}
+    tr:hover td{background:var(--row-hover)}td:first-child a{color:var(--accent);text-decoration:none}details{text-align:left;white-space:normal;min-width:150px}summary{cursor:pointer;color:#a9c8df}pre{max-width:460px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#091019;padding:10px;border-radius:6px;color:#d7e2ed;font-size:12px}
     #state{padding:26px;text-align:center;color:var(--muted)}
     .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 6px}
     .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
     .stat .k{color:var(--muted);font-size:12px}.stat .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
     .stat .n{color:var(--muted);font-size:11px;margin-top:2px}
-    .quality{margin:14px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;font-size:12px;color:var(--muted)}
-    .quality b{color:var(--text)}.quality .warn{color:var(--warn)}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px 4px 2px 0}
     td.num{font-variant-numeric:tabular-nums}.idle{color:var(--warn)}
     .negative{color:#ff8a7a}.positive{color:var(--accent)}
     .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
@@ -50,7 +48,7 @@
     <div class="topbar">
       <div class="topbar-left">
         <h1>Covered Warrants — Quant Analysis</h1>
-        <div class="sub">Bảng giá hiện tại · dữ liệu được cập nhật theo lịch, không phải realtime</div>
+        <div class="sub" id="sub-line">Bảng giá chứng quyền (CW) — được cập nhật lúc —.</div>
         <!-- Dòng này trả lời "dữ liệu cập nhật lúc mấy giờ" và dữ liệu cũ bao lâu rồi. -->
         <p class="freshness" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
       </div>
@@ -80,18 +78,27 @@
       </div>
     </div>
   </header>
+  <!-- Bảng thống kê mô tả toàn thị trường CW: cái đầu tiên người xem thấy. Chỉ số nào không
+       tính được từ dữ liệu đang có thì KHÔNG hiện (xem renderOverview) — thà thiếu còn hơn
+       hiện số 0 giả. -->
+  <section class="overview" id="overview" hidden>
+    <h2 class="ov-title"><span aria-hidden="true">🌐</span><span class="t-txt">Toàn cảnh thị trường chứng quyền</span></h2>
+    <div class="ov-grid" id="ov-grid"></div>
+  </section>
   <div class="stats" id="stats"></div>
-  <div class="quality" id="quality" hidden></div>
+  <!-- Năm tab đầu là các mục chính người xem quan tâm nhất → tô nổi (class `feature`).
+       Emoji đứng trước nhãn để quét bằng mắt nhanh hơn đọc chữ. -->
   <nav class="tabs" id="tabs" role="tablist">
-    <button type="button" class="tab active" data-view="board" role="tab">Bảng giá</button>
-    <button type="button" class="tab" data-view="scoring" role="tab">Xếp hạng</button>
-    <button type="button" class="tab" data-view="valuation" role="tab">Định giá</button>
-    <button type="button" class="tab" data-view="liquidity" role="tab">Thanh khoản</button>
-    <button type="button" class="tab" data-view="underlyings" role="tab">Theo cơ sở</button>
-    <button type="button" class="tab" data-view="stale" role="tab">Mã không giao dịch</button>
-    <button type="button" class="tab" data-view="intraday" role="tab">Trong phiên</button>
-    <button type="button" class="tab" data-view="band" role="tab">Trần–sàn</button>
-    <button type="button" class="tab" data-view="history" role="tab">Lịch sử</button>
+    <button type="button" class="tab active feature" data-view="board" role="tab"><span class="t-ico" aria-hidden="true">📋</span><span class="t-txt">Bảng giá</span></button>
+    <button type="button" class="tab feature" data-view="scoring" role="tab"><span class="t-ico" aria-hidden="true">🏆</span><span class="t-txt">Xếp hạng</span></button>
+    <button type="button" class="tab feature" data-view="valuation" role="tab"><span class="t-ico" aria-hidden="true">🧮</span><span class="t-txt">Định giá</span></button>
+    <button type="button" class="tab feature" data-view="liquidity" role="tab"><span class="t-ico" aria-hidden="true">💧</span><span class="t-txt">Thanh khoản</span></button>
+    <button type="button" class="tab feature" data-view="underlyings" role="tab"><span class="t-ico" aria-hidden="true">🏦</span><span class="t-txt">Theo cơ sở</span></button>
+    <button type="button" class="tab" data-view="stale" role="tab"><span class="t-ico" aria-hidden="true">😴</span><span class="t-txt">Mã không giao dịch</span></button>
+    <button type="button" class="tab" data-view="intraday" role="tab"><span class="t-ico" aria-hidden="true">⏱️</span><span class="t-txt">Trong phiên</span></button>
+    <button type="button" class="tab" data-view="band" role="tab"><span class="t-ico" aria-hidden="true">📊</span><span class="t-txt">Trần–sàn</span></button>
+    <button type="button" class="tab" data-view="history" role="tab"><span class="t-ico" aria-hidden="true">📈</span><span class="t-txt">Lịch sử</span></button>
+    <button type="button" class="tab" data-view="glossary" role="tab"><span class="t-ico" aria-hidden="true">📖</span><span class="t-txt">Giải thích thuật ngữ</span></button>
   </nav>
   <section class="view" id="view-scoring" hidden></section>
   <section class="view" id="view-valuation" hidden></section>
@@ -101,9 +108,20 @@
   <section class="view" id="view-intraday" hidden></section>
   <section class="view" id="view-band" hidden></section>
   <section class="view" id="view-history" hidden></section>
+  <section class="view" id="view-glossary" hidden></section>
   <section class="view" id="view-board">
   <p class="caption" id="click-hint">Bấm một mã ở cột đầu để xem toàn bộ thông tin của mã đó.</p>
   <div class="toolbar"><input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"><button id="download" type="button">Tải JSON snapshot</button><span class="summary" id="summary"></span></div>
+  <!-- Bộ lọc dựng từ chính dữ liệu đã publish: cơ sở, ITM/ATM/OTM, đáo hạn, tổ chức phát
+       hành. Mỗi ô tự ẩn khi kho không có trường tương ứng (ví dụ chưa nạp điều khoản), thay
+       vì hiện ô rỗng bấm vào không có kết quả. -->
+  <div class="filters" id="filters">
+    <label class="filter"><span>Chứng khoán cơ sở</span><select id="f-underlying"><option value="">Tất cả</option></select></label>
+    <label class="filter"><span>ITM / ATM / OTM</span><select id="f-moneyness"><option value="">Tất cả</option><option value="ITM">ITM</option><option value="ATM">ATM</option><option value="OTM">OTM</option></select></label>
+    <label class="filter"><span>Đáo hạn</span><select id="f-maturity"><option value="">Tất cả</option></select></label>
+    <label class="filter"><span>Công ty phát hành</span><select id="f-issuer"><option value="">Tất cả</option></select></label>
+    <button id="f-reset" type="button" class="ghost">Xoá lọc</button>
+  </div>
   <div class="table-wrap"><table>
     <thead><tr><th>Mã</th><th>RefP</th><th>CeilingP</th><th>FloorP</th><th>OpenP</th><th>HighestP</th><th>LowestP</th><th>AvgP</th><th>LastMP</th><th>LastMVol</th><th>TotalVol</th><th>TotalVal</th><th>FTBuyVol</th><th>FTSellVol</th><th>FRoom</th><th>Giá (VND)</th><th>%Ngày</th><th>Spread (bước giá)</th><th>Tỷ trọng GT</th><th>Bid 1–3</th><th>Ask 1–3</th><th>Payload</th></tr></thead>
     <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
@@ -139,6 +157,102 @@ function indexAnalysis(){
   derived = new Map(((analysis?.movers?.all) || []).map(r => [String(r.t).toUpperCase(), r]));
 }
 
+// Chi tiết từng mã từ `details.json`: cần cho ITM/ATM/OTM, ngày đáo hạn và tổ chức phát hành
+// — ba trường chỉ có ở đó. Tải riêng để bảng giá vẫn dùng được nếu file này thiếu.
+let detailsBy = new Map();
+function indexDetails(){
+  detailsBy = new Map((details?.rows || []).map(r => [String(r.ticker).toUpperCase(), r]));
+}
+const moneynessOf = (code) => (detailsBy.get(code)?.valuation?.moneyness) || null;
+const maturityOf  = (code) => (detailsBy.get(code)?.valuation?.maturity) || null;
+const issuerOf    = (code) => detailsBy.get(code)?.issuer || null;
+
+// Nhóm đáo hạn theo tháng cho dễ chọn — "2027-03" thay vì 407 ngày khác nhau.
+const maturityBucket = (iso) => (iso ? String(iso).slice(0, 7) : null);
+
+function fillFilters(){
+  const fill = (id, values, labelOf) => {
+    const el = document.querySelector(id);
+    if (!el) return;
+    const opts = [...new Set(values.filter(Boolean))].sort();
+    const previous = el.value;
+    el.innerHTML = `<option value="">Tất cả</option>` +
+      opts.map(v => `<option value="${escAttr(v)}">${esc(labelOf ? labelOf(v) : v)}</option>`).join('');
+    // Ẩn cả ô khi kho không có trường này (ví dụ chưa nạp điều khoản hợp đồng).
+    el.closest('.filter').hidden = opts.length === 0;
+    if (opts.includes(previous)) el.value = previous;
+  };
+  const codes = (snapshot?.rows || []).map(r => String(r.StockCode).toUpperCase());
+  fill('#f-underlying', codes.map(c => detailsBy.get(c)?.underlying
+        || derived.get(c)?.u || null));
+  // moneyness: dùng danh sách cố định, không lấy từ dữ liệu, để ô lọc luôn đủ ba lựa chọn.
+  document.querySelector('#f-moneyness').closest('.filter').hidden =
+    !codes.some(c => moneynessOf(c));
+  fill('#f-maturity', codes.map(c => maturityBucket(maturityOf(c))));
+  fill('#f-issuer', codes.map(c => issuerOf(c)));
+}
+
+// Toàn cảnh thị trường: gộp những chỉ số mô tả được cả thị trường từ dữ liệu đã publish.
+// Nguyên tắc: chỉ số nào không tính được thì bỏ hẳn ô đó — không in 0, không in "—" cho có.
+function renderOverview(){
+  const host = document.querySelector('#overview');
+  const grid = document.querySelector('#ov-grid');
+  if (!host || !grid) return;
+  const s = analysis?.summary;
+  const val = analytics?.valuation;
+  const rows = snapshot?.rows || [];
+  if (!s || !rows.length) { host.hidden = true; return; }
+
+  // ITM/ATM/OTM đếm từ chi tiết từng mã (chỉ 350/407 mã có định giá).
+  const counts = {ITM: 0, ATM: 0, OTM: 0};
+  for (const r of rows) {
+    const m = moneynessOf(String(r.StockCode).toUpperCase());
+    if (m && counts[m] !== undefined) counts[m] += 1;
+  }
+  const priced = counts.ITM + counts.ATM + counts.OTM;
+  const sum = val?.summary || {};
+  const ivhv = val?.ivVsHv || {};
+  const curve = val?.yieldCurve || {};
+
+  // Ô chính: giá trị lớn, nhãn ngắn, dòng phụ giải thích đơn vị/phạm vi.
+  const cards = [
+    {k: 'Mã CW niêm yết', v: num(s.rows), n: `${num(s.traded)} mã có khớp lệnh · ${num(s.untraded)} không`,
+     icon: '📋', big: true},
+    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), n: 'VND trong phiên — không phải ADV',
+     icon: '💰', big: true},
+    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), n: 'nhóm suy ra từ mã CW', icon: '🏦'},
+    {k: 'Tăng / giảm / đứng', v: `${num(s.gainers)} / ${num(s.losers)} / ${num(s.unchanged)}`,
+     n: `trung vị ${fmtPct(s.medianChangePct)}`, icon: '📊'},
+  ];
+  if (priced) {
+    cards.push({k: 'Phân bố trạng thái tiền', v: `${num(counts.ITM)} / ${num(counts.ATM)} / ${num(counts.OTM)}`,
+      n: `ITM / ATM / OTM trên ${num(priced)} mã định giá được`, icon: '🎯'});
+  }
+  if (sum.medianIv !== undefined && sum.medianIv !== null) {
+    cards.push({k: 'IV trung vị', v: `${fmtPct(sum.medianIv, 1)}`,
+      n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`, icon: '🧮'});
+  }
+  if (ivhv.available && ivhv.medianIvMinusHv !== null) {
+    cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${num(ivhv.medianIvMinusHv, 1)} điểm`,
+      n: `${num(ivhv.countIvAboveHv)} mã IV trên HV · ${num(ivhv.countIvBelowHv)} dưới`, icon: '⚖️'});
+  }
+  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`, icon: '↔️'});
+  cards.push({k: 'Giá CW trung vị', v: `${num(s.medianLastPriceVND)} đ`, n: 'trên các mã khớp lệnh', icon: '🏷️'});
+  if (curve.available && curve.anchored1YPct !== null && curve.anchored1YPct !== undefined) {
+    cards.push({k: 'Lãi suất phi rủi ro 1Y', v: `${fmtPct(curve.anchored1YPct, 2)}`,
+      n: 'đường cong TPCP HNX, nội suy theo kỳ hạn', icon: '🏛️'});
+  }
+  cards.push({k: 'Tập trung giá trị', v: fmtPct(s.top10ValueSharePct, 1),
+    n: 'tỷ trọng của 10 mã lớn nhất', icon: '📌'});
+
+  grid.innerHTML = cards.map(c =>
+    `<div class="ov-card${c.big ? ' ov-big' : ''}">`
+    + `<div class="ov-k"><span class="ov-ico" aria-hidden="true">${c.icon}</span>${esc(c.k)}</div>`
+    + `<div class="ov-v">${esc(c.v)}</div>`
+    + `<div class="ov-n">${esc(c.n)}</div></div>`).join('');
+  host.hidden = false;
+}
+
 function renderStats(){
   const host = document.querySelector('#stats');
   const s = analysis?.summary;
@@ -151,17 +265,6 @@ function renderStats(){
     ['Tăng / giảm', `${num(s.gainers)} / ${num(s.losers)}`, `${num(s.unchanged)} mã đứng giá`],
   ];
   host.innerHTML = cards.map(([k, v, n]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n)}</div></div>`).join('');
-}
-
-function renderQuality(){
-  const host = document.querySelector('#quality');
-  const q = analysis?.quality;
-  if(!q){host.hidden = true; return;}
-  host.hidden = false;
-  const issues = (q.checks || []).filter(c => c.status === 'fail' || c.status === 'warn');
-  const head = `<b>Kiểm tra chất lượng dữ liệu: ${esc(q.status.toUpperCase())}</b> — ${num(q.failed)} fail, ${num(q.warned)} cảnh báo trên ${num((q.checks||[]).length)} phép kiểm tra.`;
-  const chips = issues.map(c => `<div><span class="chip ${c.status === 'fail' ? 'negative' : 'warn'}">${esc(c.title)}</span>${esc((c.value || []).slice(0, 6).join(', '))}</div>`).join('');
-  host.innerHTML = head + chips;
 }
 
 // "Dữ liệu cập nhật lúc …" — giờ tuyệt đối theo ICT, kèm độ trễ để biết dữ liệu cũ hay mới.
@@ -177,20 +280,35 @@ function renderFreshness(){
   }
   const absolute = when.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  // Độ trễ tính từ chính fetchedAt, không phải từ lần tải trang: mở tab lúc nào cũng đúng.
-  const minutes = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
-  const lag = minutes < 60 ? `${minutes} ${bi('phút','min')}`
-    : minutes < 1440 ? `${Math.round(minutes/60)} ${bi('giờ','h')}`
-    : `${Math.round(minutes/1440)} ${bi('ngày','d')}`;
-  const stale = minutes > 24 * 60;
-  host.innerHTML = `${esc(bi('Dữ liệu cập nhật lúc','Data updated at'))} <b>${esc(absolute)} ICT</b>`
-    + `<span class="${stale ? 'lag' : ''}">· ${esc(bi('cách đây','ago'))} ${esc(lag)}</span>`
-    + `<span>· ${esc(bi('phiên','session'))} ${esc(analytics?.asof || '—')}</span>`;
+  // Chỉ in thời điểm cập nhật tuyệt đối. Độ trễ ("cách đây N phút") và mã phiên đã bị bỏ
+  // theo yêu cầu: chúng chiếm chỗ mà không giúp người đọc quyết định điều gì.
+  host.innerHTML = `${esc(bi('Dữ liệu cập nhật lúc','Data updated at'))} <b>${esc(absolute)} ICT</b>`;
+
+  // Dòng phụ nêu giờ cập nhật ở dạng câu, đúng yêu cầu "Bảng giá chứng quyền (CW) — được
+  // cập nhật lúc [giờ]". Không lặp lại "ICT" hai lần trên cùng một khối tiêu đề.
+  const sub = document.querySelector('#sub-line');
+  if (sub) {
+    sub.textContent = bi(
+      `Bảng giá chứng quyền (CW) — được cập nhật lúc ${absolute}.`,
+      `Covered warrants (CW) — updated at ${absolute}.`);
+  }
 }
 
 function render(){
   const query = document.querySelector('#search').value.trim().toUpperCase();
-  const list = (snapshot?.rows || []).filter(r => !query || String(r.StockCode).toUpperCase().includes(query));
+  const fUnderlying = document.querySelector('#f-underlying')?.value || '';
+  const fMoneyness  = document.querySelector('#f-moneyness')?.value || '';
+  const fMaturity   = document.querySelector('#f-maturity')?.value || '';
+  const fIssuer     = document.querySelector('#f-issuer')?.value || '';
+  const list = (snapshot?.rows || []).filter(r => {
+    const code = String(r.StockCode ?? '').trim().toUpperCase();
+    if (query && !code.includes(query)) return false;
+    if (fUnderlying && (detailsBy.get(code)?.underlying || derived.get(code)?.u) !== fUnderlying) return false;
+    if (fMoneyness && moneynessOf(code) !== fMoneyness) return false;
+    if (fMaturity && maturityBucket(maturityOf(code)) !== fMaturity) return false;
+    if (fIssuer && issuerOf(code) !== fIssuer) return false;
+    return true;
+  });
   document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
   const tbody = document.querySelector('#rows');
   if(!list.length){tbody.innerHTML='<tr><td colspan="22" id="state">Không có mã phù hợp.</td></tr>';return;}
@@ -200,10 +318,19 @@ function render(){
     const d = derived.get(code) || {};
     const bid = ['B1P','B1V','B2P','B2V','B3P','B3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
     const ask = ['S1P','S1V','S2P','S2V','S3P','S3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
-    const chgCls = d.priceChangePct > 0 ? 'positive' : (d.priceChangePct < 0 ? 'negative' : '');
+    // Ba trạng thái tiền: ITM xanh, ATM vàng, OTM đỏ. Không có định giá thì không tô — mã
+    // không giao dịch hoặc thiếu điều khoản chưa xác định được trạng thái, tô màu sẽ là đoán.
+    const money = moneynessOf(code);
+    const moneyCls = money === 'ITM' ? 'money-itm' : money === 'ATM' ? 'money-atm'
+      : money === 'OTM' ? 'money-otm' : '';
+    // Tăng xanh, giảm đỏ, đứng giá vàng. `null` (không khớp lệnh) không tô.
+    const chgCls = d.priceChangePct > 0 ? 'chg-up' : d.priceChangePct < 0 ? 'chg-down'
+      : (d.priceChangePct === 0 ? 'chg-flat' : '');
     const price = d.traded ? num(d.lastPrice) : '<span class="idle" title="Không khớp lệnh trong phiên">—</span>';
     const codeAttr = escAttr(code);
-    return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button></td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
+    // Nhãn ITM/ATM/OTM hiện ngay cạnh mã để thấy được khi quét bảng, kèm tooltip giải thích.
+    const moneyTag = money ? ` <span class="mtag ${moneyCls}">${esc(money)}</span>` : '';
+    return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button>${moneyTag}</td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
   }).join('');
 }
 
@@ -216,10 +343,10 @@ async function loadAnalysis(){
     if(payload.schemaVersion !== 1) throw new Error('Sai schema phân tích');
     analysis = payload;
   } catch(error) {
+    // Khối cảnh báo chất lượng đã bị bỏ khỏi giao diện. Thiếu lớp phân tích thì bảng vẫn
+    // hiển thị trường gốc; lý do ghi ra console để người vận hành còn thấy, không im lặng.
     analysis = null;
-    const host = document.querySelector('#quality');
-    host.hidden = false;
-    host.innerHTML = `<b>Chưa có lớp phân tích</b> (${esc(error.message)}): bảng vẫn hiển thị trường gốc của nguồn, chưa có cột suy ra.`;
+    console.warn('Chưa có lớp phân tích:', error.message);
   }
 }
 
@@ -281,7 +408,6 @@ function renderUnderlyings() {
   if (!rows.length) { host.innerHTML = emptyNotice('nhóm cổ phiếu cơ sở'); return; }
   host.innerHTML = `
     <h2>Nhóm theo cổ phiếu cơ sở</h2>
-    <p class="caption">Mã cơ sở suy ra từ quy ước tên CW (C + mã + 4 số), không phải trường do nguồn công bố. Giá trị tính trên các mã có khớp lệnh.</p>
     ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1))}
     ${simpleTable(['Cơ sở', 'Số CW', 'Có khớp', 'Giá trị', 'Tỷ trọng', 'KL', 'Spread TV', 'Giá TV', 'Tốt nhất', 'Xấu nhất'], rows,
       r => `<tr><td>${esc(r.underlying)}</td><td>${r.warrants}</td><td>${r.traded}</td><td>${fmtVnd(r.valueVND)}</td>`
@@ -306,7 +432,6 @@ function renderStale() {
         + `<td>${r.bid ?? '—'}</td><td>${r.ask ?? '—'}</td><td>${r.sessionsIdle ?? 'chưa xác định'}</td>`
         + `<td class="flag">${esc((r.flags || []).join(' · '))}</td></tr>`, 'Không có mã nào không giao dịch')}
     <h2>Vừa giao dịch lại sau chuỗi im lặng ≥ ${stale.thresholdSessions} phiên: ${stale.recoveredCount || 0} mã</h2>
-    <p class="caption">Nhóm này thoát khỏi trạng thái mất thanh khoản nên cần theo dõi chất lượng khớp lệnh, không phải tín hiệu mua.</p>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá', 'Giá trị', 'Chuỗi im lặng dài nhất', 'Độ phủ'], recovered,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.lastPrice ?? '—'}</td>`
         + `<td>${fmtVnd(r.valueVND)}</td><td>${r.longestGapSessions}</td><td>${fmtPct(r.coveragePct, 1)}</td></tr>`,
@@ -478,20 +603,9 @@ function renderValuation() {
   const exclText = Object.entries(excluded).map(([k, v]) => `${esc(k)}: ${v}`).join(' · ') || 'không có';
   host.innerHTML = `
     <h2>Black–Scholes, IV và Greeks</h2>
-    <p class="caption">Định giá <strong>${num(val.priced, 0)} mã</strong> bằng mô hình
-      Black–Scholes–Merton (quyền chọn mua kiểu châu Âu), dùng điều khoản hợp đồng từ
-      <a href="https://github.com/FTU-kudo/Vietstock_CW_bot" target="_blank" rel="noopener">Vietstock_CW_bot</a>:
-      strike, tỷ lệ chuyển đổi, ngày đáo hạn. Giá cổ phiếu cơ sở <em>S</em> lấy từ lịch sử
-      giá đóng cửa thật của cổ phiếu cơ sở khi đã tải được mã đó; mã chưa có lịch sử thì suy từ chính
-      điều khoản (premium và đòn bẩy, kiểm chứng chéo lẫn nhau, lệch quá 1% thì loại).
-      Cột <em>Nguồn S</em> ở bảng dưới ghi rõ từng mã dùng nguồn nào.</p>
-    <p class="caption"><strong>Vì sao loại ${num((val.excluded || {})['S hai nguồn lệch quá biên giá (±7%)'] || 0, 0)} mã.</strong>
-      Đối chiếu S suy từ Vietstock với giá đóng cửa thật cho thấy nguồn dùng cặp
-      (S, strike) <em>trước điều chỉnh cổ tức</em> cho một phần hợp đồng —
-      độ lệch khớp đúng hệ số thưởng (TCB 1,50 = thưởng 3:2; MBB 1,20 = 6:5; FPT 1,10 = 10%).
-      Dùng giá thật với strike chưa điều chỉnh sẽ cho IV trông hợp lệ nhưng sai hoàn toàn,
-      nên mã nào lệch quá <strong>±7%</strong> — biên độ tối đa một phiên của cổ phiếu Việt Nam —
-      đều bị loại thay vì đoán.</p>
+    <p class="caption">Định giá <strong>${num(val.priced, 0)} mã</strong> bằng Black–Scholes–Merton.
+      Cột <em>Nguồn S</em> ghi rõ giá cổ phiếu cơ sở lấy từ đâu cho từng mã.</p>
+
     <p class="caption"><strong>IV trung vị ${num(sum.medianIv, 1)}%</strong>
       (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) ·
       ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM
@@ -503,25 +617,16 @@ function renderValuation() {
       }
       return `<div class="card">
         <h3>IV − HV: mức bù rủi ro thị trường đang tính</h3>
-        <p class="caption">HV (biến động thực hiện) tính từ chuỗi giá đóng cửa thật của cổ phiếu
-          cơ sở do nguồn cung cấp — không phải ước lượng từ giá CW. Chênh lệch theo điểm
-          phần trăm: dương nghĩa là người mua CW đang trả cho biến động cao hơn mức cổ phiếu
-          thực sự biến động.</p>
         <p class="caption"><strong>Trung vị ${num(ivhv.medianIvMinusHv, 1)} điểm</strong>
           (p25–p75 = ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) trên ${num(ivhv.count, 0)} mã ·
           IV trên HV ${num(ivhv.countIvAboveHv, 0)} mã / dưới HV ${num(ivhv.countIvBelowHv, 0)} mã</p>
         <p class="caption">${esc(ivhv.note || '')}</p>
       </div>`;
     })()}
-    <p class="caption"><strong>Đọc IV thế nào:</strong> ${esc(val.ivInterpretation || '')}</p>
-    <p class="caption"><strong>Giới hạn của mô hình:</strong> ${esc(val.model || '')}
-      Lãi suất phi rủi ro ${num(val.riskFree, 4)} — ${esc(val.riskFreeSource || '')}</p>
+    <p class="caption">Lãi suất phi rủi ro ${num(val.riskFree, 4)} — ${esc(val.riskFreeSource || '')}</p>
     <p class="caption">Loại khỏi định giá: ${exclText}</p>
 
     <h2>Mã rẻ nhất so với nhóm cùng cơ sở</h2>
-    <p class="caption"><em>Chênh lệch IV</em> = IV của mã so với trung vị IV các CW cùng cổ phiếu
-      cơ sở. Âm = rủi ro được định giá rẻ hơn nhóm; dương = đắt hơn. Đây là so sánh
-      <strong>tương đối trong nhóm</strong>, không phải tín hiệu mua/bán.</p>
     ${simpleTable(['Mã', 'Cơ sở', 'IV', 'IV nhóm', 'Chênh lệch IV', 'IV − HV', 'Delta', 'ITM/OTM', 'Strike', 'S', 'Nguồn S', 'Giá CW', 'Đáo hạn (ngày)', 'Premium'], rows.slice(0, 40),
       r => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.underlying || '—')}</td>`
         + `<td class="num">${fmtPct(r.iv, 1)}</td><td class="num">${fmtPct(r.ivGroupMedian, 1)}</td>`
@@ -555,8 +660,7 @@ function renderScoring() {
       (${num(sc.unscored, 0)} mã không giao dịch không được chấm — không có giá thì không có gì để chấm).
       Trung vị ${num(dist.median, 1)}, p25–p75 = ${num(dist.p25, 1)}–${num(dist.p75, 1)}.
       Trọng số: ${parts.map(([label, key]) => `${esc(label)} ${Math.round((sc.weights?.[key] || 0) * 100)}%`).join(' · ')}.</p>
-    <p class="caption"><strong>Điểm này không phải khuyến nghị mua/bán.</strong> Nó trả lời một câu hẹp:
-      mã này có giao dịch được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?</p>
+    
 
     ${val.available
       ? `<h2>Định giá đã bật</h2>
@@ -584,12 +688,131 @@ function renderScoring() {
         + `<td>${r.nearCeiling ? '<span class="flag">sát trần</span>' : '—'}</td></tr>`)}
 
     <h2>CW tốt nhất theo từng cổ phiếu cơ sở</h2>
-    <p class="caption">Chọn cơ sở trước rồi chọn CW thường hợp lý hơn là đọc một bảng phẳng 353 dòng.</p>
     ${simpleTable(['Cơ sở', 'Số CW', 'Mã điểm cao nhất', 'Điểm', 'Trung vị nhóm', 'Giá trị nhóm'], sc.byUnderlying || [],
       r => `<tr><td><strong>${esc(r.u || '—')}</strong></td><td class="num">${r.count}</td>`
         + `<td>${esc(r.bestTicker)}</td><td class="num"><strong>${num(r.bestScore, 1)}</strong></td>`
         + `<td class="num">${num(r.medianScore, 1)}</td><td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
   `;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// GIẢI THÍCH THUẬT NGỮ — một chỗ duy nhất cho toàn bộ dự án
+// ─────────────────────────────────────────────────────────────────
+// Trước đây mỗi tab tự chèn một đoạn giải thích dài. Người đọc phải cuộn qua chúng ở mọi
+// lần mở tab, và cùng một khái niệm bị giải thích hai ba lần với câu chữ khác nhau. Nay mọi
+// khái niệm tập trung ở đây; các tab chỉ còn số liệu của phiên và những câu mang con số cụ
+// thể (ví dụ "trung vị 48,9%") — vì bỏ chúng thì con số mất ngữ cảnh.
+
+const GLOSSARY = [
+  {group: 'Trạng thái tiền (moneyness)', items: [
+    ['ITM — In the Money',
+     'Giá cổ phiếu cơ sở CAO HƠN strike. Quyền mua đang có giá trị nội tại nếu thực hiện ngay.',
+     'S > K'],
+    ['ATM — At the Money',
+     'Giá cổ phiếu cơ sở xấp xỉ bằng strike. Ở đây tính ATM khi |S − K| ≤ 1% của strike.',
+     'S ≈ K'],
+    ['OTM — Out of the Money',
+     'Giá cổ phiếu cơ sở THẤP HƠN strike. Chưa có giá trị nội tại; toàn bộ giá CW là giá trị thời gian.',
+     'S < K'],
+    ['Màu trên bảng',
+     'ITM xanh, ATM vàng, OTM đỏ. Mã chưa định giá được (không khớp lệnh hoặc thiếu điều khoản) không tô màu — trạng thái chưa xác định thì không đoán.',
+     ''],
+  ]},
+  {group: 'Black–Scholes và định giá', items: [
+    ['Black–Scholes–Merton',
+     'Mô hình định giá quyền chọn châu Âu. Chiết khấu bằng exp(−rT); giả định không cổ tức (q = 0).',
+     'C = S·N(d₁) − K·exp(−rT)·N(d₂)'],
+    ['S — Giá cổ phiếu cơ sở',
+     'Lấy từ lịch sử giá đóng cửa thật khi đã tải được mã đó. Chưa có lịch sử thì suy từ chính điều khoản (premium và đòn bẩy, kiểm chứng chéo lẫn nhau, lệch quá 1% thì loại).',
+     ''],
+    ['K — Strike (giá thực hiện)',
+     'Giá phải trả để mua cổ phiếu cơ sở khi thực hiện quyền. CW Việt Nam điều chỉnh K khi cổ phiếu chia thưởng hoặc trả cổ tức.',
+     ''],
+    ['n — Tỷ lệ chuyển đổi',
+     'Số chứng quyền cần để đổi lấy 1 cổ phiếu. "2 : 1" nghĩa là n = 2. Mọi giá trị lý thuyết chia cho n để ra giá trên 1 CW.',
+     ''],
+    ['T — Thời gian tới đáo hạn',
+     'Tính bằng năm. Ngày đáo hạn khác ngày giao dịch cuối cùng vài ngày; dùng đúng ngày đáo hạn.',
+     'T = (ngày đáo hạn − phiên) / 365'],
+    ['r — Lãi suất phi rủi ro',
+     'Lợi suất trái phiếu chính phủ HNX, cơ sở liên tục (spot_continuous), nội suy tuyến tính theo kỳ hạn còn lại của từng mã. Ngoại suy phẳng ngoài dải.',
+     'spot_continuous = ln(1 + spot_annual)'],
+    ['IV — Biến động ẩn',
+     'Biến động suy ngược từ giá thị trường. KHÔNG phải dự báo: nó là mức rủi ro thị trường đang định giá. IV cao hơn HV là chi phí của người mua, không phải cơ hội.',
+     ''],
+    ['HV — Biến động thực hiện',
+     'Độ lệch chuẩn của lợi suất logarit từ chuỗi giá đóng cửa thật của cổ phiếu cơ sở (21 và 63 phiên).',
+     'HV = stdev(ln(Pₜ/Pₜ₋₁)) × √252'],
+    ['IV − HV',
+     'Chênh lệch theo điểm phần trăm. Dương = thị trường định giá rủi ro cao hơn mức cổ phiếu thực sự biến động.',
+     ''],
+    ['Chênh lệch IV (ivResidualPct)',
+     'IV của một mã so với trung vị IV các CW CÙNG cổ phiếu cơ sở. Âm = rủi ro được định giá rẻ hơn nhóm, dương = đắt hơn. So sánh tương đối trong nhóm, không phải tín hiệu mua/bán.',
+     ''],
+    ['Delta (Δ)', 'Độ nhạy của giá CW theo giá cổ phiếu cơ sở.', '∂C/∂S'],
+    ['Gamma (Γ)', 'Tốc độ thay đổi của delta theo giá cổ phiếu cơ sở.', '∂²C/∂S²'],
+    ['Theta (Θ)', 'Mất giá mỗi ngày do thời gian trôi qua (thường âm với người mua).', '∂C/∂t'],
+    ['Vega', 'Độ nhạy của giá CW theo biến động (mỗi 1 điểm % biến động).', '∂C/∂σ'],
+    ['Rho (ρ)', 'Độ nhạy của giá CW theo lãi suất (mỗi 1 điểm % lãi suất).', '∂C/∂r'],
+    ['Giá trị nội tại', 'Phần giá trị CW đến từ chênh lệch giá cổ phiếu và strike ngay lúc này.', 'max(S − K, 0) / n'],
+    ['Giá trị thời gian', 'Phần giá CW vượt trên giá trị nội tại — là cái người mua trả cho khả năng sinh lời trong tương lai.', ''],
+    ['Premium hoà vốn', 'Giá cổ phiếu cơ sở phải vượt bao nhiêu % nữa để người giữ tới đáo hạn hoà vốn.', '(K + giá CW × n − S) / S'],
+    ['Đòn bẩy', 'Một đồng vốn bỏ vào CW tương đương bao nhiêu đồng tiếp xúc với cổ phiếu cơ sở.', '(S / giá CW) / n'],
+    ['Cơ sở điều khoản (termsBasis)',
+     'Điều khoản đã được quy về hệ giá nào. "điều chỉnh từ nguồn" = nguồn trả strike/tỷ lệ sau điều chỉnh; "dựng lại từ chênh lệch giá" = suy hệ số f = S_nguồn/S_thật; "gốc, chưa điều chỉnh" = không có f đáng tin.',
+     'f = K_gốc / K_điều chỉnh'],
+  ]},
+  {group: 'Bảng giá (trường của nguồn)', items: [
+    ['RefP — Giá tham chiếu', 'Giá đóng cửa phiên trước. Không phải giá phiên này.', ''],
+    ['CeilingP / FloorP', 'Giá trần và sàn, ĐỌC TRỰC TIẾP từ nguồn — không suy ra công thức. Tỷ lệ dải trần–sàn không cố định nên không dùng ±7%.', ''],
+    ['OpenP / HighestP / LowestP', 'Giá mở cửa, cao nhất, thấp nhất trong phiên.', ''],
+    ['AvgP — Giá bình quân', 'Giá khớp bình quân của phiên. TotalVal ≈ TotalVol × AvgP, dùng để đối chiếu đơn vị.', ''],
+    ['LastMP / LastMVol', 'Giá và khối lượng của RIÊNG lệnh khớp cuối — không phải cả phiên.', ''],
+    ['TotalVol / TotalVal', 'Tổng khối lượng và tổng giá trị khớp trong phiên. TotalVal tính bằng VND.', ''],
+    ['FTBuyVol / FTSellVol', 'Khối lượng nhà đầu tư nước ngoài mua và bán. Là KHỐI LƯỢNG, không phải tiền.', ''],
+    ['FRoom', 'Room khối ngoại còn lại được mua.', ''],
+    ['B1–B3 / S1–S3', 'Ba mức giá mua tốt nhất (bid) và ba mức bán tốt nhất (ask), kèm khối lượng tương ứng.', ''],
+    ['Spread (bước giá)', 'Chênh lệch giá mua–bán, chia cho bước giá 10 VND.', '(S1P − B1P) / giá giữa'],
+    ['Tỷ trọng GT', 'Phần trăm giá trị giao dịch của mã này trên tổng giá trị toàn bảng trong phiên.', ''],
+    ['%Ngày', 'Thay đổi giá so với giá tham chiếu. Xanh = tăng, đỏ = giảm, vàng = đứng giá.', '(giá − RefP) / RefP'],
+  ]},
+  {group: 'Xếp hạng và thanh khoản', items: [
+    ['Điểm CW Score (0–100)',
+     'Điểm tổng hợp từ thanh khoản, chi phí giao dịch, định giá, chất lượng giá và độ ổn định. KHÔNG phải khuyến nghị mua/bán.',
+     ''],
+    ['Ngưỡng chia nhóm', 'Phân vị của chính snapshot hôm nay, không phải ngưỡng VND cố định — nên nhóm tự điều chỉnh theo mặt bằng thanh khoản từng phiên.', ''],
+    ['HHI', 'Chỉ số tập trung: càng cao thì giá trị giao dịch càng dồn vào ít mã.', 'Σ (thị phần)²'],
+    ['Top 10', 'Tỷ trọng giá trị giao dịch của 10 mã lớn nhất trên toàn bảng.', ''],
+    ['Mã không giao dịch (stale)', 'Mã không có lệnh khớp trong phiên. Không có OHLC của phiên, và RefP KHÔNG được dùng thay cho giá đóng cửa.', ''],
+    ['Độ phủ (coverage)', 'Số phiên mã đó thực sự có giá trong kho lịch sử, so với số phiên đã tích luỹ.', ''],
+    ['Độ sâu hai chiều', 'Có cả giá mua tốt nhất và giá bán tốt nhất — thiếu một bên nghĩa là không giao dịch được theo chiều đó.', ''],
+  ]},
+  {group: 'Lịch sử và tích luỹ', items: [
+    ['Tích luỹ dần', 'OHLCV theo ngày được ghi thêm mỗi lần workflow chạy sau giờ đóng cửa. KHÔNG backfill quá khứ vì nguồn không trả lịch sử.', ''],
+    ['Khoảng trống', 'Phiên thiếu giá được liệt kê và để trống, KHÔNG nội suy — nội suy sẽ làm HV thấp giả tạo.', ''],
+    ['Kiểm tra liên tục (refContinuity)', 'So RefP hôm nay với giá đóng cửa phiên trước trong kho. Lệch quá biên độ nghĩa là một trong hai nguồn đã cũ.', ''],
+  ]},
+  {group: 'Phạm vi và giới hạn', items: [
+    ['Nguồn dữ liệu', 'Bảng giá: nguồn bảng giá EW đã cấp quyền. Điều khoản hợp đồng: Vietstock_CW_bot. Lợi suất TPCP: VN_Bond_Yield_pipeline.', ''],
+    ['Mã không định giá được', '54 mã không khớp lệnh (không có giá thị trường nên không suy được IV) và 3 mã thiếu điều khoản hoặc giá dưới nội tại.', ''],
+    ['Không có trong dự án', 'Giá CW theo phút/giây, khuyến nghị mua/bán, backtest. Lý do: nguồn không có dữ liệu tương ứng, không phải bị bỏ sót.', ''],
+  ]},
+];
+
+function renderGlossary(){
+  const host = document.querySelector('#view-glossary');
+  if (!host) return;
+  host.innerHTML = `<h2>Giải thích thuật ngữ</h2>
+    <p class="caption">Toàn bộ thuật ngữ dùng trong dự án, gom về một chỗ. Các tab khác chỉ
+      hiển thị số liệu của phiên.</p>`
+    + GLOSSARY.map(g => `<div class="glossary-group">
+        <h3>${esc(g.group)}</h3>
+        <dl class="glossary-list">
+        ${g.items.map(([term, desc, formula]) => `<div class="glossary-item">
+          <dt>${esc(term)}</dt>
+          <dd>${esc(desc)}${formula ? `<div class="g-meta"><code>${esc(formula)}</code></div>` : ''}</dd>
+        </div>`).join('')}
+        </dl></div>`).join('');
 }
 
 let currentView = 'board';
@@ -599,10 +822,12 @@ function setView(name) {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.view === name);
   });
-  for (const view of ['board', 'scoring', 'valuation', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history']) {
+  for (const view of ['board', 'scoring', 'valuation', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history', 'glossary']) {
     const node = document.querySelector(`#view-${view}`);
     if (node) node.hidden = view !== name;
   }
+  // Trang thuật ngữ dựng bằng JS nên chỉ sinh khi mở tới — không tốn công lúc tải trang.
+  if (name === 'glossary') renderGlossary();
 }
 
 async function loadOptional(key, url) {
@@ -626,6 +851,9 @@ try {
   const response = await fetch(`${DETAILS_URL}?v=${Date.now()}`, {cache:'no-store'});
   if (response.ok) details = await response.json();
 } catch { details = null; }
+indexDetails();
+// Overview cần `details` để đếm ITM/ATM/OTM — vẽ lại sau khi file này nạp xong.
+if (snapshot) renderOverview();
 initDetail(details);
 
 // Bấm mã ở bất kỳ bảng nào có data-ticker đều mở ngăn kéo chi tiết.
@@ -639,14 +867,27 @@ document.addEventListener('click', (event) => {
 await loadAnalysis();
 indexAnalysis();
 renderStats();
-renderQuality();
+renderOverview();
 try {
   const response = await fetch(`${SNAPSHOT_URL}?v=${Date.now()}`, {cache:'no-store'});
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   snapshot = await response.json();
   if(snapshot.schemaVersion !== 1 || !Array.isArray(snapshot.rows)) throw new Error('Sai schema snapshot');
   renderFreshness();
+  fillFilters();
   document.querySelector('#search').addEventListener('input',render);
+  // Mọi bộ lọc đều gọi lại `render()` — không giữ trạng thái song song để khỏi lệch nhau.
+  for (const id of ['#f-underlying', '#f-moneyness', '#f-maturity', '#f-issuer']) {
+    document.querySelector(id)?.addEventListener('change', render);
+  }
+  document.querySelector('#f-reset')?.addEventListener('click', () => {
+    document.querySelector('#search').value = '';
+    for (const id of ['#f-underlying', '#f-moneyness', '#f-maturity', '#f-issuer']) {
+      const el = document.querySelector(id);
+      if (el) el.value = '';
+    }
+    render();
+  });
   document.querySelector('#download').addEventListener('click',()=>{
     const blob = new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cw-snapshot.json';a.click();URL.revokeObjectURL(a.href);
@@ -676,10 +917,11 @@ setView('board');
 
 // Nội dung các view do JS sinh nên phải dịch lại sau khi render, và vẽ lại khi đổi ngôn ngữ.
 renderFreshness();
+renderOverview();
 applyI18n(document.body);
 window.addEventListener('cwintel:lang', () => {
   renderStats();
-  renderQuality();
+  renderOverview();
   if (snapshot) render();
   renderScoring();
   renderValuation();
@@ -693,7 +935,7 @@ window.addEventListener('cwintel:lang', () => {
   setView(currentView);      // giữ nguyên tab đang mở sau khi vẽ lại
 });
 
-// Độ trễ ("cách đây …") phải tự nhích theo thời gian, không đóng băng lúc tải trang.
+// Vẽ lại giờ cập nhật mỗi phút để nhãn không bị cũ khi tab mở lâu. Không còn độ trễ để tính.
 setInterval(renderFreshness, 60000);
 </script>
 </body>

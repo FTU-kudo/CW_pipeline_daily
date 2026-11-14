@@ -94,16 +94,32 @@ def blocked_reason(valuation: dict | None, code: str) -> str | None:
 
 def build_details(*, snapshot: dict | None, board_analysis: dict | None,
                   analytics: dict | None, history_bars: dict[str, list[dict]] | list[dict] | None = None,
-                  history_meta: dict | None = None) -> dict:
+                  history_meta: dict | None = None,
+                  terms: Any = None,
+                  session: str | None = None) -> dict:
     """Dựng ``{"rows": [...]}`` — mỗi phần tử là MỌI thông tin của một mã.
 
     Tham số đều là dữ liệu đã publish; hàm không đọc mạng và không đọc đĩa.
+
+    ``terms`` là bảng điều khoản (tuỳ chọn). Khi có, ``issuer`` (tổ chức phát hành) được gắn
+    vào từng dòng để bộ lọc trên trang có dữ liệu — bảng giá của nguồn không có trường này.
+    Không có thì trường để ``None``, và bộ lọc tự ẩn thay vì hiện ô rỗng.
     """
     rows_in = (snapshot or {}).get("rows") or []
     if not rows_in:
         return {"schemaVersion": SCHEMA_VERSION, "kind": "yuanta_details",
                 "available": False, "reason": "Snapshot rỗng — chưa có dữ liệu để dựng chi tiết.",
                 "count": 0, "rows": []}
+
+    # Chốt chặn: số dòng ra phải bằng số dòng vào. Một lần chạy từng ghi ra file chỉ 12/407
+    # dòng mà không báo lỗi, khiến trang thiếu 395 mã định giá và bộ lọc chỉ còn 3 lựa chọn —
+    # lỗi im lặng, không có gì đỏ. Thà dừng còn hơn publish file thiếu.
+    snapshot_count = (snapshot or {}).get("count")
+    if isinstance(snapshot_count, int) and snapshot_count != len(rows_in):
+        raise ValueError(
+            f"snapshot.count={snapshot_count} nhưng rows={len(rows_in)} — dữ liệu vào không "
+            "nhất quán, không dựng chi tiết để tránh publish file thiếu.")
+
 
     valuation = (analytics or {}).get("valuation") or {}
     scoring = (analytics or {}).get("scoring") or {}
@@ -120,6 +136,26 @@ def build_details(*, snapshot: dict | None, board_analysis: dict | None,
         str(r.get("t") or "").upper(): r
         for r in analytics.get("tickerCoverage") or [] if isinstance(r, dict)
     }
+    # Tổ chức phát hành: chỉ bảng điều khoản Vietstock có. Lấy đúng phiên nếu biết, ngược lại
+    # lấy bản ghi mới nhất của mỗi mã. Không suy từ tên mã — mã CW không mã hoá tổ chức phát
+    # hành, và đoán sai sẽ làm bộ lọc nói dối.
+    #
+    # Đọc qua `itertuples`/`columns` chứ không import pandas: module này cố ý không phụ thuộc
+    # pandas để trang chi tiết chỉ cần dữ liệu đã publish.
+    issuer_by_ticker: dict[str, str] = {}
+    if terms is not None and len(terms) and "issuer" in set(getattr(terms, "columns", ())):
+        frame = terms
+        if session and "session" in set(frame.columns):
+            same = frame[frame["session"].astype(str) == str(session)]
+            if len(same):
+                frame = same
+        if "session" in set(frame.columns):
+            frame = frame.sort_values("session")
+        for row in frame.itertuples(index=False):
+            code = str(getattr(row, "ticker", "") or "").strip().upper()
+            name = getattr(row, "issuer", None)
+            if code and name is not None and str(name).strip():
+                issuer_by_ticker[code] = str(name).strip()
     # Lịch sử CW theo ngày. Nhận cả hai dạng: ``{mã: [bar, ...]}`` (đã gom sẵn, xem
     # ``choose_history_bars``) và danh sách bar phẳng có trường ``ticker``.
     bars: dict[str, list[dict]] = {}
@@ -157,6 +193,7 @@ def build_details(*, snapshot: dict | None, board_analysis: dict | None,
         record = {
             "ticker": code,
             "underlying": (moved or {}).get("u"),
+            "issuer": issuer_by_ticker.get(code),
             "raw": {field: _json_safe(raw.get(field)) for field in RAW_FIELDS},
             "market": moved,
             "valuation": val,

@@ -94,14 +94,22 @@ def test_language_switch_keeps_current_tab():
 # ─────────────────────────────────────────────────────────────────
 # 3. Dữ liệu cập nhật lúc mấy giờ
 # ─────────────────────────────────────────────────────────────────
-def test_freshness_line_shows_absolute_time_and_age():
+def test_freshness_line_shows_absolute_time_only():
+    """Chỉ in thời điểm cập nhật tuyệt đối — độ trễ đã bị bỏ theo yêu cầu sản phẩm.
+
+    Bản trước in thêm "cách đây N phút" và "phiên 2026-11-13". Chủ dự án yêu cầu bỏ hẳn
+    (việc 2): chúng chiếm chỗ mà không giúp người đọc quyết định điều gì. Test này khoá lại
+    việc bỏ đó, đồng thời bảo đảm giờ tuyệt đối vẫn còn và vẫn theo múi giờ Việt Nam.
+    """
     assert 'id="freshness"' in HTML
     assert "function renderFreshness" in HTML
     assert "fetchedAt" in HTML
-    # Độ trễ phải tính từ fetchedAt và tự nhích, không đóng băng lúc tải trang.
-    assert "Date.now() - when.getTime()" in HTML
-    assert "setInterval(renderFreshness" in HTML
     assert "Asia/Ho_Chi_Minh" in HTML
+    # Giờ tuyệt đối phải còn.
+    assert "Data updated at" in HTML or "Dữ liệu cập nhật lúc" in HTML
+    # Độ trễ và mã phiên KHÔNG còn được in ra.
+    assert "Date.now() - when.getTime()" not in HTML
+    assert "renderFreshness, 60000" in HTML
 
 
 # ─────────────────────────────────────────────────────────────────
