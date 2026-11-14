@@ -761,49 +761,253 @@ function renderValuation() {
 }
 
 // ── Xếp hạng: điểm 0–100 từ các trục ĐO ĐƯỢC, kèm lý do không có Black–Scholes ──
+// ── Xếp hạng: bảng chấm điểm có sắp xếp, heatmap và huy hiệu top 3 ──
+// Sắp xếp là trạng thái của RIÊNG bảng này; đổi tab rồi quay lại vẫn giữ lựa chọn.
+const scoringSort = {key: 'score', dir: 'desc'};
+
+// Thứ tự ưu tiên khi hai mã cùng điểm — so tiếp theo thanh khoản rồi tới giá trị.
+const SCORING_DEFAULT_DIR = {score: 'desc', valueVND: 'desc', valuation: 'desc',
+  priceQuality: 'desc', coveragePct: 'desc', liquidity: 'desc', cost: 'desc',
+  consistency: 'desc', chgPct: 'desc'};
+
+const WEIGHT_LABELS = {
+  liquidity: 'Thanh khoản', cost: 'Chi phí', valuation: 'Định giá',
+  priceQuality: 'Chất lượng giá', consistency: 'Độ ổn định',
+};
+
+/** Giá trị dùng để sắp xếp một dòng theo khoá của cột. */
+function scoringValue(row, key) {
+  if (key === 'ticker') return String(row.t || '');
+  if (key === 'underlying') return String(row.u || '');
+  if (key === 'chgPct') return row.chgPct === null || row.chgPct === undefined ? -Infinity : row.chgPct;
+  if (key in WEIGHT_LABELS) {
+    const v = row.parts?.[key];
+    // Mã chưa có dữ liệu cho trục đó xếp cuối ở cả hai chiều — chúng không "thấp",
+    // chúng chưa được chấm. Trộn chúng vào đầu/cuối đều là nói sai.
+    return v === null || v === undefined ? -Infinity : v;
+  }
+  const v = row[key];
+  return v === null || v === undefined ? -Infinity : v;
+}
+
+/**
+ * Ô điểm thành phần: số + thanh tỷ lệ chạy dưới.
+ * `null` là CHƯA CHẤM (ví dụ độ ổn định cần ≥5 phiên), khác hẳn điểm 0. Hai thứ đó
+ * không được hiển thị giống nhau, nếu không người đọc sẽ hiểu mã bị trừ điểm.
+ */
+function partCell(value, label) {
+  if (value === null || value === undefined) {
+    return `<td class="part-cell"><span class="na" title="${escAttr(label)}: chưa đủ dữ liệu để chấm">chưa chấm</span></td>`;
+  }
+  const v = Math.max(0, Math.min(100, value));
+  return `<td class="part-cell"><span class="part-num">${num(v, 0)}</span>`
+    + `<span class="part-track"><span class="part-fill b${Math.round(v / 20) * 20}" style="width:${v}%"></span></span></td>`;
+}
+
+/** Thẻ điểm tổng: nền theo mức điểm, số bên trong, thanh tỷ lệ ngay dưới. */
+function scoreCell(score) {
+  if (score === null || score === undefined) return '<td><span class="na">—</span></td>';
+  // Ngưỡng đọc được: ≥80 mạnh, 60–80 trung bình, <60 yếu. Ba mức là đủ để quét mắt;
+  // chia nhỏ hơn thì màu không còn phân biệt được nữa.
+  const tone = score >= 80 ? 'strong' : score >= 60 ? 'mid' : 'weak';
+  return `<td class="score-cell"><span class="score-badge ${tone}">${num(score, 1)}</span>`
+    + `<span class="score-track"><span class="score-fill ${tone}" style="width:${Math.max(2, Math.min(100, score))}%"></span></span></td>`;
+}
+
+/** Huy hiệu hạng: vàng/bạc/đồng cho top 3, số thường cho phần còn lại. */
+function rankCell(rank) {
+  const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+  return medal
+    ? `<td class="rank-cell"><span class="medal ${medal}" title="Hạng ${rank}">${rank}</span></td>`
+    : `<td class="rank-cell"><span class="rank-plain">${rank}</span></td>`;
+}
+
+/** % trong ngày: màu theo dấu + mũi tên. Tham chiếu (0%) dùng màu vàng cam. */
+function changeCellRank(row) {
+  const v = row.chgPct;
+  if (v === null || v === undefined) return '<td class="num"><span class="na">—</span></td>';
+  if (v > 0) return `<td class="num chg-up">▲ ${fmtPct(v)}</td>`;
+  if (v < 0) return `<td class="num chg-down">▼ ${fmtPct(v)}</td>`;
+  return `<td class="num chg-flat">= ${fmtPct(v)}</td>`;
+}
+
+/**
+ * Cảnh báo của MỘT mã: gạch mờ khi không có, tam giác màu khi có, tooltip nêu lý do.
+ *
+ * `sc` cần thiết vì có trục thiếu dữ liệu ở TOÀN BỘ mã (hiện tại: độ ổn định, vì kho mới
+ * có 1 phiên). Nếu cảnh báo theo độ phủ thì cả 50 dòng đều có tam giác và cột này mất
+ * tác dụng phân biệt — chuyện đó đã xảy ra ở lần chạy thử đầu. Trục thiếu ở toàn bộ mã
+ * được nêu MỘT lần ở banner; cột này chỉ nêu cái khác biệt giữa các mã.
+ */
+function warnCell(row, sc) {
+  const notes = [];
+  if (row.nearCeiling) notes.push(`Giá đang sát trần (còn ${fmtPct(row.headroomPct)} tới trần)`);
+  const available = {
+    valuation: sc?.valuation?.available,
+    cost: true,
+    liquidity: true,
+    priceQuality: true,
+  };
+  const missing = [];
+  if (row.parts?.valuation === null || row.parts?.valuation === undefined) {
+    if (available.valuation) missing.push('định giá');
+  }
+  if (row.parts?.cost === null || row.parts?.cost === undefined) missing.push('chi phí');
+  if (missing.length) {
+    notes.push(`Thiếu dữ liệu để chấm: ${missing.join(', ')} — điểm chỉ tính trên phần còn lại`);
+  }
+  if (!notes.length) return '<td class="warn-cell"><span class="na">—</span></td>';
+  const text = notes.join('. ');
+  return `<td class="warn-cell"><span class="warn-icon" title="${escAttr(text)}">`
+    + `${WARN_ICON}<span class="sr-only">${escAttr(text)}</span></span></td>`;
+}
+
+const WARN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+  + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>'
+  + '<path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+
+/** Mũi tên sắp xếp trên tiêu đề. `active` cho biết cột đang được sắp. */
+function sortArrow(key) {
+  const on = scoringSort.key === key;
+  const dir = on ? scoringSort.dir : '';
+  return `<span class="sort-arrow${on ? ' on' : ''}" aria-hidden="true">`
+    + `<span class="sa-up${dir === 'asc' ? ' lit' : ''}">▲</span>`
+    + `<span class="sa-down${dir === 'desc' ? ' lit' : ''}">▼</span></span>`;
+}
+
+function scoringHead(key, label, extra = '') {
+  const on = scoringSort.key === key;
+  const ariaSort = on ? (scoringSort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+  return `<th class="sortable${on ? ' sorted' : ''}${extra}" data-sort="${key}" `
+    + `aria-sort="${ariaSort}" tabindex="0" role="columnheader">`
+    + `<span class="th-label">${esc(label)}</span>${sortArrow(key)}</th>`;
+}
+
+/**
+ * 50 mã đầu theo lựa chọn sắp xếp hiện tại.
+ *
+ * Phải là HÀM, không phải biến tính một lần: lần bấm sắp xếp đầu tiên từng không có tác
+ * dụng vì bảng được vẽ lại bằng đúng mảng đã tính TRƯỚC khi đổi khoá. Lỗi này chỉ lộ ra
+ * khi bấm thử trên trang thật, không lộ qua test đọc chuỗi.
+ */
+function scoringRows(sc) {
+  const all = sc.ranking || [];
+  const key = scoringSort.key;
+  const dir = scoringSort.dir === 'asc' ? 1 : -1;
+  return [...all].sort((a, b) => {
+    const va = scoringValue(a, key);
+    const vb = scoringValue(b, key);
+    if (va === vb) return a.rank - b.rank;              // hoà thì giữ thứ tự gốc
+    if (va === -Infinity) return 1;                     // thiếu dữ liệu luôn ở cuối
+    if (vb === -Infinity) return -1;
+    return (va < vb ? -1 : 1) * dir;
+  }).slice(0, 50);
+}
+
+/** Bảng xếp hạng 50 mã đầu. Sắp xếp lại thì chỉ vẽ lại phần này, không vẽ cả tab. */
+function scoringTable(rows, sc) {
+  return `<div class="table-wrap rank-wrap">
+    <table class="rank-table">
+      <thead><tr>
+        ${scoringHead('rank', '#')}
+        ${scoringHead('ticker', 'Mã / Cơ sở')}
+        ${scoringHead('score', 'Điểm tổng')}
+        ${scoringHead('coveragePct', 'Độ phủ')}
+        ${scoringHead('valueVND', 'Giá trị')}
+        ${scoringHead('chgPct', '% trong ngày')}
+        ${scoringHead('liquidity', `Thanh khoản ${Math.round((sc.weights?.liquidity || 0) * 100)}%`)}
+        ${scoringHead('cost', `Chi phí ${Math.round((sc.weights?.cost || 0) * 100)}%`)}
+        ${scoringHead('valuation', `Định giá ${Math.round((sc.weights?.valuation || 0) * 100)}%`)}
+        ${scoringHead('priceQuality', `Chất lượng giá ${Math.round((sc.weights?.priceQuality || 0) * 100)}%`)}
+        ${scoringHead('consistency', `Độ ổn định ${Math.round((sc.weights?.consistency || 0) * 100)}%`)}
+        <th class="warn-head">Cảnh báo</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        ${rankCell(r.rank)}
+        <td class="tick-cell"><span class="ticker">${esc(r.t)}</span>`
+          + `${r.u ? `<span class="utag" title="Cổ phiếu cơ sở">${esc(r.u)}</span>` : ''}</td>
+        ${scoreCell(r.score)}
+        <td class="num">${r.coveragePct === null || r.coveragePct === undefined ? '<span class="na">—</span>' : `${num(r.coveragePct, 0)}%`}</td>
+        <td class="num">${fmtVnd(r.valueVND)}</td>
+        ${changeCellRank(r)}
+        ${partCell(r.parts?.liquidity, 'Thanh khoản')}
+        ${partCell(r.parts?.cost, 'Chi phí')}
+        ${partCell(r.parts?.valuation, 'Định giá')}
+        ${partCell(r.parts?.priceQuality, 'Chất lượng giá')}
+        ${partCell(r.parts?.consistency, 'Độ ổn định')}
+        ${warnCell(r, sc)}
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
 function renderScoring() {
   const host = document.querySelector('#view-scoring');
   const sc = analytics?.scoring;
   if (!sc) { host.innerHTML = emptyNotice('xếp hạng'); return; }
   const dist = sc.distribution || {};
   const val = sc.valuation || {};
-  const rows = sc.ranking || [];
-  const parts = [
-    ['Thanh khoản', 'liquidity'], ['Chi phí', 'cost'], ['Định giá', 'valuation'],
-    ['Chất lượng giá', 'priceQuality'], ['Độ ổn định', 'consistency'],
-  ];
+  const weights = sc.weights || {};
+
+  // Sắp xếp theo lựa chọn hiện tại. Mã chưa chấm một trục (null) bị đẩy xuống cuối ở cả
+  // hai chiều — chúng không "thấp", chúng chưa có dữ liệu.
+
+  // Trọng số hiển thị dạng badge thay vì câu văn xuôi — đọc được ngay từng trục nặng bao
+  // nhiêu phần trăm mà không phải đọc cả đoạn.
+  const weightBadges = Object.keys(WEIGHT_LABELS).map(k => {
+    const pctWeight = Math.round((weights[k] || 0) * 100);
+    return `<span class="wbadge"><b>${esc(WEIGHT_LABELS[k])}</b><span class="wv">${pctWeight}%</span>`
+      + `<span class="wtrack"><span class="wfill" style="width:${pctWeight}%"></span></span></span>`;
+  }).join('');
+
+  // Banner gọn thay cho hai tiêu đề + ba đoạn văn dài. Chi tiết gập lại mặc định để bảng
+  // lên cao hơn; ai cần thì mở.
   host.innerHTML = `
-    <h2>Điểm CW theo ngày</h2>
-    <p class="caption">Điểm 0–100 trên <strong>${num(sc.scored, 0)} mã có khớp lệnh</strong>
-      (${num(sc.unscored, 0)} mã không giao dịch không được chấm — không có giá thì không có gì để chấm).
-      Trung vị ${num(dist.median, 1)}, p25–p75 = ${num(dist.p25, 1)}–${num(dist.p75, 1)}.
-      Trọng số: ${parts.map(([label, key]) => `${esc(label)} ${Math.round((sc.weights?.[key] || 0) * 100)}%`).join(' · ')}.</p>
-    
+    <div class="score-banner">
+      <div class="sb-row">
+        <span class="sb-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/>
+            <rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12.5" y="8" width="3" height="10" rx="1"/>
+            <rect x="18" y="4" width="3" height="14" rx="1"/></svg>
+        </span>
+        <div class="sb-main">
+          <div class="sb-title">Điểm CW theo ngày</div>
+          <div class="sb-sub"><b>${num(sc.scored, 0)}</b> mã có khớp lệnh được chấm
+            · ${num(sc.unscored, 0)} mã không giao dịch không chấm
+            · trung vị <b>${num(dist.median, 1)}</b> (p25–p75 ${num(dist.p25, 1)}–${num(dist.p75, 1)})
+            · ${val.available ? `định giá đã bật cho <b>${num(val.priced, 0)}</b> mã` : 'định giá chưa bật'}</div>
+        </div>
+        <button type="button" class="sb-toggle" id="score-detail-toggle"
+                aria-expanded="false" aria-controls="score-detail">Xem chi tiết cách tính điểm</button>
+      </div>
+      <div class="sb-weights">${weightBadges}</div>
+      <div class="sb-detail" id="score-detail" hidden>
+        <h4>Cách tính</h4>
+        <ul>
+          <li>Điểm 0–100 cho từng mã, tính trên ${num(sc.scored, 0)} mã có khớp lệnh.
+            Mã không giao dịch bị loại vì không có giá thì không có gì để chấm.</li>
+          <li>Mỗi trục cho điểm 0–100 rồi nhân trọng số ở trên. Trục nào thiếu dữ liệu thì
+            <strong>tính lại trọng số trên phần còn lại</strong>, không cộng 0 — vì cộng 0 sẽ
+            trừ điểm oan cho mã chỉ thiếu một trường.</li>
+          <li><strong>Độ phủ</strong> = phần trăm trọng số thực sự có dữ liệu. Độ phủ 92% nghĩa
+            là điểm đó dựa trên 92% trọng số, không phải 100%.</li>
+          <li><strong>Định giá ${Math.round((weights.valuation || 0) * 100)}%</strong> tính từ IV
+            của mã so với trung vị IV các CW cùng cổ phiếu cơ sở
+            (${num(sc.valuationMeta?.scored, 0)} mã được chấm).
+            ${val.available ? `Đã định giá ${num(val.priced, 0)} mã bằng Black–Scholes — xem tab <strong>Định giá</strong>.` : ''}</li>
+          ${sc.consistency?.available === false
+            ? `<li><strong>Độ ổn định ${Math.round((weights.consistency || 0) * 100)}%</strong> chưa chấm được:
+                 ${esc(sc.consistency.reason || 'chưa đủ phiên lịch sử')}</li>` : ''}
+          <li>Điểm này <strong>không phải khuyến nghị mua/bán</strong>. Nó xếp hạng trên các
+            tiêu chí đã nêu, không dự phóng lợi nhuận.</li>
+        </ul>
+      </div>
+    </div>
 
-    ${val.available
-      ? `<h2>Định giá đã bật</h2>
-         <p class="caption">Điểm số có trục <strong>định giá ${Math.round((sc.weights?.valuation || 0) * 100)}%</strong>,
-           tính từ IV của mã so với trung vị IV các CW cùng cổ phiếu cơ sở
-           (${num(sc.valuationMeta?.scored, 0)} mã được chấm). Đã định giá ${num(val.priced, 0)} mã
-           bằng Black–Scholes. Xem chi tiết ở tab <strong>Định giá</strong>.</p>`
-      : `<h2>Vì sao chưa có Black–Scholes / IV / Greeks</h2>
-         <p class="caption">Thiếu đầu vào bắt buộc: <strong>${esc((val.blockedBy || []).join(' · '))}</strong>.
-           ${esc(val.reason || '')}</p>
-         <p class="caption">Engine đã có sẵn (${esc(val.engineReady || '—')}) và sẽ tự bật khi có điều khoản;
-           không phải viết lại. Cho tới lúc đó, điểm số dùng các trục thay thế:
-           ${esc(val.alternativeUsed || '')}</p>`}
-
-    ${simpleTable(['#', 'Mã', 'Cơ sở', 'Điểm', 'Độ phủ', 'Giá', '%Ngày', 'Giá trị', 'Thanh khoản', 'Chi phí', 'Định giá', 'Chất lượng giá', 'Độ ổn định', 'Cảnh báo'], rows.slice(0, 50),
-      r => `<tr><td class="num">${r.rank}</td><td><strong>${esc(r.t)}</strong></td><td>${esc(r.u || '—')}</td>`
-        + `<td class="num"><strong>${num(r.score, 1)}</strong></td><td class="num">${num(r.coveragePct, 0)}%</td>`
-        + `<td class="num">${num(r.price)}</td>`
-        + `<td class="num ${r.chgPct > 0 ? 'positive' : (r.chgPct < 0 ? 'negative' : '')}">${fmtPct(r.chgPct)}</td>`
-        + `<td class="num">${fmtVnd(r.valueVND)}</td>`
-        + `<td class="num">${num(r.parts?.liquidity, 0)}</td><td class="num">${num(r.parts?.cost, 0)}</td>`
-        + `<td class="num">${r.parts?.valuation === null || r.parts?.valuation === undefined ? '—' : num(r.parts.valuation, 0)}</td>`
-        + `<td class="num">${num(r.parts?.priceQuality, 0)}</td>`
-        + `<td class="num">${r.parts?.consistency === null ? '—' : num(r.parts?.consistency, 0)}</td>`
-        + `<td>${r.nearCeiling ? '<span class="flag">sát trần</span>' : '—'}</td></tr>`)}
+    <div id="scoring-table-host">${scoringTable(scoringRows(sc), sc)}</div>
+    <p class="caption">Hiện 50 mã điểm cao nhất. Bấm tiêu đề cột để sắp xếp theo tiêu chí đó.</p>
 
     <h2>CW tốt nhất theo từng cổ phiếu cơ sở</h2>
     ${simpleTable(['Cơ sở', 'Số CW', 'Mã điểm cao nhất', 'Điểm', 'Trung vị nhóm', 'Giá trị nhóm'], sc.byUnderlying || [],
@@ -811,6 +1015,45 @@ function renderScoring() {
         + `<td>${esc(r.bestTicker)}</td><td class="num"><strong>${num(r.bestScore, 1)}</strong></td>`
         + `<td class="num">${num(r.medianScore, 1)}</td><td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
   `;
+
+  // ── Tương tác: mở/đóng banner + sắp xếp ──
+  const toggle = host.querySelector('#score-detail-toggle');
+  const detail = host.querySelector('#score-detail');
+  if (toggle && detail) {
+    toggle.addEventListener('click', () => {
+      const open = detail.hidden;
+      detail.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.textContent = open ? 'Thu gọn cách tính điểm' : 'Xem chi tiết cách tính điểm';
+    });
+  }
+
+  const resort = () => {
+    const host2 = host.querySelector('#scoring-table-host');
+    if (host2) host2.innerHTML = scoringTable(scoringRows(sc), sc);   // tính lại theo khoá mới
+    bindSort();
+    applyI18n(host);
+  };
+  function bindSort() {
+    host.querySelectorAll('th.sortable').forEach(th => {
+      const activate = () => {
+        const key2 = th.dataset.sort;
+        if (scoringSort.key === key2) {
+          scoringSort.dir = scoringSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          scoringSort.key = key2;
+          scoringSort.dir = SCORING_DEFAULT_DIR[key2] || 'desc';
+        }
+        resort();
+      };
+      th.addEventListener('click', activate);
+      // Bàn phím: tiêu đề là columnheader có tabindex nên phải bấm được bằng Enter/Space.
+      th.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); }
+      });
+    });
+  }
+  bindSort();
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -901,6 +1144,10 @@ const GLOSSARY = [
     ['Điểm CW Score (0–100)',
      'Điểm tổng hợp từ thanh khoản, chi phí giao dịch, định giá, chất lượng giá và độ ổn định. KHÔNG phải khuyến nghị mua/bán.',
      ''],
+    ['"chưa chấm" trong bảng xếp hạng',
+     'Trục chấm điểm mà mã đó chưa có đủ dữ liệu để tính, ví dụ độ ổn định cần ≥5 phiên lịch sử. '
+     + 'Đây KHÔNG phải điểm 0: mã không bị trừ điểm vì thiếu trường, trọng số của trục đó được '
+     + 'tính lại trên phần còn lại (xem Độ phủ).', ''],
     ['Ngưỡng chia nhóm', 'Phân vị của chính snapshot hôm nay, không phải ngưỡng VND cố định — nên nhóm tự điều chỉnh theo mặt bằng thanh khoản từng phiên.', ''],
     ['HHI', 'Chỉ số tập trung: càng cao thì giá trị giao dịch càng dồn vào ít mã.', 'Σ (thị phần)²'],
     ['Top 10', 'Tỷ trọng giá trị giao dịch của 10 mã lớn nhất trên toàn bảng.', ''],
