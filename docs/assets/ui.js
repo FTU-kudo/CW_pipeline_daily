@@ -19,9 +19,9 @@
    --------------------------------------------------------------- */
 export const STRINGS = {
   // Tiêu đề & công cụ
-  'Covered Warrants — Yuanta': 'Covered Warrants — Yuanta',
-  'Bảng giá hiện tại từ endpoint stock_type=EW · dữ liệu được cập nhật theo lịch, không phải realtime':
-    'Current board from the stock_type=EW endpoint · updated on a schedule, not realtime',
+  'Covered Warrants — Quant Analysis': 'Covered Warrants — Quant Analysis',
+  'Bảng giá hiện tại · dữ liệu được cập nhật theo lịch, không phải realtime':
+    'Current board · updated on a schedule, not realtime',
   'Sáng': 'Light',
   'Tối': 'Dark',
   'Ngôn ngữ': 'Language',

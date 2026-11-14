@@ -370,4 +370,4 @@ def test_price_history_within_limit_is_used_and_recorded():
                                underlying_history={"XXX": _history([23000.0] * 30)})
     assert len(priced) == 1
     assert priced.iloc[0]["underlyingPrice"] == 23000.0
-    assert "lịch sử Yuanta" in priced.iloc[0]["underlyingSource"]
+    assert priced.iloc[0]["underlyingSource"].startswith("giá đóng cửa cổ phiếu cơ sở")

@@ -3,15 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Bảng giá chứng quyền snapshot từ API Yuanta.">
-  <title>CW Board — Yuanta</title>
+  <meta name="description" content="Bảng giá chứng quyền — phân tích định lượng.">
+  <title>CW Board — Quant Analysis</title>
   <style>
     /* Bảng màu do ui.css quản lý qua html[data-theme]; ở đây chỉ giữ biến dự phòng. */
     :root{color-scheme:dark;--bg:#0b1118;--panel:#121c27;--line:#263646;--text:#e6edf5;--muted:#93a4b6;--accent:#43d3a0;--warn:#f3c969;--panel-2:#172330;--line-soft:#1e2b39;--accent-soft:rgba(67,211,160,.12);--up:#43d3a0;--down:#ff8a7a;--track:#0e1620}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
     main{max-width:1500px;margin:auto;padding:24px}header{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
     h1{font-size:24px;margin:0 0 4px}.sub,.muted{color:var(--muted)}.stamp{white-space:nowrap;color:var(--accent);font-variant-numeric:tabular-nums}
-    .notice{border:1px solid #725b20;background:#2c2616;color:#f3dfaa;border-radius:10px;padding:12px 14px;margin:18px 0}
     .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0}.toolbar input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px}
     button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--accent)}
     .summary{color:var(--muted);margin-left:auto}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
@@ -50,8 +49,8 @@
   <header>
     <div class="topbar">
       <div class="topbar-left">
-        <h1>Covered Warrants — Yuanta</h1>
-        <div class="sub">Bảng giá hiện tại từ endpoint stock_type=EW · dữ liệu được cập nhật theo lịch, không phải realtime</div>
+        <h1>Covered Warrants — Quant Analysis</h1>
+        <div class="sub">Bảng giá hiện tại · dữ liệu được cập nhật theo lịch, không phải realtime</div>
         <!-- Dòng này trả lời "dữ liệu cập nhật lúc mấy giờ" và dữ liệu cũ bao lâu rồi. -->
         <p class="freshness" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
       </div>
@@ -81,7 +80,6 @@
       </div>
     </div>
   </header>
-  <div class="notice"><strong>Phạm vi dữ liệu:</strong> endpoint Yuanta chỉ trả bảng giá tại thời điểm gọi. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Mã không khớp lệnh không có giá đóng cửa (RefP không được dùng thay). Vẫn không có Greeks, định giá, tín hiệu, khuyến nghị hay backtest vì nguồn không có strike, hạn mức hay chuỗi quá khứ để hiệu chỉnh. Đơn vị đã đối chiếu trên chính payload (TotalVal ≈ TotalVol × AvgP ⇒ VND).</div>
   <div class="stats" id="stats"></div>
   <div class="quality" id="quality" hidden></div>
   <nav class="tabs" id="tabs" role="tablist">
@@ -111,7 +109,7 @@
     <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
   </table></div>
   </section>
-  <footer>Trường dữ liệu mang tên gốc từ API Yuanta. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; mã không giao dịch để trống thay vì dùng lại giá phiên trước. <b>Spread</b> = (S1P − B1P) / giá giữa, chia bước giá 10 VND. <b>Cơ sở</b> trong JSON phân tích suy ra từ quy ước mã, không phải trường của API. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công.</footer>
+  <footer>Trường dữ liệu mang tên gốc từ nguồn bảng giá. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; Mã không khớp lệnh không có giá đóng cửa; ô để trống thay vì dùng lại giá phiên trước. <b>Spread</b> = (S1P − B1P) / giá giữa, chia bước giá 10 VND. <b>Cơ sở</b> trong JSON phân tích suy ra từ quy ước mã, không phải trường của API. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Định giá Black–Scholes và Greeks chỉ có cho mã khớp lệnh và có đủ điều khoản hợp đồng; không phải khuyến nghị và không phải backtest.</footer>
 </main>
 <script type="module">
 import {
@@ -221,7 +219,7 @@ async function loadAnalysis(){
     analysis = null;
     const host = document.querySelector('#quality');
     host.hidden = false;
-    host.innerHTML = `<b>Chưa có lớp phân tích</b> (${esc(error.message)}): bảng vẫn hiển thị trường gốc của Yuanta, chưa có cột suy ra.`;
+    host.innerHTML = `<b>Chưa có lớp phân tích</b> (${esc(error.message)}): bảng vẫn hiển thị trường gốc của nguồn, chưa có cột suy ra.`;
   }
 }
 
@@ -283,7 +281,7 @@ function renderUnderlyings() {
   if (!rows.length) { host.innerHTML = emptyNotice('nhóm cổ phiếu cơ sở'); return; }
   host.innerHTML = `
     <h2>Nhóm theo cổ phiếu cơ sở</h2>
-    <p class="caption">Mã cơ sở suy ra từ quy ước tên CW (C + mã + 4 số), không phải trường do Yuanta công bố. Giá trị tính trên các mã có khớp lệnh.</p>
+    <p class="caption">Mã cơ sở suy ra từ quy ước tên CW (C + mã + 4 số), không phải trường do nguồn công bố. Giá trị tính trên các mã có khớp lệnh.</p>
     ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1))}
     ${simpleTable(['Cơ sở', 'Số CW', 'Có khớp', 'Giá trị', 'Tỷ trọng', 'KL', 'Spread TV', 'Giá TV', 'Tốt nhất', 'Xấu nhất'], rows,
       r => `<tr><td>${esc(r.underlying)}</td><td>${r.warrants}</td><td>${r.traded}</td><td>${fmtVnd(r.valueVND)}</td>`
@@ -455,7 +453,7 @@ function renderBand() {
 function emptyNotice(what) {
   const stamp = analytics?.asof ? ` Dữ liệu phân tích đang có: phiên ${esc(analytics.asof)}.` : '';
   if (!analytics) {
-    return `<div class="empty">Trang không tải được <code>yuanta_analytics.json</code> — file này
+    return `<div class="empty">Trang không tải được tệp phân tích — file này
       chưa được sinh cho lần chạy gần nhất. Workflow publish phải chạy tới bước
       <em>Append session bar</em> thì file mới tồn tại; nếu lần chạy gần nhất dùng code cũ
       (trước khi có bước đó), bấm <em>Run workflow</em> để sinh lại.</div>`;
@@ -484,7 +482,7 @@ function renderValuation() {
       Black–Scholes–Merton (quyền chọn mua kiểu châu Âu), dùng điều khoản hợp đồng từ
       <a href="https://github.com/FTU-kudo/Vietstock_CW_bot" target="_blank" rel="noopener">Vietstock_CW_bot</a>:
       strike, tỷ lệ chuyển đổi, ngày đáo hạn. Giá cổ phiếu cơ sở <em>S</em> lấy từ lịch sử
-      giá đóng cửa thật của Yuanta khi đã tải được mã đó; mã chưa có lịch sử thì suy từ chính
+      giá đóng cửa thật của cổ phiếu cơ sở khi đã tải được mã đó; mã chưa có lịch sử thì suy từ chính
       điều khoản (premium và đòn bẩy, kiểm chứng chéo lẫn nhau, lệch quá 1% thì loại).
       Cột <em>Nguồn S</em> ở bảng dưới ghi rõ từng mã dùng nguồn nào.</p>
     <p class="caption"><strong>Vì sao loại ${num((val.excluded || {})['S hai nguồn lệch quá biên giá (±7%)'] || 0, 0)} mã.</strong>
@@ -506,7 +504,7 @@ function renderValuation() {
       return `<div class="card">
         <h3>IV − HV: mức bù rủi ro thị trường đang tính</h3>
         <p class="caption">HV (biến động thực hiện) tính từ chuỗi giá đóng cửa thật của cổ phiếu
-          cơ sở do Yuanta cung cấp — không phải ước lượng từ giá CW. Chênh lệch theo điểm
+          cơ sở do nguồn cung cấp — không phải ước lượng từ giá CW. Chênh lệch theo điểm
           phần trăm: dương nghĩa là người mua CW đang trả cho biến động cao hơn mức cổ phiếu
           thực sự biến động.</p>
         <p class="caption"><strong>Trung vị ${num(ivhv.medianIvMinusHv, 1)} điểm</strong>
@@ -651,12 +649,12 @@ try {
   document.querySelector('#search').addEventListener('input',render);
   document.querySelector('#download').addEventListener('click',()=>{
     const blob = new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='yuanta-ew-snapshot.json';a.click();URL.revokeObjectURL(a.href);
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cw-snapshot.json';a.click();URL.revokeObjectURL(a.href);
   });
   render();
 } catch(error) {
   document.querySelector('#stamp').textContent='Snapshot chưa có';
-  document.querySelector('#rows').innerHTML=`<tr><td colspan="22" id="state">Không tải được snapshot Yuanta: ${esc(error.message)}. Workflow cần lấy thành công trước khi Pages có dữ liệu.</td></tr>`;
+  document.querySelector('#rows').innerHTML=`<tr><td colspan="22" id="state">Không tải được snapshot: ${esc(error.message)}. Workflow cần lấy thành công trước khi Pages có dữ liệu.</td></tr>`;
 }
 
 [analytics, sessions] = await Promise.all([
