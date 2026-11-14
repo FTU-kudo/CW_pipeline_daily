@@ -410,3 +410,4 @@ def test_ui_module_behaviour_in_node(tmp_path):
     assert out["next"] == "10:25:31", "đồng hồ phải nhích từng giây"
     assert out["weekend"] == "weekend"
     assert out["holiday"] == "holiday", "ngày lễ phải được nhận ra, không phải 'đang khớp lệnh'"
+

@@ -61,6 +61,14 @@ COLUMNS: tuple[str, ...] = (
     "strike", "ratio", "maturity", "daysToMaturity",
     "underlyingPrice", "cwClose", "premiumPct", "leverage",
     "crosscheckPct", "crosscheckOk", "termsSource", "importedAt",
+    # Hai cột dưới đây là hệ **đã điều chỉnh** của cùng hợp đồng. CW Việt Nam điều chỉnh
+    # strike và tỷ lệ chuyển đổi mỗi khi cổ phiếu cơ sở chia thưởng/cổ tức, nên cặp
+    # (`strike`, `ratio`) ở trên là hệ *gốc* và KHÔNG ghép được với giá đóng cửa thật.
+    # Để trống khi nguồn không trả — engine sẽ tự dựng lại từ chênh lệch giá.
+    "strikeAdjusted", "ratioAdjusted",
+    # Ngày đáo hạn là cột riêng, KHÔNG phải ngày giao dịch cuối cùng. Hai ngày này lệch nhau
+    # vài ngày; dùng sai làm T lệch theo, kéo theta/vega lệch trên toàn bộ mã.
+    "maturityAdjusted",
 )
 
 
@@ -149,7 +157,12 @@ def terms_from_records(records: list[dict], session: str) -> list[dict]:
             continue
         strike = _num(rec.get("gia_thuc_hien"))
         ratio = parse_ratio(rec.get("ty_le_chuyen_doi"))
-        maturity = parse_maturity(rec.get("ngay_gd_cuoi_cung"))
+        # Ngày đáo hạn thật. Nguồn có cả `ngay_dao_han` và `ngay_gd_cuoi_cung`; chỉ khi thiếu
+        # ngày đáo hạn mới lùi về ngày giao dịch cuối cùng, và điều đó được đánh dấu.
+        maturity_real = parse_maturity(rec.get("ngay_dao_han"))
+        maturity = maturity_real or parse_maturity(rec.get("ngay_gd_cuoi_cung"))
+        strike_adj = _num(rec.get("gia_th_dieu_chinh")) or None
+        ratio_adj = parse_ratio(rec.get("tlcd_dieu_chinh"))
         cw_close = _num(rec.get("gia_hien_tai"))
         premium = _num(rec.get("premium"))
         leverage = _num(rec.get("don_bay"))
@@ -176,6 +189,12 @@ def terms_from_records(records: list[dict], session: str) -> list[dict]:
                              and crosscheck <= S_CROSSCHECK_TOLERANCE_PCT),
             "termsSource": "vietstock",
             "importedAt": imported,
+            "strikeAdjusted": round(strike_adj, 4) if strike_adj else None,
+            "ratioAdjusted": round(ratio_adj, 6) if ratio_adj else None,
+            # Chỉ điền khi nguồn thật sự có `ngay_dao_han`. Để trống nếu thiếu, KHÔNG chép
+            # đè bằng ngày giao dịch cuối cùng — hai ngày khác nhau và việc lẫn chúng chính
+            # là lỗi mà cột này sinh ra để tránh.
+            "maturityAdjusted": maturity_real.isoformat() if maturity_real else None,
         })
     return rows
 
@@ -223,6 +242,8 @@ def report_quality(frame: pd.DataFrame) -> dict:
         "maturity": int(frame["maturity"].isna().sum()),
         "underlyingPrice": int(frame["underlyingPrice"].isna().sum()),
         "crosscheckFailed": int((~frame["crosscheckOk"].fillna(False)).sum()),
+        "strikeAdjusted": int(frame["strikeAdjusted"].notna().sum()),
+        "ratioAdjusted": int(frame["ratioAdjusted"].notna().sum()),
     }
     return {
         "rows": int(len(frame)),
@@ -254,9 +275,9 @@ def to_vietstock_cache(frame: pd.DataFrame, path: Path) -> Path:
         "ngay_gd_cuoi_cung": pd.to_datetime(usable["maturity"], errors="coerce"),
         "ngay_dao_han": pd.to_datetime(usable["maturity"], errors="coerce"),
         "gia_thuc_hien": usable["strike"],
-        "gia_th_dieu_chinh": pd.NA,
+        "gia_th_dieu_chinh": usable["strikeAdjusted"],
         "ty_le_chuyen_doi": usable["ratio"],
-        "tlcd_dieu_chinh": pd.NA,
+        "tlcd_dieu_chinh": usable["ratioAdjusted"],
         "kl_niem_yet": pd.NA,
         "kl_luu_hanh": pd.NA,
         "thoi_han": pd.NA,

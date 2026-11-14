@@ -219,6 +219,19 @@ lượng luôn bằng nhau và tỷ lệ luôn ≈ 0 — vô dụng. Thay vào �
 mã so với trung vị IV các CW **cùng cổ phiếu cơ sở**. Cùng rủi ro nền, khác mức bù rủi ro →
 so sánh được. Nhóm dưới 5 mã thì không chấm (trung vị 2 quan sát không đáng tin).
 
+**Đọc `termsBasis` trước khi tin Greeks.** Mỗi dòng có `termsBasis` cho biết điều khoản đã được
+quy về hệ giá thật bằng cách nào, và `correctionFactor` là hệ số `f` đã dùng:
+
+| `termsBasis` | Nghĩa | Tin được gì |
+|---|---|---|
+| `điều chỉnh từ nguồn` | Nguồn trả `gia_th_dieu_chinh` + `tlcd_dieu_chinh` | Tất cả — chuẩn nhất |
+| `dựng lại từ chênh lệch giá` | Suy `f` từ `S_nguồn / S_thật` | IV, giá, Greeks (sai số <0,2%) |
+| `gốc, chưa điều chỉnh` | Không có `f` đáng tin | Chỉ khi `f ≈ 1`, tức mã không bị điều chỉnh |
+
+`f` quá lớn (ngoài 0,5–4,0) bị coi là nguồn dùng giá cũ quá xa chứ không phải điều chỉnh thật;
+những mã đó giữ nhãn `gốc, chưa điều chỉnh` và nếu vẫn lệch >±7% thì bị loại chứ không định giá
+liều.
+
 **Giới hạn mô hình.** BS giả định quyền chọn châu Âu, không cổ tức. CW Việt Nam có điều khoản
 đặc thù (chốt giá, điều chỉnh khi chia cổ tức) mà mô hình không mô tả, nên `bsPrice` chỉ dùng
 để xếp hạng tương đối, không phải giá mục tiêu. Lãi suất phi rủi ro là hằng số cấu hình
@@ -267,14 +280,49 @@ Các tỉ lệ này gần đúng hệ số điều chỉnh cổ tức/thưởng 
 dụ rõ nhất ở ACB: 6 mã có S suy ra ≈23.600 với strike 24.800–31.800 (phát hành trước chia),
 16 mã có S suy ra ≈20.350 khớp giá thật.
 
-Hệ quả: **không thể định giá nhóm chưa điều chỉnh** — strike quá cao so với giá thật thì IV bị
-đẩy lên vô lý (HDB: 49,4% → 90,1%; TCB: 39,1% → 52,4%). Vì vậy `price_warrants` **loại** mã
-nào có S suy ra lệch S thật quá **±7%** — biên độ tối đa một phiên của cổ phiếu Việt Nam, nên
-lệch quá mức đó chắc chắn là một nguồn dùng giá cũ, không phải biến động thật. Ngày 2026-11-13:
-**250/353 mã định giá được**, 100 mã bị loại vì lý do này.
+Hệ quả trước đây: **không thể định giá nhóm chưa điều chỉnh** — strike quá cao so với giá thật
+thì IV bị đẩy lên vô lý (HDB: 49,4% → 90,1%; TCB: 39,1% → 52,4%). Cách xử lý cũ là **loại** mã
+nào có S suy ra lệch S thật quá ±7%, khiến ngày 2026-11-13 chỉ còn **250/353 mã định giá được**.
 
-Loại chứ không đoán: dùng S thật với strike chưa điều chỉnh sẽ cho IV trông hợp lệ nhưng sai
-hoàn toàn — đúng loại lỗi tệ nhất vì không có gì báo động.
+### Quy điều khoản về cùng hệ quy chiếu — sửa gốc, không loại mã
+
+Cách xử lý cũ sai ở chỗ coi đây là *dữ liệu hỏng*. Không phải: nó là **CW đã được điều chỉnh**
+trong khi nguồn vẫn trả cặp gốc. Trang chi tiết của nguồn xác nhận điều này cho CACB2515:
+
+| Trường trên trang Vietstock | Giá trị |
+|---|---|
+| Giá thực hiện (gốc) | 31.800 |
+| **Giá TH điều chỉnh** | **27.420** |
+| Tỷ lệ chuyển đổi (gốc) | 2 : 1 |
+| **TLCĐ điều chỉnh** | **1,7245 : 1** |
+
+Nên `resolve_terms()` quy điều khoản về **cùng hệ với giá cổ phiếu đang dùng**, theo ba mức
+ưu tiên:
+
+1. **`điều chỉnh từ nguồn`** — dùng `gia_th_dieu_chinh` + `tlcd_dieu_chinh` nếu kho có.
+2. **`dựng lại từ chênh lệch giá`** — nhân nghịch đảo hệ số `f = S_nguồn / S_thật`. Kiểm chứng:
+   CACB2515 cho K = 27.419,6 và n = 1,7245, **khớp chính xác** trang nguồn (27.420 · 1,7245).
+3. **`gốc, chưa điều chỉnh`** — không có `f` đáng tin; giữ nguyên và **loại** nếu vẫn lệch
+   quá ±7%, vì lúc đó hai hệ không ghép được với nhau.
+
+**Vì sao dựng lại an toàn cho IV:** IV và giá CW **bất biến** theo hệ quy chiếu (kiểm chứng:
+40,0868% so với 40,0866% — lệch 0,0002 điểm). Nhưng **Greeks thì không**: delta lệch đúng hệ số
+`f` (16% với CACB2515), gamma lệch `f²`. Nên dựng lại không làm sai IV, nó *bắt buộc* để Greeks
+đúng hệ.
+
+Kết quả ngày 2026-11-13: **350/353 mã định giá được** (trước: 250), IV trung vị 48,5%, không mã
+nào vượt 300%. Mỗi dòng kết quả mang thêm `termsBasis` và `correctionFactor` để người đọc biết
+con số đến từ đâu — không có phép quy đổi nào là im lặng.
+
+**Ngày đáo hạn không phải ngày giao dịch cuối cùng.** Hai ngày lệch nhau vài ngày (CACB2515:
+GD cuối 04/03/2027, đáo hạn 08/03/2027). Dùng sai làm `T` lệch theo, kéo theta/vega lệch trên
+toàn bộ mã. Cột `maturityAdjusted` chỉ được điền khi nguồn thật sự có `ngay_dao_han`; nếu thiếu
+thì để trống chứ **không** chép đè bằng ngày giao dịch cuối cùng.
+
+Còn một việc nằm ngoài repo này: kho Vietstock hiện **chưa có** cả ba trường trên, vì
+`src/export_json.py` của `Vietstock_CW_bot` parse chúng trong scraper nhưng bỏ rơi ở bước export.
+Đã sửa ở repo đó; khi workflow bên đó chạy lại, kho sẽ có dữ liệu điều chỉnh và bước 1 sẽ thay
+thế bước 2.
 
 **Không nội suy phiên thiếu.** Phiên nguồn không trả về thì để trống và ghi vào `missing` —
 nội suy sẽ làm HV thấp giả tạo, đúng loại lỗi khó phát hiện nhất. Phiên `Volume = 0` vẫn được
