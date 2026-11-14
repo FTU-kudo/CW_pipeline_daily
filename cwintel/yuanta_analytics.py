@@ -341,6 +341,7 @@ def _attach_tiers(frame: pd.DataFrame, liquidity: dict) -> pd.DataFrame:
 def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                     terms: pd.DataFrame | None = None,
                     underlying_history: dict | None = None,
+                    yield_curve=None,
                     asof: str | None = None) -> dict:
     """Gói toàn bộ phân tích mở rộng thành dict JSON-safe."""
     if frame is None or frame.empty:
@@ -373,7 +374,8 @@ def build_analytics(frame: pd.DataFrame, *, history: pd.DataFrame | None = None,
                                               "reason": "Chưa nạp điều khoản hợp đồng."}
     if terms is not None and not terms.empty and asof:
         priced, valuation_diag = price_warrants(
-            frame, terms, session=asof, underlying_history=underlying_history)
+            frame, terms, session=asof, underlying_history=underlying_history,
+            yield_curve=yield_curve)
 
     return {
         "schemaVersion": 1,

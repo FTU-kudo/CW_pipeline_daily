@@ -34,6 +34,7 @@ from cwintel.yuanta_analytics import build_analytics  # noqa: E402
 from cwintel.yuanta_board import BoardIntegrityError, clean_board, write_json  # noqa: E402
 from cwintel import yuanta_detail  # noqa: E402
 from cwintel import yuanta_underlying as hist_underlying  # noqa: E402
+from cwintel import yield_curve  # noqa: E402
 from cwintel.yuanta_intraday import ref_continuity  # noqa: E402
 from scripts.analyze_yuanta_warrants import extract_rows  # noqa: E402
 from scripts.yuanta_client import YuantaHTTPError, fetch_board  # noqa: E402
@@ -93,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--terms", type=Path, default=ROOT / "data" / "cw_terms" / "vietstock_terms.csv",
                         help="bảng điều khoản (strike/ratio/đáo hạn) từ Vietstock; thiếu thì "
                              "không định giá, phần còn lại vẫn chạy")
+    parser.add_argument("--yield-curve", type=Path,
+                        default=ROOT / "data" / "bond_yield" / "yield_curve.csv",
+                        help="đường cong lợi suất TPCP (HNX spot_continuous); thiếu thì lãi "
+                             "suất phi rủi ro lùi về hằng số cấu hình và được ghi rõ")
     parser.add_argument("--cwintel-cache", type=Path, default=None,
                         help="xuất parquet OHLCV theo schema cwintel (tuỳ chọn)")
     parser.add_argument("--limit", type=int, default=hist.SERIES_LIMIT,
@@ -150,8 +155,15 @@ def main(argv: list[str] | None = None) -> int:
             series = hist_underlying.load_store(args.underlying_store, path.stem)
             if series is not None and not series.empty:
                 underlyings[path.stem.upper()] = series
+    # Lãi suất phi rủi ro: đường cong TPCP của đúng phiên nếu có. Thiếu thì `yield_curve`
+    # là None và engine tự lùi về hằng số, ghi rõ nguồn cho từng dòng — không im lặng.
+    curve = yield_curve.load_curve(args.yield_curve) if args.yield_curve else None
+    if curve is None:
+        print(f"CẢNH BÁO: không có đường cong lợi suất ở {args.yield_curve}; "
+              "lãi suất phi rủi ro sẽ là hằng số cấu hình.", file=sys.stderr)
     analytics = build_analytics(frame, history=history, terms=terms,
                                 underlying_history=underlyings or None,
+                                yield_curve=curve,
                                 asof=snapshot_session.iso)
 
     write_json(sessions_payload, args.sessions_out)
@@ -224,8 +236,13 @@ def main(argv: list[str] | None = None) -> int:
         excluded = valuation.get("excluded") or {}
         if excluded:
             print("  Loại khỏi định giá: " + ", ".join(f"{k}: {v}" for k, v in excluded.items()))
-        print(f"  Lãi suất phi rủi ro {valuation.get('riskFree')} — tham số cấu hình, "
-              "không phải số liệu thị trường")
+        curve_info = valuation.get("yieldCurve") or {}
+        if curve_info.get("available"):
+            print(f"  Lãi suất phi rủi ro: nội suy đường cong TPCP HNX {curve_info['session']} "
+                  f"(1Y neo {curve_info.get('anchored1YPct')}%) theo kỳ hạn từng mã")
+        else:
+            print(f"  Lãi suất phi rủi ro {valuation.get('riskFree')} — hằng số cấu hình "
+                  "(không có đường cong cho phiên này)")
         ivhv = valuation.get("ivVsHv") or {}
         if ivhv.get("available"):
             print(f"  IV − HV: trung vị {ivhv['medianIvMinusHv']:+.2f} điểm "

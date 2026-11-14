@@ -226,6 +226,12 @@ function valuationSection(row) {
     ]),
     [bi('Giá cổ phiếu cơ sở', 'Underlying price'), num(val.underlyingPrice)],
     [bi('Nguồn giá cơ sở', 'Underlying price source'), esc(val.underlyingSource)],
+    // Lãi suất phi rủi ro thực dùng cho mã này — khác nhau theo kỳ hạn, nên hiển thị riêng
+    // từng mã thay vì một con số chung cho cả bảng.
+    [bi('Lãi suất phi rủi ro', 'Risk-free rate'),
+      val.riskFree === null || val.riskFree === undefined ? null
+        : `${num(val.riskFree * 100, 4)}%`,
+      bi('Đường cong TPCP HNX', 'HNX bond yield curve')],
     [bi('IV (biến động ẩn)', 'IV (implied volatility)'),
       iv === null || iv === undefined ? null : `${num(iv, 2)}%`],
     [bi('HV 21 phiên', 'HV 21 sessions'),

@@ -198,7 +198,10 @@ def test_price_warrants_warns_risk_free_is_a_config_constant():
     frame = _cw([_cw_row()])
     _, diag = price_warrants(frame, _terms([_term_row()]), session="2026-11-13")
     assert diag["riskFree"] == config.DEFAULT_RISK_FREE
-    assert "THAM SỐ PHẦN MỀM" in diag["riskFreeSource"]
+    # Có đường cong thì không rơi vào nhánh này; ở đây không truyền `yield_curve` nên vẫn
+    # phải cảnh báo rằng con số là tham số phần mềm, không phải số liệu thị trường.
+    assert "Tham số phần mềm" in diag["riskFreeSource"]
+    assert diag["riskFreeByTenor"] is False
     assert "KHÔNG phải dự báo" in diag["ivInterpretation"]
 
 

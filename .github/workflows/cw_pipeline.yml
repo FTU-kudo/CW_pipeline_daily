@@ -90,6 +90,15 @@ jobs:
           python scripts/import_vietstock_terms.py --source /tmp/vietstock_cw_bot \
             || echo "::warning::Nhập điều khoản thất bại — giữ bảng cũ nếu có"
 
+      # Đường cong lợi suất TPCP từ repo VN_Bond_Yield_pipeline: biến `r` từ hằng số
+      # (0,0444) thành số liệu thị trường, nội suy theo đúng kỳ hạn từng CW.
+      # Không bắt buộc: thiếu thì engine lùi về hằng số và ghi rõ nguồn trong payload.
+      - name: Sync Vietnam government bond yield curve
+        continue-on-error: true
+        run: |
+          python scripts/sync_bond_yield.py --clone \
+            || echo "::warning::Không đồng bộ được đường cong TPCP — lãi suất phi rủi ro sẽ dùng hằng số"
+
       # Lịch sử OHLCV cổ phiếu cơ sở (2010 → hôm nay): cho S trực tiếp và HV thật để so IV.
       # Chạy sau snapshot vì danh sách cơ sở lấy từ bảng giá. Lỗi ở đây không được làm đỏ job:
       # thiếu lịch sử thì S quay về suy từ Vietstock và phần IV−HV tự tắt.
@@ -116,6 +125,7 @@ jobs:
           git add -f data/cw_history/*.csv 2>/dev/null || true
           git add -f data/cw_terms/*.csv 2>/dev/null || true
           git add -f data/underlying_history/*.parquet 2>/dev/null || true
+          git add -f data/bond_yield/*.csv 2>/dev/null || true
           # CSV là dữ liệu nguồn dẫn xuất: đính kèm vào lần chạy, không commit vào Git.
           if git diff --cached --quiet; then
             echo "Snapshot unchanged; no commit needed."
