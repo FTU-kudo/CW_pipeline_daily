@@ -14,8 +14,8 @@
     .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0}.toolbar input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px}
     button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--accent)}
     .summary{color:var(--muted);margin-left:auto}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-    table{border-collapse:collapse;width:100%;min-width:1200px;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#172330;color:#b7c7d7;font-weight:600;z-index:1}
-    th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}th:first-child{z-index:2;background:#172330}td:first-child{font-weight:700;color:var(--accent)}
+    table{border-collapse:collapse;width:100%;min-width:1200px;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:var(--th-bg);color:var(--th-text);font-weight:600;z-index:1}
+    th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}th:first-child{z-index:2;background:var(--th-bg)}td:first-child{font-weight:700;color:var(--accent)}
     tr:hover td{background:var(--row-hover)}td:first-child a{color:var(--accent);text-decoration:none}details{text-align:left;white-space:normal;min-width:150px}summary{cursor:pointer;color:#a9c8df}pre{max-width:460px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#091019;padding:10px;border-radius:6px;color:#d7e2ed;font-size:12px}
     #state{padding:26px;text-align:center;color:var(--muted)}
     .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 6px}
@@ -123,11 +123,34 @@
     <button id="f-reset" type="button" class="ghost">Xoá lọc</button>
   </div>
   <div class="table-wrap"><table>
-    <thead><tr><th>Mã</th><th>RefP</th><th>CeilingP</th><th>FloorP</th><th>OpenP</th><th>HighestP</th><th>LowestP</th><th>AvgP</th><th>LastMP</th><th>LastMVol</th><th>TotalVol</th><th>TotalVal</th><th>FTBuyVol</th><th>FTSellVol</th><th>FRoom</th><th>Giá (VND)</th><th>%Ngày</th><th>Spread (bước giá)</th><th>Tỷ trọng GT</th><th>Bid 1–3</th><th>Ask 1–3</th><th>Payload</th></tr></thead>
+    <thead><tr>
+      <th>Mã CW</th>
+      <th title="Giá đóng cửa phiên trước (nguồn: RefP)">Giá tham chiếu</th>
+      <th title="Giá trần trong phiên, đọc từ nguồn (nguồn: CeilingP)">Giá trần</th>
+      <th title="Giá sàn trong phiên, đọc từ nguồn (nguồn: FloorP)">Giá sàn</th>
+      <th title="Giá khớp lệnh đầu tiên của phiên (nguồn: OpenP)">Giá mở cửa</th>
+      <th title="Giá khớp cao nhất trong phiên (nguồn: HighestP)">Giá cao nhất</th>
+      <th title="Giá khớp thấp nhất trong phiên (nguồn: LowestP)">Giá thấp nhất</th>
+      <th title="Giá khớp bình quân của cả phiên (nguồn: AvgP)">Giá bình quân</th>
+      <th title="Giá của lệnh khớp cuối cùng (nguồn: LastMP)">Giá khớp cuối</th>
+      <th title="Khối lượng của riêng lệnh khớp cuối (nguồn: LastMVol)">KL khớp cuối</th>
+      <th title="Tổng khối lượng khớp trong phiên (nguồn: TotalVol)">Tổng KL</th>
+      <th title="Tổng giá trị khớp trong phiên, đơn vị VND (nguồn: TotalVal)">Tổng giá trị</th>
+      <th title="Khối lượng khối ngoại mua (nguồn: FTBuyVol)">KL ngoại mua</th>
+      <th title="Khối lượng khối ngoại bán (nguồn: FTSellVol)">KL ngoại bán</th>
+      <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)">Room ngoại</th>
+      <th>Giá (VND)</th>
+      <th title="Thay đổi so với giá tham chiếu (nguồn: refChangePct)">% trong ngày</th>
+      <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)">Chênh lệch mua–bán</th>
+      <th title="Phần trăm giá trị giao dịch của mã trên toàn bảng">Tỷ trọng GT</th>
+      <th title="Ba mức giá mua tốt nhất và khối lượng (nguồn: B1–B3)">Giá mua 1–3</th>
+      <th title="Ba mức giá bán tốt nhất và khối lượng (nguồn: S1–S3)">Giá bán 1–3</th>
+      <th title="Toàn bộ trường gốc nguồn trả về">Dữ liệu gốc</th>
+    </tr></thead>
     <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
   </table></div>
   </section>
-  <footer>Trường dữ liệu mang tên gốc từ nguồn bảng giá. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; Mã không khớp lệnh không có giá đóng cửa; ô để trống thay vì dùng lại giá phiên trước. <b>Spread</b> = (S1P − B1P) / giá giữa, chia bước giá 10 VND. <b>Cơ sở</b> trong JSON phân tích suy ra từ quy ước mã, không phải trường của API. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Định giá Black–Scholes và Greeks chỉ có cho mã khớp lệnh và có đủ điều khoản hợp đồng; không phải khuyến nghị và không phải backtest.</footer>
+  <footer>Tên cột đã được đổi sang cách gọi thường dùng của nhà đầu tư; tên trường gốc của nguồn vẫn ghi trong <b>chú thích khi rê chuột lên tiêu đề</b> và trong tab Thuật ngữ, để người đối chiếu dữ liệu vẫn tra được. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; mã không khớp lệnh không có giá đóng cửa, ô để trống thay vì dùng lại giá phiên trước. <b>Chênh lệch mua–bán</b> = (giá bán thấp nhất − giá mua cao nhất) / bước giá 10 VND. <b>Cơ sở</b> trong dữ liệu phân tích được suy ra từ quy ước đặt tên mã, không phải trường có sẵn của nguồn. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Định giá Black–Scholes và các chỉ số độ nhạy chỉ có cho mã khớp lệnh và có đủ điều khoản hợp đồng; không phải khuyến nghị và không phải backtest.</footer>
 </main>
 <script type="module">
 import {
@@ -357,7 +380,7 @@ const fmtVnd = (v) => v === null || v === undefined ? '—'
   : v >= 1e9 ? `${(v / 1e9).toFixed(2)} tỷ` : v >= 1e6 ? `${(v / 1e6).toFixed(1)} tr`
   : v.toLocaleString('vi-VN');
 const fmtPct = (v, d = 2) => v === null || v === undefined ? '—' : `${v.toFixed(d)}%`;
-// Giá trị có thể rất lớn (dải trần–sàn khi FloorP = 10 VND) — vẫn in bình thường, chỉ thêm
+// Giá trị có thể rất lớn (dải trần–sàn khi giá sàn = 10 VND) — vẫn in bình thường, chỉ thêm
 // dấu phân cách nghìn để đọc được; KHÔNG cắt bớt hay đổi đơn vị.
 const medianKnown = (v) => (v === null || v === undefined || Number.isNaN(v)) ? null : Number(v);
 const tierClass = (chg) => chg > 0 ? 'positive' : chg < 0 ? 'negative' : '';
@@ -427,7 +450,7 @@ function renderStale() {
     <p class="caption">${stale.historyAvailable
       ? 'Số phiên im lặng đếm trên kho lịch sử đã tích luỹ.'
       : 'Chưa đủ lịch sử để đếm số phiên im lặng — chỉ biết trạng thái phiên này.'} ${esc(stale.note)}</p>
-    ${simpleTable(['Mã', 'Cơ sở', 'RefP', 'Bid', 'Ask', 'Phiên im lặng', 'Cảnh báo'], stale.rows,
+    ${simpleTable(['Mã', 'Cơ sở', 'Giá tham chiếu', 'Giá mua', 'Giá bán', 'Số phiên im lặng', 'Cảnh báo'], stale.rows,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.refPrice ?? '—'}</td>`
         + `<td>${r.bid ?? '—'}</td><td>${r.ask ?? '—'}</td><td>${r.sessionsIdle ?? 'chưa xác định'}</td>`
         + `<td class="flag">${esc((r.flags || []).join(' · '))}</td></tr>`, 'Không có mã nào không giao dịch')}
@@ -504,14 +527,14 @@ function renderIntraday() {
   const s2 = block.summary || {};
   host.innerHTML = `
     <h2>Biên độ trong phiên</h2>
-    <p class="caption">Tính trên đúng các trường của nguồn: OpenP, HighestP, LowestP, LastMP. Mẫu số là
-      <strong>RefP — giá đóng cửa phiên trước</strong>, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap.
+    <p class="caption">Tính trên bốn mốc giá của phiên: mở cửa, cao nhất, thấp nhất và giá khớp cuối. Mẫu số là
+      <strong>giá tham chiếu — giá đóng cửa phiên trước</strong>, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap.
       Trung vị biên độ ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} bước giá;
       ${num(s2.countFlatSession, 0)} mã tham chiều cả phiên (biên độ 0).</p>
-    <p class="caption">Vị trí giá đóng cửa trong khoảng [LowestP, HighestP]: <strong>${num(s2.countCloseInUpperHalf, 0)}</strong>
+    <p class="caption">Vị trí giá khớp cuối trong khoảng thấp nhất–cao nhất của phiên: <strong>${num(s2.countCloseInUpperHalf, 0)}</strong>
       mã đóng ở nửa trên, <strong>${num(s2.countCloseInLowerHalf, 0)}</strong> mã đóng ở nửa dưới.
       0 = đóng ở đáy, 1 = đóng ở đỉnh. Đây là mô tả phiên đã xảy ra, không phải tín hiệu.</p>
-    ${simpleTable(['Mã', 'Cơ sở', 'RefP', 'Mở', 'Cao', 'Thấp', 'Đóng', 'Biên độ', 'Bước giá', 'Vị trí đóng', '%Ngày', 'Giá trị'], block.rows,
+    ${simpleTable(['Mã', 'Cơ sở', 'Giá tham chiếu', 'Mở cửa', 'Cao nhất', 'Thấp nhất', 'Khớp cuối', 'Biên độ', 'Bước giá', 'Vị trí khớp cuối', '% trong ngày', 'Giá trị'], block.rows,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td class="num">${num(r.ref)}</td>`
         + `<td class="num">${num(r.open)}</td><td class="num">${num(r.high)}</td><td class="num">${num(r.low)}</td>`
         + `<td class="num">${num(r.close)}</td><td class="num">${fmtPct(r.rangePct, 1)}</td>`
@@ -520,7 +543,7 @@ function renderIntraday() {
         + `<td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
     ${last?.available ? `
       <h2>Chất lượng lệnh khớp cuối</h2>
-      <p class="caption">LastMVol là khối lượng của <em>riêng lệnh khớp cuối</em>. Trung vị
+      <p class="caption">Cột KL khớp cuối là khối lượng của <em>riêng lệnh khớp cuối</em>. Trung vị
         ${fmtPct(last.summary.medianLastSharePct, 1)} khối lượng phiên; <strong>${num(last.summary.countSingleTradeClose, 0)}
         / ${num(last.summary.countTraded, 0)}</strong> mã (${fmtPct(last.summary.singleTradeSharePct, 1)}) đóng cửa
         bằng đúng một lệnh — giá đóng cửa của các mã này kém đại diện cho cả phiên.</p>
@@ -531,7 +554,7 @@ function renderIntraday() {
   `;
 }
 
-// ── Trần–sàn: đọc thẳng CeilingP/FloorP, không suy ra ±7% ──
+// ── Trần–sàn: đọc thẳng giá trần/sàn của nguồn, không suy ra ±7% ──
 function renderBand() {
   const host = document.querySelector('#view-band');
   const block = analytics?.priceBand;
@@ -543,10 +566,10 @@ function renderBand() {
   const s2 = block.summary || {};
   host.innerHTML = `
     <h2>Khoảng cách tới trần / sàn</h2>
-    <p class="caption">CeilingP và FloorP <strong>đọc trực tiếp từ nguồn</strong>, không suy ra bằng công thức.
+    <p class="caption">Giá trần và giá sàn <strong>đọc trực tiếp từ nguồn</strong>, không suy ra bằng công thức.
       Tỷ lệ dải trần–sàn không cố định: trong snapshot này trung vị ${num(medianKnown(s2.medianBandPct), 1)}%,
       trải từ ${num(medianKnown(s2.minBandPct), 1)}% tới ${num(medianKnown(s2.maxBandPct), 1)}% — vì giá CW
-      có thể xuống sát bước giá tối thiểu (FloorP = 10 VND). Vì thế không bao giờ dùng ±7%.</p>
+      có thể xuống sát bước giá tối thiểu (giá sàn 10 VND). Vì thế không bao giờ dùng ±7%.</p>
     <p class="caption">Chạm trần: <strong>${num(s2.countAtCeiling, 0)}</strong> mã
       ${s2.atCeiling?.length ? `(${esc(s2.atCeiling.join(', '))})` : ''} ·
       chạm sàn: <strong>${num(s2.countAtFloor, 0)}</strong> mã
@@ -558,16 +581,16 @@ function renderBand() {
         + `<td class="num">${num(medianKnown(r.bandPct), 0)}%</td><td class="num">${fmtPct(r.toCeilingPct, 1)}</td>`
         + `<td class="num">${num(r.toCeilingTicks, 1)}</td><td class="num">${fmtPct(r.toFloorPct, 1)}</td>`
         + `<td>${r.atCeiling ? '<span class="flag">chạm trần</span>' : (r.atFloor ? '<span class="flag">chạm sàn</span>' : '—')}</td></tr>`)}
-    <h2>Kiểm tra liên tục bằng RefP</h2>
+    <h2>Kiểm tra liên tục bằng giá tham chiếu</h2>
     ${cont?.available
-      ? `<p class="caption">So <strong>RefP hôm nay</strong> với <strong>close phiên liền trước trong kho</strong>
+      ? `<p class="caption">So <strong>giá tham chiếu hôm nay</strong> với <strong>giá đóng cửa phiên liền trước trong kho</strong>
           (${esc(cont.prevSession)}). Khớp: ${num(cont.summary.linked, 0)}/${num(cont.summary.checked, 0)}
           (${fmtPct(cont.summary.linkedPct, 1)}) · lệch &gt; ${num(cont.summary.tolerancePct, 0)}%:
           ${num(cont.summary.mismatch, 0)} · thiếu phiên: ${num(cont.summary.missingSession, 0)} ·
           không có close để so: ${num(cont.summary.untradedRef, 0)} →
           <strong>${esc(cont.summary.verdict)}</strong></p>
         <p class="caption">${esc(cont.summary.basis)}</p>`
-      : `<div class="empty">${esc(cont?.reason || 'Chưa có phiên trước trong kho để đối chiếu RefP.')}</div>`}
+      : `<div class="empty">${esc(cont?.reason || 'Chưa có phiên trước trong kho để đối chiếu giá tham chiếu.')}</div>`}
   `;
 }
 
@@ -762,19 +785,22 @@ const GLOSSARY = [
      'Điều khoản đã được quy về hệ giá nào. "điều chỉnh từ nguồn" = nguồn trả strike/tỷ lệ sau điều chỉnh; "dựng lại từ chênh lệch giá" = suy hệ số f = S_nguồn/S_thật; "gốc, chưa điều chỉnh" = không có f đáng tin.',
      'f = K_gốc / K_điều chỉnh'],
   ]},
-  {group: 'Bảng giá (trường của nguồn)', items: [
-    ['RefP — Giá tham chiếu', 'Giá đóng cửa phiên trước. Không phải giá phiên này.', ''],
-    ['CeilingP / FloorP', 'Giá trần và sàn, ĐỌC TRỰC TIẾP từ nguồn — không suy ra công thức. Tỷ lệ dải trần–sàn không cố định nên không dùng ±7%.', ''],
-    ['OpenP / HighestP / LowestP', 'Giá mở cửa, cao nhất, thấp nhất trong phiên.', ''],
-    ['AvgP — Giá bình quân', 'Giá khớp bình quân của phiên. TotalVal ≈ TotalVol × AvgP, dùng để đối chiếu đơn vị.', ''],
-    ['LastMP / LastMVol', 'Giá và khối lượng của RIÊNG lệnh khớp cuối — không phải cả phiên.', ''],
-    ['TotalVol / TotalVal', 'Tổng khối lượng và tổng giá trị khớp trong phiên. TotalVal tính bằng VND.', ''],
-    ['FTBuyVol / FTSellVol', 'Khối lượng nhà đầu tư nước ngoài mua và bán. Là KHỐI LƯỢNG, không phải tiền.', ''],
-    ['FRoom', 'Room khối ngoại còn lại được mua.', ''],
-    ['B1–B3 / S1–S3', 'Ba mức giá mua tốt nhất (bid) và ba mức bán tốt nhất (ask), kèm khối lượng tương ứng.', ''],
-    ['Spread (bước giá)', 'Chênh lệch giá mua–bán, chia cho bước giá 10 VND.', '(S1P − B1P) / giá giữa'],
-    ['Tỷ trọng GT', 'Phần trăm giá trị giao dịch của mã này trên tổng giá trị toàn bảng trong phiên.', ''],
-    ['%Ngày', 'Thay đổi giá so với giá tham chiếu. Xanh = tăng, đỏ = giảm, vàng = đứng giá.', '(giá − RefP) / RefP'],
+  // Nhóm này giải thích bảng giá bằng lời của nhà đầu tư. Mã trường gốc của nguồn vẫn được
+  // nêu trong ngoặc để người đối chiếu dữ liệu tra được, nhưng KHÔNG đứng làm tiêu đề —
+  // trước đây tiêu đề là "RefP", "LastMVol"… nên người đọc phải học thuật ngữ API mới hiểu bảng.
+  {group: 'Bảng giá — từng cột nghĩa là gì', items: [
+    ['Giá tham chiếu', 'Giá đóng cửa của phiên liền trước. Đây là mốc để tính % tăng giảm trong ngày — không phải giá đang khớp của phiên này. (nguồn: RefP)', ''],
+    ['Giá trần / Giá sàn', 'Mức giá cao nhất và thấp nhất được phép khớp trong phiên, ĐỌC TRỰC TIẾP từ nguồn. Biên độ của chứng quyền không cố định như cổ phiếu nên không dùng ±7%. (nguồn: CeilingP / FloorP)', ''],
+    ['Giá mở cửa / cao nhất / thấp nhất', 'Ba mốc giá của phiên: lệnh khớp đầu tiên, mức cao nhất và mức thấp nhất. (nguồn: OpenP / HighestP / LowestP)', ''],
+    ['Giá bình quân', 'Giá khớp tính bình quân trên toàn phiên. Lấy tổng giá trị chia tổng khối lượng sẽ ra đúng con số này, nên dùng được để kiểm tra đơn vị. (nguồn: AvgP)', ''],
+    ['Giá khớp cuối / KL khớp cuối', 'Giá và khối lượng của RIÊNG lệnh khớp sau cùng trong phiên — không phải giá trị của cả phiên. (nguồn: LastMP / LastMVol)', ''],
+    ['Tổng KL / Tổng giá trị', 'Toàn bộ khối lượng và giá trị đã khớp trong phiên. Tổng giá trị tính bằng VND. (nguồn: TotalVol / TotalVal)', ''],
+    ['KL ngoại mua / KL ngoại bán', 'Khối lượng nhà đầu tư nước ngoài đã mua và đã bán. Đây là KHỐI LƯỢNG, không phải số tiền. (nguồn: FTBuyVol / FTSellVol)', ''],
+    ['Room ngoại', 'Khối lượng còn lại mà nhà đầu tư nước ngoài được phép mua thêm. (nguồn: FRoom)', ''],
+    ['Giá mua 1–3 / Giá bán 1–3', 'Ba mức giá đặt mua tốt nhất và ba mức giá đặt bán tốt nhất đang chờ khớp, kèm khối lượng của từng mức. (nguồn: B1–B3 / S1–S3)', ''],
+    ['Chênh lệch mua–bán', 'Khoảng cách giữa giá bán thấp nhất và giá mua cao nhất, tính theo bước giá 10 VND. Càng nhỏ thì càng dễ mua bán mà không bị trượt giá. (nguồn: spread)', '(giá bán 1 − giá mua 1) / bước giá'],
+    ['Tỷ trọng GT', 'Phần trăm giá trị giao dịch của mã này trên tổng giá trị của cả bảng trong phiên. Cộng tất cả các mã lại được 100%.', ''],
+    ['% trong ngày', 'Giá đang khớp thay đổi bao nhiêu phần trăm so với giá tham chiếu. Xanh = tăng, đỏ = giảm, vàng = đứng giá.', '(giá − giá tham chiếu) / giá tham chiếu'],
   ]},
   {group: 'Xếp hạng và thanh khoản', items: [
     ['Điểm CW Score (0–100)',
@@ -783,14 +809,14 @@ const GLOSSARY = [
     ['Ngưỡng chia nhóm', 'Phân vị của chính snapshot hôm nay, không phải ngưỡng VND cố định — nên nhóm tự điều chỉnh theo mặt bằng thanh khoản từng phiên.', ''],
     ['HHI', 'Chỉ số tập trung: càng cao thì giá trị giao dịch càng dồn vào ít mã.', 'Σ (thị phần)²'],
     ['Top 10', 'Tỷ trọng giá trị giao dịch của 10 mã lớn nhất trên toàn bảng.', ''],
-    ['Mã không giao dịch (stale)', 'Mã không có lệnh khớp trong phiên. Không có OHLC của phiên, và RefP KHÔNG được dùng thay cho giá đóng cửa.', ''],
+    ['Mã không giao dịch', 'Mã không có lệnh khớp nào trong phiên. Vì vậy không có giá mở/cao/thấp/đóng của phiên, và giá tham chiếu KHÔNG được dùng thay cho giá đóng cửa. (nguồn: stale)', ''],
     ['Độ phủ (coverage)', 'Số phiên mã đó thực sự có giá trong kho lịch sử, so với số phiên đã tích luỹ.', ''],
     ['Độ sâu hai chiều', 'Có cả giá mua tốt nhất và giá bán tốt nhất — thiếu một bên nghĩa là không giao dịch được theo chiều đó.', ''],
   ]},
   {group: 'Lịch sử và tích luỹ', items: [
     ['Tích luỹ dần', 'OHLCV theo ngày được ghi thêm mỗi lần workflow chạy sau giờ đóng cửa. KHÔNG backfill quá khứ vì nguồn không trả lịch sử.', ''],
     ['Khoảng trống', 'Phiên thiếu giá được liệt kê và để trống, KHÔNG nội suy — nội suy sẽ làm HV thấp giả tạo.', ''],
-    ['Kiểm tra liên tục (refContinuity)', 'So RefP hôm nay với giá đóng cửa phiên trước trong kho. Lệch quá biên độ nghĩa là một trong hai nguồn đã cũ.', ''],
+    ['Kiểm tra liên tục', 'So giá tham chiếu hôm nay với giá đóng cửa phiên liền trước trong kho. Lệch quá biên độ nghĩa là một trong hai nguồn đã cũ. (nguồn: refContinuity)', ''],
   ]},
   {group: 'Phạm vi và giới hạn', items: [
     ['Nguồn dữ liệu', 'Bảng giá: nguồn bảng giá EW đã cấp quyền. Điều khoản hợp đồng: Vietstock_CW_bot. Lợi suất TPCP: VN_Bond_Yield_pipeline.', ''],
