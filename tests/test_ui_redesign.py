@@ -388,3 +388,199 @@ def test_dark_header_text_is_readable():
     th_bg = re.search(r'--th-bg:\s*(#[0-9a-fA-F]{6})', dark).group(1)
     th_text = re.search(r'--th-text:\s*(#[0-9a-fA-F]{6})', dark).group(1)
     assert _contrast(th_bg, th_text) >= 4.5
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Tab Xếp hạng — banner phương pháp, huy hiệu, heatmap, sắp xếp
+# ═══════════════════════════════════════════════════════════════════
+
+def _scoring_js() -> str:
+    """Thân hàm renderScoring và các hàm phụ trợ của bảng xếp hạng."""
+    start = HTML.index('const scoringSort')
+    end = HTML.index('// GIẢI THÍCH THUẬT NGỮ')
+    return HTML[start:end]
+
+
+# ── 1. Banner phương pháp ───────────────────────────────────────────────
+def test_1_methodology_is_one_collapsible_banner():
+    """Hai tiêu đề + ba đoạn văn dài gộp thành một thẻ, phần chi tiết gập lại.
+
+    Bảng dữ liệu phải lên cao hơn — đó là lý do chính của thay đổi này.
+    """
+    js = _scoring_js()
+    assert 'class="score-banner"' in js
+    # Chỉ còn MỘT tiêu đề trong banner; hai tiêu đề cũ đã biến mất.
+    assert js.count('<h2>Điểm CW theo ngày</h2>') == 0
+    assert js.count('<h2>Định giá đã bật</h2>') == 0
+    assert js.count('Điểm CW theo ngày') == 1
+    # Phần chi tiết mặc định đóng và có nút mở/đóng.
+    assert 'id="score-detail" hidden' in js
+    assert 'Xem chi tiết cách tính điểm' in js
+    assert "toggle.setAttribute('aria-expanded'" in js
+
+
+def test_1_banner_uses_the_light_blue_palette():
+    block = CSS.split('.score-banner {', 1)[1].split('}', 1)[0]
+    assert '#f0f9ff' in block          # nền
+    assert '#bae6fd' in block          # viền
+    # Chế độ tối phải có biến thể, nếu không banner thành ô trắng chói.
+    assert 'html[data-theme="dark"] .score-banner' in CSS
+
+
+def test_1_weights_render_as_badges_not_prose():
+    """Yêu cầu: trọng số dạng badge thay cho câu văn xuôi khó đọc."""
+    js = _scoring_js()
+    assert 'class="wbadge"' in js
+    assert 'weightBadges' in js
+    # Câu văn xuôi cũ đã bỏ.
+    assert "Trọng số: ${parts.map" not in js
+    for label in ('Thanh khoản', 'Chi phí', 'Định giá', 'Chất lượng giá', 'Độ ổn định'):
+        assert label in js
+
+
+def test_1_weight_badges_match_the_published_weights():
+    """Badge phải lấy số từ analytics, không hard-code 34/26/20/12/8."""
+    import json
+    analytics = json.loads(
+        (ROOT / 'docs' / 'data' / 'yuanta_analytics.json').read_text(encoding='utf-8'))
+    weights = analytics['scoring']['weights']
+    assert weights == {'liquidity': 0.34, 'cost': 0.26, 'valuation': 0.2,
+                       'priceQuality': 0.12, 'consistency': 0.08}
+    js = _scoring_js()
+    assert 'weights[k]' in js, "badge phải đọc từ sc.weights"
+    assert 'Math.round((weights[k] || 0) * 100)' in js
+
+
+# ── 2. Bảng xếp hạng ────────────────────────────────────────────────────
+def test_2_top_three_get_gold_silver_bronze():
+    js = _scoring_js()
+    assert "rank === 1 ? 'gold'" in js
+    assert "rank === 2 ? 'silver'" in js
+    assert "rank === 3 ? 'bronze'" in js
+    for cls in ('.medal.gold', '.medal.silver', '.medal.bronze'):
+        assert cls in CSS, f"thiếu CSS cho {cls}"
+
+
+def test_2_ticker_and_underlying_share_one_column():
+    """Gộp Mã + Cơ sở thành một cột để tiết kiệm chiều ngang."""
+    js = _scoring_js()
+    assert 'tick-cell' in js
+    assert 'class="utag"' in js
+    # Cột "Cơ sở" riêng không còn trong tiêu đề bảng xếp hạng.
+    assert "scoringHead('underlying'" not in js
+    assert 'Mã / Cơ sở' in js
+
+
+def test_2_total_score_is_a_badge_with_a_bar():
+    js = _scoring_js()
+    assert 'score-badge' in js and 'score-track' in js
+    # Ba ngưỡng: ≥80, 60–80, <60.
+    assert "score >= 80 ? 'strong'" in js
+    assert "score >= 60 ? 'mid'" in js
+    for cls in ('.score-badge.strong', '.score-badge.mid', '.score-badge.weak'):
+        assert cls in CSS
+
+
+def test_2_component_scores_have_micro_bars():
+    js = _scoring_js()
+    assert 'part-cell' in js and 'part-track' in js and 'part-fill' in js
+    # Năm mức màu chia theo 20 điểm.
+    for step in (0, 20, 40, 60, 80):
+        assert f'.part-fill.b{step}' in CSS
+    # Thanh phải phản ánh điểm thật, không phải chiều rộng cố định.
+    assert 'style="width:${v}%"' in js
+
+
+def test_2_unscored_is_not_rendered_as_zero():
+    """`null` = chưa chấm, khác hẳn điểm 0. Hai thứ không được hiển thị giống nhau."""
+    js = _scoring_js()
+    assert 'chưa chấm' in js
+    assert 'title="${escAttr(label)}: chưa đủ dữ liệu để chấm"' in js
+    assert '.na {' in CSS
+
+
+def test_2_change_column_has_colours_and_arrows():
+    js = _scoring_js()
+    assert '▲ ' in js and '▼ ' in js and '= ' in js
+    assert 'chg-up' in js and 'chg-down' in js and 'chg-flat' in js
+
+
+def test_2_warning_column_uses_dash_and_icon():
+    js = _scoring_js()
+    # Không cảnh báo → gạch mờ.
+    assert '<td class="warn-cell"><span class="na">—</span></td>' in js
+    # Có cảnh báo → tam giác + tooltip.
+    assert 'warn-icon' in js and 'title="${escAttr(text)}"' in js
+    assert 'WARN_ICON' in js
+    assert '.warn-icon {' in CSS
+
+
+def test_2_warning_column_only_flags_outliers_not_every_row():
+    """Cảnh báo theo độ phủ từng làm CẢ 50 dòng đều có tam giác — cột mất tác dụng.
+
+    Nay trục thiếu ở toàn bộ mã được nêu một lần ở banner; cột này chỉ nêu cái khác biệt.
+    """
+    js = _scoring_js()
+    warn_fn = js.split('function warnCell', 1)[1].split('\n}', 1)[0]
+    assert 'coveragePct' not in warn_fn, "không cảnh báo theo độ phủ nữa"
+    assert 'nearCeiling' in warn_fn
+    # Vẫn phải nêu được trường hợp một mã đơn lẻ thiếu dữ liệu.
+    assert 'Thiếu dữ liệu để chấm' in warn_fn
+
+
+# ── 3. Tương tác bảng ───────────────────────────────────────────────────
+def test_3_header_is_sticky():
+    block = CSS.split('thead th {', 1)[1].split('}', 1)[0]
+    assert 'position: sticky' in block
+    assert 'top: 0' in block
+
+
+def test_3_every_numeric_column_is_sortable():
+    js = _scoring_js()
+    for key in ('rank', 'ticker', 'score', 'coveragePct', 'valueVND', 'chgPct',
+                'liquidity', 'cost', 'valuation', 'priceQuality', 'consistency'):
+        assert f"scoringHead('{key}'" in js, f"cột {key} chưa sắp xếp được"
+    assert 'sort-arrow' in js
+    assert 'aria-sort' in js
+    assert 'tabindex="0"' in js
+
+
+def test_3_sort_recomputes_rows_on_every_click():
+    """Lỗi thật đã xảy ra: lần bấm sắp xếp ĐẦU TIÊN không có tác dụng.
+
+    Nguyên nhân: `resort()` vẽ lại bảng bằng mảng `shown` đã tính TRƯỚC khi đổi khoá.
+    Bài học: danh sách phải là kết quả của một hàm gọi lại mỗi lần, không phải biến
+    chụp một lần. Test này khoá lại điều đó.
+    """
+    js = _scoring_js()
+    assert 'function scoringRows(sc)' in js, "phải có hàm tính lại danh sách"
+    resort = js.split('const resort = () => {', 1)[1].split('};', 1)[0]
+    assert 'scoringRows(sc)' in resort, "resort() phải tính lại, không dùng mảng cũ"
+    # Mảng cũ tính một lần không được còn tồn tại.
+    assert 'const shown = ' not in js
+
+
+def test_3_sorting_resets_to_a_sensible_direction_per_column():
+    js = _scoring_js()
+    assert 'SCORING_DEFAULT_DIR' in js
+    # Điểm, giá trị, độ phủ đều nên giảm dần khi mở lần đầu.
+    block = js.split('const SCORING_DEFAULT_DIR', 1)[1].split('};', 1)[0]
+    assert "score: 'desc'" in block
+    assert "valueVND: 'desc'" in block
+
+
+def test_3_missing_part_values_sort_last_in_both_directions():
+    """Mã chưa chấm không phải mã điểm thấp — phải nằm cuối ở cả hai chiều."""
+    js = _scoring_js()
+    fn = js.split('function scoringValue', 1)[1].split('\n}', 1)[0]
+    assert '-Infinity' in fn
+    sort_block = js.split('function scoringRows', 1)[1].split('\n}', 1)[0]
+    assert 'va === -Infinity) return 1' in sort_block
+    assert 'vb === -Infinity) return -1' in sort_block
+
+
+def test_3_rows_are_roomier_and_hover_is_light():
+    block = CSS.split('.rank-table tbody td {', 1)[1].split('}', 1)[0]
+    padding = block.split('padding:', 1)[1].split(';', 1)[0].strip()
+    assert padding != '8px 10px', "hàng phải thoáng hơn bảng giá thường"
+    assert '#f8fafc' in CSS.split('.rank-table tbody tr:hover td {', 1)[1].split('}', 1)[0]
