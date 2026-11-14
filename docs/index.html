@@ -191,7 +191,11 @@
     <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
   </table></div>
   </section>
-  <footer>Tên cột đã được đổi sang cách gọi thường dùng của nhà đầu tư; tên trường gốc của nguồn vẫn ghi trong <b>chú thích khi rê chuột lên tiêu đề</b> và trong tab Thuật ngữ, để người đối chiếu dữ liệu vẫn tra được. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; mã không khớp lệnh không có giá đóng cửa, ô để trống thay vì dùng lại giá phiên trước. <b>Chênh lệch mua–bán</b> = (giá bán thấp nhất − giá mua cao nhất) / bước giá 10 VND. <b>Cơ sở</b> trong dữ liệu phân tích được suy ra từ quy ước đặt tên mã, không phải trường có sẵn của nguồn. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Định giá Black–Scholes và các chỉ số độ nhạy chỉ có cho mã khớp lệnh và có đủ điều khoản hợp đồng; không phải khuyến nghị và không phải backtest.</footer>
+  <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
+       để chân trang không còn là một khối chữ dày đặc ngay dưới bảng giá. -->
+  <footer>Xem tab <b>Giải thích thuật ngữ</b> để tra cách gọi từng cột, nguồn gốc số liệu
+    và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra —
+    không phải khuyến nghị mua/bán.</footer>
 </main>
 <script type="module">
 import {
@@ -1175,7 +1179,7 @@ const GLOSSARY = [
   ]},
   {group: 'Xếp hạng và thanh khoản', items: [
     ['Điểm CW Score (0–100)',
-     'Điểm tổng hợp từ thanh khoản, chi phí giao dịch, định giá, chất lượng giá và độ ổn định. KHÔNG phải khuyến nghị mua/bán.',
+     'Điểm tổng hợp từ thanh khoản, chi phí giao dịch, định giá và chất lượng giá. KHÔNG phải khuyến nghị mua/bán.',
      ''],
     ['"chưa chấm" trong bảng xếp hạng',
      'Trục chấm điểm mà mã đó chưa có đủ dữ liệu để tính — hiện chỉ còn trục định giá, khi mã '
@@ -1196,9 +1200,33 @@ const GLOSSARY = [
     ['Độ sâu hai chiều', 'Có cả giá mua tốt nhất và giá bán tốt nhất — thiếu một bên nghĩa là không giao dịch được theo chiều đó.', ''],
   ]},
   {group: 'Lịch sử và tích luỹ', items: [
-    ['Tích luỹ dần', 'OHLCV theo ngày được ghi thêm mỗi lần workflow chạy sau giờ đóng cửa. KHÔNG backfill quá khứ vì nguồn không trả lịch sử.', ''],
+    ['Tích luỹ dần', 'OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ '
+     + 'đóng cửa — không backfill quá khứ, vì nguồn không trả lịch sử. Ngày thiếu được liệt kê '
+     + 'thay vì nội suy.', ''],
     ['Khoảng trống', 'Phiên thiếu giá được liệt kê và để trống, KHÔNG nội suy — nội suy sẽ làm HV thấp giả tạo.', ''],
     ['Kiểm tra liên tục', 'So giá tham chiếu hôm nay với giá đóng cửa phiên liền trước trong kho. Lệch quá biên độ nghĩa là một trong hai nguồn đã cũ. (nguồn: refContinuity)', ''],
+  ]},
+  {group: 'Nguồn gốc số liệu', items: [
+    ['Tên cột trên bảng giá',
+     'Cột đã đổi sang cách gọi thường dùng của nhà đầu tư; tên trường gốc của nguồn vẫn ghi '
+     + 'trong chú thích khi rê chuột lên tiêu đề và ngay trong mục này (phần "(nguồn: …)"), '
+     + 'để người đối chiếu dữ liệu vẫn tra được.', ''],
+    ['Giá (VND) chỉ có khi khớp lệnh',
+     'Giá chỉ hiển thị khi mã có khớp lệnh trong phiên. Với mã không khớp lệnh: '
+     + 'mã không khớp lệnh không có giá đóng cửa, nên ô để trống thay vì dùng lại giá phiên '
+     + 'trước — giá cũ sẽ tạo ra biến động ảo.', ''],
+    ['Cơ sở suy từ tên mã',
+     'Cổ phiếu cơ sở trong phần lớn dữ liệu phân tích được suy ra từ quy ước đặt tên mã, '
+     + 'không phải trường có sẵn của nguồn. Hệ quả: không suy được strike hay ngày đáo hạn, '
+     + 'vì hai chữ số cuối không mã hoá đủ thông tin.', ''],
+    ['Snapshot chỉ thay thế khi thành công',
+     'Bản công khai chỉ bị ghi đè khi lần lấy mới thành công và qua hết kiểm tra chất lượng. '
+     + 'Payload lỗi thì bản tốt gần nhất vẫn được giữ nguyên, kèm chẩn đoán — không bao giờ '
+     + 'để trang phục vụ dữ liệu hỏng.', ''],
+    ['Định giá cần điều khoản hợp đồng',
+     'Black–Scholes và các chỉ số độ nhạy chỉ có cho mã khớp lệnh và có đủ điều khoản hợp '
+     + 'đồng (strike, ngày đáo hạn, tỷ lệ chuyển đổi, giá cơ sở). Thiếu một biến là không định '
+     + 'giá, không phải định giá bằng 0.', ''],
   ]},
   {group: 'Phạm vi và giới hạn', items: [
     ['Nguồn dữ liệu', 'Bảng giá: nguồn bảng giá EW đã cấp quyền. Điều khoản hợp đồng: Vietstock_CW_bot. Lợi suất TPCP: VN_Bond_Yield_pipeline.', ''],
