@@ -14,7 +14,10 @@
     .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0}.toolbar input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px}
     button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--accent)}
     .summary{color:var(--muted);margin-left:auto}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-    table{border-collapse:collapse;width:100%;min-width:1200px;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:var(--th-bg);color:var(--th-text);font-weight:600;z-index:1}
+    /* min-width từng là 1200px cho MỌI bảng — đó là lý do bảng giá 22 cột buộc phải cuộn
+       ngang. Bảng giá nay còn 12 cột nên bỏ chặn này; riêng bảng xếp hạng vẫn cần
+       min-width:1180px (14 cột, khai báo ở .rank-table trong ui.css). */
+    table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:var(--th-bg);color:var(--th-text);font-weight:600;z-index:1}
     th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}th:first-child{z-index:2;background:var(--th-bg)}td:first-child{font-weight:700;color:var(--accent)}
     tr:hover td{background:var(--row-hover)}td:first-child a{color:var(--accent);text-decoration:none}details{text-align:left;white-space:normal;min-width:150px}summary{cursor:pointer;color:#a9c8df}pre{max-width:460px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#091019;padding:10px;border-radius:6px;color:#d7e2ed;font-size:12px}
     #state{padding:26px;text-align:center;color:var(--muted)}
@@ -167,28 +170,18 @@
     <thead><tr>
       <th>Mã CW</th>
       <th title="Giá đóng cửa phiên trước (nguồn: RefP)">Giá tham chiếu</th>
-      <th title="Giá trần trong phiên, đọc từ nguồn (nguồn: CeilingP)">Giá trần</th>
-      <th title="Giá sàn trong phiên, đọc từ nguồn (nguồn: FloorP)">Giá sàn</th>
-      <th title="Giá khớp lệnh đầu tiên của phiên (nguồn: OpenP)">Giá mở cửa</th>
-      <th title="Giá khớp cao nhất trong phiên (nguồn: HighestP)">Giá cao nhất</th>
-      <th title="Giá khớp thấp nhất trong phiên (nguồn: LowestP)">Giá thấp nhất</th>
-      <th title="Giá khớp bình quân của cả phiên (nguồn: AvgP)">Giá bình quân</th>
-      <th title="Giá của lệnh khớp cuối cùng (nguồn: LastMP)">Giá khớp cuối</th>
-      <th title="Khối lượng của riêng lệnh khớp cuối (nguồn: LastMVol)">KL khớp cuối</th>
+      <th title="Giá của lệnh khớp cuối cùng — cũng là giá đóng cửa của phiên (nguồn: LastMP)">Giá khớp cuối</th>
+      <th title="Thay đổi so với giá tham chiếu (nguồn: refChangePct)">% trong ngày</th>
+      <th title="Giá khớp cao nhất trong phiên (nguồn: HighestP)">Cao nhất</th>
+      <th title="Giá khớp thấp nhất trong phiên (nguồn: LowestP)">Thấp nhất</th>
       <th title="Tổng khối lượng khớp trong phiên (nguồn: TotalVol)">Tổng KL</th>
       <th title="Tổng giá trị khớp trong phiên, đơn vị VND (nguồn: TotalVal)">Tổng giá trị</th>
-      <th title="Khối lượng khối ngoại mua (nguồn: FTBuyVol)">KL ngoại mua</th>
-      <th title="Khối lượng khối ngoại bán (nguồn: FTSellVol)">KL ngoại bán</th>
-      <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)">Room ngoại</th>
-      <th>Giá (VND)</th>
-      <th title="Thay đổi so với giá tham chiếu (nguồn: refChangePct)">% trong ngày</th>
-      <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)">Chênh lệch mua–bán</th>
       <th title="Phần trăm giá trị giao dịch của mã trên toàn bảng">Tỷ trọng GT</th>
-      <th title="Ba mức giá mua tốt nhất và khối lượng (nguồn: B1–B3)">Giá mua 1–3</th>
-      <th title="Ba mức giá bán tốt nhất và khối lượng (nguồn: S1–S3)">Giá bán 1–3</th>
+      <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)">Chênh lệch mua–bán</th>
+      <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)">Room ngoại</th>
       <th title="Toàn bộ trường gốc nguồn trả về">Dữ liệu gốc</th>
     </tr></thead>
-    <tbody id="rows"><tr><td colspan="22" id="state">Đang tải…</td></tr></tbody>
+    <tbody id="rows"><tr><td colspan="12" id="state">Đang tải…</td></tr></tbody>
   </table></div>
   </section>
   <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
@@ -437,13 +430,11 @@ function render(){
   });
   document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
   const tbody = document.querySelector('#rows');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="22" id="state">Không có mã phù hợp.</td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="12" id="state">Không có mã phù hợp.</td></tr>';return;}
   tbody.innerHTML = list.map(r => {
     const raw = JSON.stringify(r,null,2);
     const code = String(r.StockCode ?? '').trim().toUpperCase();
     const d = derived.get(code) || {};
-    const bid = ['B1P','B1V','B2P','B2V','B3P','B3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
-    const ask = ['S1P','S1V','S2P','S2V','S3P','S3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
     // Ba trạng thái tiền: ITM xanh, ATM vàng, OTM đỏ. Không có định giá thì không tô — mã
     // không giao dịch hoặc thiếu điều khoản chưa xác định được trạng thái, tô màu sẽ là đoán.
     const money = moneynessOf(code);
@@ -452,11 +443,27 @@ function render(){
     // Tăng xanh, giảm đỏ, đứng giá vàng. `null` (không khớp lệnh) không tô.
     const chgCls = d.priceChangePct > 0 ? 'chg-up' : d.priceChangePct < 0 ? 'chg-down'
       : (d.priceChangePct === 0 ? 'chg-flat' : '');
-    const price = d.traded ? num(d.lastPrice) : '<span class="idle" title="Không khớp lệnh trong phiên">—</span>';
     const codeAttr = escAttr(code);
     // Nhãn ITM/ATM/OTM hiện ngay cạnh mã để thấy được khi quét bảng, kèm tooltip giải thích.
     const moneyTag = money ? ` <span class="mtag ${moneyCls}">${esc(money)}</span>` : '';
-    return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button>${moneyTag}</td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
+    const traded = d.traded === true;
+    // Cột "Giá khớp cuối": mã không khớp lệnh không có giá đóng cửa, ô để trống thay vì
+    // dùng lại giá phiên trước — giá cũ sẽ tạo ra biến động ảo.
+    const lastPrice = traded
+      ? num(d.lastPrice)
+      : '<span class="idle" title="Không khớp lệnh trong phiên — không có giá đóng cửa">—</span>';
+    return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button>${moneyTag}</td>`
+      + `<td>${cell(r,'RefP')}</td>`
+      + `<td class="num">${lastPrice}</td>`
+      + `<td class="num ${chgCls}">${pct(d.priceChangePct)}</td>`
+      + `<td>${cell(r,'HighestP')}</td>`
+      + `<td>${cell(r,'LowestP')}</td>`
+      + `<td>${cell(r,'TotalVol')}</td>`
+      + `<td>${cell(r,'TotalVal')}</td>`
+      + `<td class="num">${pct(d.valueSharePct)}</td>`
+      + `<td class="num">${num(d.spreadTicks, 1)}</td>`
+      + `<td>${cell(r,'FRoom')}</td>`
+      + `<td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
   }).join('');
 }
 
