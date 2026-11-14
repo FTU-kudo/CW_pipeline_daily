@@ -32,10 +32,14 @@
     .view table{min-width:520px}.view .table-wrap{margin-bottom:16px}
     .caption{color:var(--muted);font-size:12px;margin:4px 0 10px}
     .bars{display:flex;flex-direction:column;gap:6px;margin:6px 0 14px}
-    .bar{display:grid;grid-template-columns:120px 1fr 96px;gap:10px;align-items:center;font-size:12px}
-    .bar .track{background:#0e1620;border:1px solid var(--line);border-radius:6px;height:16px;overflow:hidden}
-    .bar .fill{height:100%;background:linear-gradient(90deg,#2b8a6b,var(--accent))}
-    .bar .val{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+    .bar{display:grid;grid-template-columns:120px 1fr 104px;gap:10px;align-items:center;font-size:12px}
+    /* Nền rãnh dùng --track: theme tối #0e1620, theme sáng #e2e8f0. Viết cứng mã màu tối ở
+       đây từng làm thanh thành một khối đen trên nền trắng. */
+    .bar .track{background:var(--track);border:1px solid var(--line);border-radius:6px;height:16px;overflow:hidden}
+    /* display:block là bắt buộc: <span> là inline nên `width` vô hiệu, và mọi thanh sẽ dài
+       bằng nhau — biểu đồ khi đó vẽ sai số liệu chứ không chỉ xấu. */
+    .bar .fill{display:block;height:100%;background:linear-gradient(90deg,#2b8a6b,var(--accent))}
+    .bar .val{color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
     .spark{display:block;width:100%;height:120px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
     .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
     .flag{color:var(--warn)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
@@ -487,13 +491,38 @@ function simpleTable(headers, rows, renderRow, emptyText) {
     + `<tbody>${rows.map(renderRow).join('')}</tbody></table></div>`;
 }
 
-function barList(items, labelKey, valueKey, valueFormat) {
-  const max = Math.max(...items.map(i => i[valueKey] || 0), 1);
-  return `<div class="bars">${items.map(item => {
-    const width = Math.max(1, (item[valueKey] || 0) / max * 100);
+/**
+ * Danh sách thanh ngang. Giá trị lớn nhất trong nhóm = thanh đầy.
+ *
+ * Ba điểm phải giữ đúng, mỗi điểm ứng với một lỗi đã từng có trên trang:
+ *
+ * 1. `max` tính trên giá trị THÔ, không dùng `|| 0`. Dùng `|| 0` thì null và 0 không phân biệt
+ *    được, và một nhóm toàn số 0 sẽ chia cho `1` rồi vẽ ra thanh rỗng — trông như "có dữ liệu
+ *    nhưng rất nhỏ" thay vì "không có dữ liệu".
+ * 2. Giá trị null/0 KHÔNG được vẽ thanh. "Không giao dịch" mà có thanh thì biểu đồ đang nói
+ *    dối; ở đây để trống rãnh và ghi đúng nhãn `valueFormat(null)`.
+ * 3. Thanh nhỏ nhất vẫn phải nhìn thấy được — nhưng chỉ khi giá trị > 0.
+ *
+ * @param useShares true khi giá trị đã là tỷ trọng (%): lúc đó thanh dài đúng bằng tỷ trọng
+ *   trên tổng, so sánh được với cột "Tỷ trọng" trong bảng. false khi giá trị là VND: chia theo
+ *   giá trị lớn nhất, nếu không thì mọi thanh đều không thấy được (25,76 tỷ so với 4,1 tr).
+ */
+function barList(items, labelKey, valueKey, valueFormat, options = {}) {
+  const { useShares = false } = options;
+  const raw = items.map(i => i[valueKey]);
+  const max = Math.max(...raw.filter(v => v !== null && v !== undefined && v > 0), 0);
+  return `<div class="bars">${items.map((item, idx) => {
+    const value = raw[idx];
+    const hasValue = value !== null && value !== undefined && value > 0;
+    let width = 0;
+    if (hasValue) {
+      width = useShares ? value : (max > 0 ? value / max * 100 : 0);
+      width = Math.max(1.5, Math.min(100, width));   // 1,5% là ngưỡng còn nhìn thấy
+    }
     return `<div class="bar"><span>${esc(item[labelKey])}</span>`
-      + `<span class="track"><span class="fill" style="width:${width.toFixed(1)}%"></span></span>`
-      + `<span class="val">${esc(valueFormat(item[valueKey]))}</span></div>`;
+      + `<span class="track">${hasValue
+        ? `<span class="fill" style="width:${width.toFixed(1)}%"></span>` : ''}</span>`
+      + `<span class="val">${esc(valueFormat(value))}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -507,7 +536,12 @@ function renderLiquidity() {
   host.innerHTML = `
     <h2>Phân bố thanh khoản theo phiên</h2>
     <p class="caption">Ngưỡng chia nhóm lấy từ phân vị của chính snapshot hôm nay — ${esc(thresholds)}. Không phải ngưỡng VND cố định, nên vẫn đọc được khi thanh khoản toàn thị trường thay đổi.</p>
-    ${barList(tiers, 'tier', 'valueVND', fmtVnd)}
+    <p class="caption">Thanh vẽ theo thang tuyến tính, nhóm lớn nhất = 100%. Giá trị trải hơn 4 bậc
+      độ lớn (25,76 tỷ xuống 4,1 tr), nên nhóm nào dưới 1,5% mức lớn nhất đều hiện ở bề rộng tối
+      thiểu — đọc số bên phải, đừng so bề rộng của các nhóm nhỏ. Nhóm không giao dịch không có
+      thanh vì không có giá trị.</p>
+    ${barList(tiers, 'tier', 'valueVND', v => (v === null || v === undefined || v === 0)
+      ? 'không có' : fmtVnd(v))}
     ${simpleTable(['Nhóm', 'Số mã', 'Tỷ trọng', 'Giá trị (VND)', 'Spread trung vị'], tiers,
       t => `<tr><td>${esc(t.tier)}</td><td>${t.count}</td><td>${fmtPct(t.sharePct, 1)}</td><td>${fmtVnd(t.valueVND)}</td><td>${fmtPct(t.medianSpreadPct)}</td></tr>`)}
     <h2>Xếp hạng theo giá trị giao dịch</h2>
@@ -526,7 +560,10 @@ function renderUnderlyings() {
   if (!rows.length) { host.innerHTML = emptyNotice('nhóm cổ phiếu cơ sở'); return; }
   host.innerHTML = `
     <h2>Nhóm theo cổ phiếu cơ sở</h2>
-    ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1))}
+    <p class="caption">Thanh dài bằng đúng tỷ trọng giá trị giao dịch, nên so trực tiếp được
+      với cột <strong>Tỷ trọng</strong> bên dưới. Chỉ hiện 12 cổ phiếu cơ sở đứng đầu.</p>
+    ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1),
+      { useShares: true })}
     ${simpleTable(['Cơ sở', 'Số CW', 'Có khớp', 'Giá trị', 'Tỷ trọng', 'KL', 'Spread TV', 'Giá TV', 'Tốt nhất', 'Xấu nhất'], rows,
       r => `<tr><td>${esc(r.underlying)}</td><td>${r.warrants}</td><td>${r.traded}</td><td>${fmtVnd(r.valueVND)}</td>`
         + `<td>${fmtPct(r.valueSharePct)}</td><td>${fmtVnd(r.volume)}</td><td>${fmtPct(r.medianSpreadPct)}</td>`

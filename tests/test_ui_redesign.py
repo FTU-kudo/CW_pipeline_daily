@@ -592,3 +592,105 @@ def test_3_rows_are_roomier_and_hover_is_light():
     padding = block.split('padding:', 1)[1].split(';', 1)[0].strip()
     assert padding != '8px 10px', "hàng phải thoáng hơn bảng giá thường"
     assert '#f8fafc' in CSS.split('.rank-table tbody tr:hover td {', 1)[1].split('}', 1)[0]
+
+
+# ── 5. Thanh ngang (tab Thanh khoản + Theo cơ sở) ───────────────────────
+def _bar_list_js() -> str:
+    """Lấy nguyên hàm barList() để kiểm tra logic, không phải chỉ grep chuỗi."""
+    start = HTML.index("function barList(")
+    end = HTML.index("function renderLiquidity(")
+    return HTML[start:end]
+
+
+def test_5_bar_fill_is_block_so_width_actually_applies():
+    """Lỗi thật: `<span style="width:…">` không ăn width vì span là inline.
+
+    Hậu quả không phải "xấu" mà là SAI SỐ LIỆU: mọi thanh dài bằng nhau, nên nhóm 25,76 tỷ
+    và nhóm 4,1 tr trông y hệt. Đọc code rất khó thấy vì `width` *trông* như đang hoạt động;
+    chỉ khi render thật mới lộ.
+    """
+    style = HTML.split("<style>", 1)[1].split("</style>", 1)[0]
+    fill_rule = re.search(r"\.bar \.fill\{([^}]*)\}", style)
+    assert fill_rule, "thiếu rule .bar .fill"
+    assert "display:block" in fill_rule.group(1).replace(" ", ""), \
+        ".fill phải là block, nếu không width vô hiệu và mọi thanh dài bằng nhau"
+
+
+def test_5_bar_track_uses_theme_variable_not_hardcoded_dark():
+    """Lỗi thật: `.bar .track{background:#0e1620}` là màu theme TỐI viết cứng.
+
+    Theme sáng đổi mọi thứ khác nhưng không đổi được chỗ này → thanh thành khối đen trên
+    nền trắng. `--track` đã có sẵn cho cả hai theme (#0e1620 tối / #e2e8f0 sáng).
+    """
+    style = HTML.split("<style>", 1)[1].split("</style>", 1)[0]
+    track_rule = re.search(r"\.bar \.track\{([^}]*)\}", style)
+    assert track_rule, "thiếu rule .bar .track"
+    body = track_rule.group(1).replace(" ", "")
+    assert "var(--track)" in body, "rãnh phải dùng var(--track) để theo theme"
+    assert "#0e1620" not in body.lower(), "không được viết cứng màu tối"
+
+
+def test_5_track_variable_is_defined_for_both_themes():
+    """Nếu --track thiếu ở một theme thì thanh mất nền hoặc dùng màu sai."""
+    import json as _json
+    for theme in ("dark", "light"):
+        block = CSS.split(f'html[data-theme="{theme}"]', 1)[1]
+        block = block.split("}", 1)[0]
+        assert "--track:" in block, f"theme {theme} thiếu --track"
+
+
+def test_5_bar_list_skips_bars_for_missing_values():
+    """Nhóm không giao dịch có valueVND = null → không được vẽ thanh.
+
+    Vẽ thanh cho giá trị 0/không có là nói dối: nó trông như "có giao dịch nhưng rất nhỏ".
+    """
+    js = _bar_list_js()
+    assert "hasValue" in js
+    assert "value > 0" in js
+    # Thanh chỉ được sinh khi hasValue — không có nhánh nào vẽ .fill vô điều kiện.
+    fill_render = js.split("hasValue", 1)[1]
+    assert "? `<span class=\"fill\"" in fill_render
+    assert ": ''" in fill_render
+
+
+def test_5_bar_list_does_not_treat_null_as_zero():
+    """`i[valueKey] || 0` gộp null với 0 → mất khả năng phân biệt 'không có' và 'bằng 0'."""
+    js = _bar_list_js()
+    assert "|| 0)" not in js, "không được dùng `|| 0` cho giá trị thô"
+    assert "Math.max(...raw.filter(" in js
+
+
+def test_5_bar_list_widths_are_actually_different():
+    """Bề rộng phải tính từ dữ liệu, đại diện bằng công thức tuyến tính theo max."""
+    js = _bar_list_js()
+    assert "value / max * 100" in js
+    # Có sàn hiển thị nhưng phải chặn trên 100 để không tràn khung.
+    assert "Math.max(1.5, Math.min(100," in js
+
+
+def test_5_underlying_bars_use_share_scale():
+    """Tab Theo cơ sở: giá trị đã là tỷ trọng % → thanh dài đúng bằng tỷ trọng.
+
+    Nếu chia theo max thì VPB (đứng đầu) luôn 100%, trong khi bảng bên dưới ghi 16,83% —
+    hai chỗ nói hai chuyện khác nhau.
+    """
+    start = HTML.index("function renderUnderlyings(")
+    body = HTML[start:start + 1200]
+    assert "{ useShares: true }" in body, "thanh tỷ trọng phải dùng thang tỷ trọng"
+    js = _bar_list_js()
+    assert "useShares ? value :" in js
+
+
+def test_5_published_tier_data_has_a_null_group():
+    """Dữ liệu thật phải còn nhóm null — nếu không, test trên mất ý nghĩa."""
+    import json as _json
+    analytics = _json.loads(
+        (ROOT / "docs" / "data" / "yuanta_analytics.json").read_text(encoding="utf-8"))
+    tiers = analytics["liquidity"]["tiers"]
+    no_trade = [t for t in tiers if t["tier"] == "không giao dịch"]
+    assert len(no_trade) == 1
+    assert no_trade[0]["valueVND"] is None, "nhóm không giao dịch phải là null, không phải 0"
+    # Các nhóm còn lại đều có giá trị dương, và trải rộng nhiều bậc độ lớn.
+    values = sorted(t["valueVND"] for t in tiers if t["valueVND"])
+    assert values[0] > 0
+    assert values[-1] / values[0] > 1000, "dữ liệu phải trải rộng để test bề rộng có nghĩa"
