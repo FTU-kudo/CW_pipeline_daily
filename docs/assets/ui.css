@@ -37,6 +37,10 @@ html[data-theme="dark"] {
   --itm-soft: rgba(67, 211, 160, .14);
   --atm-soft: rgba(243, 201, 105, .16);
   --otm-soft: rgba(255, 138, 122, .14);
+  /* Nền thanh tiêu đề của bảng. Trước đây hard-code #172330 trong index.html nên ở chế độ
+     sáng nó thành một dải đen chắn ngang trang. */
+  --th-bg: #1b2734;
+  --th-text: #c3d1e0;
 }
 
 html[data-theme="light"] {
@@ -63,6 +67,9 @@ html[data-theme="light"] {
   --itm-soft: rgba(0, 121, 93, .10);
   --atm-soft: rgba(138, 91, 0, .12);
   --otm-soft: rgba(198, 45, 45, .10);
+  /* Xanh xám rất nhạt: đủ để tách thanh tiêu đề khỏi thân bảng trắng mà không thành dải đen. */
+  --th-bg: #eef2f7;
+  --th-text: #46586c;
 }
 
 /* Trang gốc dùng tên biến riêng (--bg/--panel/--line/--text/--muted/--accent) nên chỉ cần
@@ -471,4 +478,17 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   .ov-big { grid-column: span 1; }
   .glossary-item { grid-template-columns: 1fr; }
   .filter select { min-width: 130px; }
+}
+
+/* ── Thanh tiêu đề bảng ──────────────────────────────────────────────────────
+   `index.html` từng đặt th{background:#172330} (xanh-đen đặc) và th:first-child cùng màu,
+   nên ở chế độ sáng thanh này thành một dải đen. Ghi đè bằng token để cả hai theme đều dịu.
+   Cần độ ưu tiên cao hơn: style trong index.html nằm SAU ui.css trong <head>. */
+thead th {
+  background: var(--th-bg) !important;
+  color: var(--th-text) !important;
+  /* Đường kẻ dưới để mắt bám được mép thanh khi cuộn dọc. */
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: .01em;
 }

@@ -17,7 +17,7 @@ def test_board_explains_how_history_is_obtained():
     assert "Yuanta" not in HTML
     assert "tích luỹ dần" in HTML
     assert "không backfill quá khứ" in HTML
-    assert "Mã không khớp lệnh không có giá đóng cửa" in HTML
+    assert "mã không khớp lệnh không có giá đóng cửa" in HTML
     # Không được hứa hẹn định giá/Greeks/khuyến nghị từ nguồn không có dữ liệu đó
     assert "Greeks" in HTML and "khuyến nghị" in HTML
     assert "historicalOhlcvAvailable" not in HTML  # Only metadata is read, not assumed.

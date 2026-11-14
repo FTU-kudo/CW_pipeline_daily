@@ -124,9 +124,11 @@ def test_7_glossary_tab_exists_and_renders():
 
 def test_7_glossary_covers_every_core_term():
     block = HTML.split("const GLOSSARY", 1)[1].split("function renderGlossary", 1)[0]
+    # Tên cột đã đổi sang cách gọi của nhà đầu tư; mã trường gốc vẫn phải còn trong ngoặc
+    # "(nguồn: …)" để người đối chiếu dữ liệu tra được.
     for term in ("ITM", "ATM", "OTM", "Black–Scholes", "IV", "HV", "Delta", "Theta",
                  "Vega", "Rho", "Strike", "Premium hoà vốn", "termsBasis",
-                 "RefP", "Spread", "HHI", "Tích luỹ dần"):
+                 "RefP", "Chênh lệch mua–bán", "HHI", "Tích luỹ dần"):
         assert term in block, f"thiếu thuật ngữ: {term}"
 
 
@@ -197,3 +199,121 @@ def test_build_details_refuses_inconsistent_snapshot_count():
     snapshot = {"count": 100, "rows": [{"StockCode": "CABC2601"}, {"StockCode": "CABC2602"}]}
     with pytest.raises(ValueError, match="không nhất quán"):
         build_details(snapshot=snapshot, board_analysis=None, analytics=None)
+
+
+# ── Tiêu đề cột phải là tiếng Việt của nhà đầu tư, không phải tên trường API ──
+def _board_thead() -> str:
+    return HTML.split('<thead><tr>', 1)[1].split('</tr></thead>', 1)[0]
+
+
+def _board_headers() -> list[str]:
+    """Nhãn hiển thị của 22 cột bảng giá, đã bỏ tooltip."""
+    import re
+    # Tách theo thẻ mở, bỏ phần thuộc tính của chính <th> đầu tiên.
+    cells = re.findall(r'<th[^>]*>(.*?)</th>', _board_thead(), re.S)
+    return [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+
+
+def test_board_headers_are_investor_vocabulary():
+    headers = _board_headers()
+    expected = ['Mã CW', 'Giá tham chiếu', 'Giá trần', 'Giá sàn', 'Giá mở cửa',
+                'Giá cao nhất', 'Giá thấp nhất', 'Giá bình quân', 'Giá khớp cuối',
+                'KL khớp cuối', 'Tổng KL', 'Tổng giá trị', 'KL ngoại mua', 'KL ngoại bán',
+                'Room ngoại', 'Giá (VND)', '% trong ngày', 'Chênh lệch mua–bán',
+                'Tỷ trọng GT', 'Giá mua 1–3', 'Giá bán 1–3', 'Dữ liệu gốc']
+    assert headers == expected
+
+
+def test_no_source_field_name_appears_as_a_visible_header():
+    """Điều chủ dự án nêu: bảng giá không được bắt người đọc học thuật ngữ API."""
+    raw = ('RefP', 'CeilingP', 'FloorP', 'OpenP', 'HighestP', 'LowestP', 'AvgP',
+           'LastMP', 'LastMVol', 'TotalVol', 'TotalVal', 'FTBuyVol', 'FTSellVol',
+           'FRoom', 'Payload')
+    for header in _board_headers():
+        for field in raw:
+            assert field not in header, f"tiêu đề '{header}' còn chứa tên trường {field}"
+
+
+def test_every_data_column_keeps_its_source_field_in_the_tooltip():
+    """Đổi nhãn KHÔNG được làm mất khả năng đối chiếu với dữ liệu gốc."""
+    thead = _board_thead()
+    for field in ('RefP', 'CeilingP', 'FloorP', 'OpenP', 'HighestP', 'LowestP', 'AvgP',
+                  'LastMP', 'LastMVol', 'TotalVol', 'TotalVal', 'FTBuyVol', 'FTSellVol',
+                  'FRoom', 'B1', 'S1'):
+        assert f'nguồn: {field}' in thead, f"tooltip thiếu trường {field}"
+
+
+def test_tooltips_appear_on_both_light_and_dark():
+    """Tooltip là thuộc tính HTML nên không phụ thuộc theme — khoá lại để không ai gỡ."""
+    assert _board_thead().count('title="') >= 18
+
+
+def test_glossary_explains_each_column_in_plain_vietnamese():
+    """Mỗi tiêu đề phải có một mục giải thích trong tab Thuật ngữ."""
+    block = HTML.split("const GLOSSARY", 1)[1].split("function renderGlossary", 1)[0]
+    for label in ('Giá tham chiếu', 'Giá trần', 'Giá sàn', 'Giá mở cửa', 'Giá bình quân',
+                  'Giá khớp cuối', 'KL khớp cuối', 'Tổng KL', 'Tổng giá trị',
+                  'KL ngoại mua', 'KL ngoại bán', 'Room ngoại', 'Giá mua 1–3',
+                  'Giá bán 1–3', 'Chênh lệch mua–bán', '% trong ngày'):
+        assert label in block, f"Thuật ngữ chưa giải thích cột: {label}"
+
+
+# ── Thanh tiêu đề phải dịu ở chế độ sáng ──
+def test_table_header_has_no_hardcoded_colour():
+    """`th{background:#172330}` là dải đen chắn ngang trang ở chế độ sáng."""
+    assert 'background:#172330' not in HTML
+    assert 'th{position:sticky;top:0;background:var(--th-bg)' in HTML
+    assert 'th:first-child{z-index:2;background:var(--th-bg)}' in HTML
+    assert CSS.count('--th-bg:') >= 2, "phải khai báo cho cả hai chế độ"
+
+
+import re
+
+
+def _theme_block(name: str) -> str:
+    """Nội dung khối khai báo biến của một theme.
+
+    Không cắt theo `CSS.split('html[data-theme="light"]')` vì chuỗi đó còn xuất hiện trong
+    chú thích phía trên, khiến phép cắt rơi vào đúng đoạn chú thích thay vì khối biến.
+    """
+    match = re.search(rf'html\[data-theme="{name}"\]\s*\{{(.*?)\n\}}', CSS, re.S)
+    assert match, f"không tìm thấy khối biến của theme {name}"
+    return match.group(1)
+
+
+def _luminance(hex_colour: str) -> float:
+    h = hex_colour.lstrip('#')
+    channels = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    la, lb = _luminance(a), _luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def test_light_header_is_a_pale_tint_not_a_dark_band():
+    """Đo bằng độ sáng tương đối, không đo bằng cảm nhận."""
+    light = _theme_block("light")
+    th_bg = re.search(r'--th-bg:\s*(#[0-9a-fA-F]{6})', light).group(1)
+    page_bg = re.search(r'--bg:\s*(#[0-9a-fA-F]{6})', light).group(1)
+    # Rất sáng (gần trắng) chứ không phải xanh-đen.
+    assert _luminance(th_bg) > 0.80, f"{th_bg} vẫn còn tối"
+    # Vẫn khác nền trang để thanh còn nhìn thấy.
+    assert th_bg.lower() != page_bg.lower()
+
+
+def test_light_header_text_is_readable():
+    """Nền nhạt thì chữ phải đủ đậm — nếu không sẽ thành chữ xám trên nền xám."""
+    light = _theme_block("light")
+    th_bg = re.search(r'--th-bg:\s*(#[0-9a-fA-F]{6})', light).group(1)
+    th_text = re.search(r'--th-text:\s*(#[0-9a-fA-F]{6})', light).group(1)
+    assert _contrast(th_bg, th_text) >= 4.5, "chưa đạt WCAG AA"
+
+
+def test_dark_header_text_is_readable():
+    dark = _theme_block("dark")
+    th_bg = re.search(r'--th-bg:\s*(#[0-9a-fA-F]{6})', dark).group(1)
+    th_text = re.search(r'--th-text:\s*(#[0-9a-fA-F]{6})', dark).group(1)
+    assert _contrast(th_bg, th_text) >= 4.5

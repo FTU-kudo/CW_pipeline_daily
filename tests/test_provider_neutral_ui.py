@@ -77,7 +77,7 @@ def test_scope_warnings_moved_to_the_footer_and_stay_accurate():
     """
     assert "tích luỹ dần" in HTML
     assert "không backfill quá khứ" in HTML
-    assert "Mã không khớp lệnh không có giá đóng cửa" in HTML
+    assert "mã không khớp lệnh không có giá đóng cửa" in HTML
     assert "Vẫn không có Greeks" not in HTML
 
 
