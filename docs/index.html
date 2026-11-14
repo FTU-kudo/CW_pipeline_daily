@@ -220,7 +220,7 @@ function renderOverview(){
      icon: '📋', big: true},
     {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), n: 'VND trong phiên — không phải ADV',
      icon: '💰', big: true},
-    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), n: 'nhóm suy ra từ mã CW', icon: '🏦'},
+    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), n: 'nhóm cổ phiếu có mã CW', icon: '🏦'},
     {k: 'Tăng / giảm / đứng', v: `${num(s.gainers)} / ${num(s.losers)} / ${num(s.unchanged)}`,
      n: `trung vị ${fmtPct(s.medianChangePct)}`, icon: '📊'},
   ];
