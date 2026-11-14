@@ -434,8 +434,10 @@ def test_1_weights_render_as_badges_not_prose():
     assert 'weightBadges' in js
     # Câu văn xuôi cũ đã bỏ.
     assert "Trọng số: ${parts.map" not in js
-    for label in ('Thanh khoản', 'Chi phí', 'Định giá', 'Chất lượng giá', 'Độ ổn định'):
+    for label in ('Thanh khoản', 'Chi phí', 'Định giá', 'Chất lượng giá'):
         assert label in js
+    # Trục "độ ổn định" đã bỏ: badge không được còn nhắc tới nó.
+    assert 'Độ ổn định' not in js
 
 
 def test_1_weight_badges_match_the_published_weights():
@@ -444,8 +446,12 @@ def test_1_weight_badges_match_the_published_weights():
     analytics = json.loads(
         (ROOT / 'docs' / 'data' / 'yuanta_analytics.json').read_text(encoding='utf-8'))
     weights = analytics['scoring']['weights']
-    assert weights == {'liquidity': 0.34, 'cost': 0.26, 'valuation': 0.2,
-                       'priceQuality': 0.12, 'consistency': 0.08}
+    # Bốn trục, chuẩn hoá để tổng bằng 1. Không còn 'consistency'.
+    assert set(weights) == {'liquidity', 'cost', 'valuation', 'priceQuality'}
+    assert sum(weights.values()) == pytest.approx(1.0)
+    # Tỷ lệ giữa các trục y như trước khi bỏ trục thứ năm (34/26/20/12 trên tổng 92).
+    for key, base in (('liquidity', 34), ('cost', 26), ('valuation', 20), ('priceQuality', 12)):
+        assert weights[key] == pytest.approx(base / 92, abs=1e-9)
     js = _scoring_js()
     assert 'weights[k]' in js, "badge phải đọc từ sc.weights"
     assert 'Math.round((weights[k] || 0) * 100)' in js
@@ -538,8 +544,10 @@ def test_3_header_is_sticky():
 def test_3_every_numeric_column_is_sortable():
     js = _scoring_js()
     for key in ('rank', 'ticker', 'score', 'coveragePct', 'valueVND', 'chgPct',
-                'liquidity', 'cost', 'valuation', 'priceQuality', 'consistency'):
+                'liquidity', 'cost', 'valuation', 'priceQuality'):
         assert f"scoringHead('{key}'" in js, f"cột {key} chưa sắp xếp được"
+    # Cột đã bỏ thì không được còn là tiêu đề sắp xếp.
+    assert "scoringHead('consistency'" not in js
     assert 'sort-arrow' in js
     assert 'aria-sort' in js
     assert 'tabindex="0"' in js

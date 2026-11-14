@@ -261,7 +261,8 @@ def test_scoring_uses_valuation_when_pricing_available():
     frame = _cw([_cw_row()])
     priced, diag = price_warrants(frame, _terms([_term_row()]), session="2026-11-13")
     scored = score_warrants(frame, priced=priced, valuation_diagnostics=diag)
-    assert scored["weights"]["valuation"] == pytest.approx(0.20)
+    # 20/92: trọng số chuẩn hoá trên bốn trục sau khi bỏ trục độ ổn định (xem DEFAULT_WEIGHTS).
+    assert scored["weights"]["valuation"] == pytest.approx(20 / 92)
     assert sum(scored["weights"].values()) == pytest.approx(1.0)
     # Hai khái niệm KHÁC nhau, không được gộp:
     #   valuation.available      = đã định giá được bằng BS (có đủ điều khoản)

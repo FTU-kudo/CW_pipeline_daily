@@ -768,11 +768,11 @@ const scoringSort = {key: 'score', dir: 'desc'};
 // Thứ tự ưu tiên khi hai mã cùng điểm — so tiếp theo thanh khoản rồi tới giá trị.
 const SCORING_DEFAULT_DIR = {score: 'desc', valueVND: 'desc', valuation: 'desc',
   priceQuality: 'desc', coveragePct: 'desc', liquidity: 'desc', cost: 'desc',
-  consistency: 'desc', chgPct: 'desc'};
+  chgPct: 'desc'};
 
 const WEIGHT_LABELS = {
   liquidity: 'Thanh khoản', cost: 'Chi phí', valuation: 'Định giá',
-  priceQuality: 'Chất lượng giá', consistency: 'Độ ổn định',
+  priceQuality: 'Chất lượng giá',
 };
 
 /** Giá trị dùng để sắp xếp một dòng theo khoá của cột. */
@@ -920,7 +920,6 @@ function scoringTable(rows, sc) {
         ${scoringHead('cost', `Chi phí ${Math.round((sc.weights?.cost || 0) * 100)}%`)}
         ${scoringHead('valuation', `Định giá ${Math.round((sc.weights?.valuation || 0) * 100)}%`)}
         ${scoringHead('priceQuality', `Chất lượng giá ${Math.round((sc.weights?.priceQuality || 0) * 100)}%`)}
-        ${scoringHead('consistency', `Độ ổn định ${Math.round((sc.weights?.consistency || 0) * 100)}%`)}
         <th class="warn-head">Cảnh báo</th>
       </tr></thead>
       <tbody>${rows.map(r => `<tr>
@@ -935,7 +934,6 @@ function scoringTable(rows, sc) {
         ${partCell(r.parts?.cost, 'Chi phí')}
         ${partCell(r.parts?.valuation, 'Định giá')}
         ${partCell(r.parts?.priceQuality, 'Chất lượng giá')}
-        ${partCell(r.parts?.consistency, 'Độ ổn định')}
         ${warnCell(r, sc)}
       </tr>`).join('')}</tbody>
     </table>
@@ -991,15 +989,13 @@ function renderScoring() {
           <li>Mỗi trục cho điểm 0–100 rồi nhân trọng số ở trên. Trục nào thiếu dữ liệu thì
             <strong>tính lại trọng số trên phần còn lại</strong>, không cộng 0 — vì cộng 0 sẽ
             trừ điểm oan cho mã chỉ thiếu một trường.</li>
-          <li><strong>Độ phủ</strong> = phần trăm trọng số thực sự có dữ liệu. Độ phủ 92% nghĩa
-            là điểm đó dựa trên 92% trọng số, không phải 100%.</li>
+          <li><strong>Độ phủ</strong> = phần trăm trọng số thực sự có dữ liệu. Độ phủ 100% nghĩa
+            là cả bốn trục đều chấm được; thấp hơn thì điểm đó chỉ dựa trên phần trọng số còn
+            lại.</li>
           <li><strong>Định giá ${Math.round((weights.valuation || 0) * 100)}%</strong> tính từ IV
             của mã so với trung vị IV các CW cùng cổ phiếu cơ sở
             (${num(sc.valuationMeta?.scored, 0)} mã được chấm).
             ${val.available ? `Đã định giá ${num(val.priced, 0)} mã bằng Black–Scholes — xem tab <strong>Định giá</strong>.` : ''}</li>
-          ${sc.consistency?.available === false
-            ? `<li><strong>Độ ổn định ${Math.round((weights.consistency || 0) * 100)}%</strong> chưa chấm được:
-                 ${esc(sc.consistency.reason || 'chưa đủ phiên lịch sử')}</li>` : ''}
           <li>Điểm này <strong>không phải khuyến nghị mua/bán</strong>. Nó xếp hạng trên các
             tiêu chí đã nêu, không dự phóng lợi nhuận.</li>
         </ul>
@@ -1145,9 +1141,16 @@ const GLOSSARY = [
      'Điểm tổng hợp từ thanh khoản, chi phí giao dịch, định giá, chất lượng giá và độ ổn định. KHÔNG phải khuyến nghị mua/bán.',
      ''],
     ['"chưa chấm" trong bảng xếp hạng',
-     'Trục chấm điểm mà mã đó chưa có đủ dữ liệu để tính, ví dụ độ ổn định cần ≥5 phiên lịch sử. '
-     + 'Đây KHÔNG phải điểm 0: mã không bị trừ điểm vì thiếu trường, trọng số của trục đó được '
-     + 'tính lại trên phần còn lại (xem Độ phủ).', ''],
+     'Trục chấm điểm mà mã đó chưa có đủ dữ liệu để tính — hiện chỉ còn trục định giá, khi mã '
+     + 'chưa có điều khoản hợp đồng hoặc nhóm cùng cơ sở ít hơn 5 mã. Đây KHÔNG phải điểm 0: '
+     + 'mã không bị trừ điểm vì thiếu trường, trọng số của trục đó được tính lại trên phần còn '
+     + 'lại (xem Độ phủ).', ''],
+    ['Sao không có trục "độ ổn định"',
+     'Trục tỷ lệ phiên có khớp lệnh từng chiếm 8% nhưng chưa từng chấm được mã nào: cần ≥5 '
+     + 'phiên lịch sử mà kho mới có 1. Vì trục thiếu được loại ra và trọng số chia lại, 8% đó '
+     + 'chưa bao giờ ảnh hưởng điểm — bỏ đi thì điểm của cả 353 mã và thứ hạng không đổi, chỉ '
+     + 'có độ phủ hết bị kẹt ở 92%. Khi kho đủ phiên, số phiên có khớp lệnh sẽ hiện thành một '
+     + 'cột dữ liệu riêng chứ không quay lại công thức điểm.', ''],
     ['Ngưỡng chia nhóm', 'Phân vị của chính snapshot hôm nay, không phải ngưỡng VND cố định — nên nhóm tự điều chỉnh theo mặt bằng thanh khoản từng phiên.', ''],
     ['HHI', 'Chỉ số tập trung: càng cao thì giá trị giao dịch càng dồn vào ít mã.', 'Σ (thị phần)²'],
     ['Top 10', 'Tỷ trọng giá trị giao dịch của 10 mã lớn nhất trên toàn bảng.', ''],

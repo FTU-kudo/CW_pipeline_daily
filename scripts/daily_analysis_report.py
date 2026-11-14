@@ -271,8 +271,8 @@ def render_markdown(report: dict, *, compact: bool = False) -> str:
                   f"{_vnd(dist.get('p25'), 1)}–{_vnd(dist.get('p75'), 1)}"]
         weights = scoring.get("weights") or {}
         if weights:
-            labels = {"liquidity": "thanh khoản", "cost": "chi phí", "priceQuality": "chất lượng giá",
-                      "consistency": "độ ổn định"}
+            labels = {"liquidity": "thanh khoản", "cost": "chi phí",
+                      "priceQuality": "chất lượng giá", "valuation": "định giá"}
             lines.append("- Trọng số: " + " · ".join(
                 f"{labels.get(k, k)} {round(v * 100)}%" for k, v in weights.items()))
         lines += ["", *_table(
