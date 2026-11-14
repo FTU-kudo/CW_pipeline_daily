@@ -9,8 +9,12 @@ def test_board_explains_how_history_is_obtained():
 
     Trang phải nói rõ hai điều: (1) endpoint không có dữ liệu quá khứ, (2) bar chỉ hoàn
     chỉnh khi chụp sau giờ đóng cửa, và mã không khớp lệnh không có giá.
+
+    Tên nhà cung cấp KHÔNG được xuất hiện trên giao diện: nhãn hiển thị là "Quant Analysis"
+    và mọi chỗ nói về nguồn đều dùng từ trung tính ("nguồn bảng giá"). Việc ghi công nguồn
+    dữ liệu nằm ở tầng kỹ thuật (metadata JSON, README, biến môi trường), không ở trang.
     """
-    assert "Yuanta" in HTML
+    assert "Yuanta" not in HTML
     assert "tích luỹ dần" in HTML
     assert "không backfill quá khứ" in HTML
     assert "Mã không khớp lệnh không có giá đóng cửa" in HTML

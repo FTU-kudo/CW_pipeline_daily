@@ -1,8 +1,30 @@
-# CW Board — Yuanta
+# CW Board — Quant Analysis
 
-Bảng giá chứng quyền dạng **snapshot** lấy từ API Yuanta mà chủ dự án cung cấp. Mã ứng dụng chỉ gọi endpoint `stock_type=EW`, giữ nguyên tên trường và giá trị gốc từ API, rồi xuất một JSON hiện tại cho GitHub Pages.
+Bảng giá chứng quyền dạng **snapshot**, kèm lớp phân tích định lượng. Mã ứng dụng chỉ gọi
+endpoint bảng giá `stock_type=EW`, giữ nguyên tên trường và giá trị gốc từ API, rồi xuất JSON
+hiện tại cho GitHub Pages.
 
-> **Giới hạn dữ liệu có chủ ý:** endpoint này không cung cấp OHLCV ngày riêng cho từng chứng quyền. Vì vậy bản này không có chuỗi lịch sử, biểu đồ nến, backtest, Greeks, định giá hay khuyến nghị. Snapshot mới ghi đè snapshot cũ; dự án không tạo dữ liệu lịch sử giả.
+> **Ghi công nguồn.** Endpoint bảng giá: `ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW`
+> — do chủ dự án cung cấp và tuyên bố được phép sử dụng, công bố. Điều khoản hợp đồng từ repo
+> [`Vietstock_CW_bot`](https://github.com/FTU-kudo/Vietstock_CW_bot); lợi suất TPCP từ repo
+> [`VN_Bond_Yield_pipeline`](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline).
+
+> **Nhãn hiển thị.** Quyết định sản phẩm: trang mang tên **"Covered Warrants — Quant Analysis"**
+> và mọi chỗ nói về nguồn trên giao diện đều dùng từ trung tính ("nguồn bảng giá"). Tên nhà
+> cung cấp **vẫn được ghi** ở tầng kỹ thuật — metadata `source` trong JSON, mục này, và URL
+> endpoint — vì đó là nghĩa vụ khi dùng API. Đường dẫn tệp (`docs/data/yuanta_*.json`) cũng
+> giữ nguyên tên để không làm hỏng đường tải dữ liệu.
+
+## Phạm vi dữ liệu
+
+- **Có:** bảng giá 22 cột, xếp hạng thanh khoản, nhóm theo cổ phiếu cơ sở, độ phủ lịch sử,
+  trần–sàn, biến động trong phiên, định giá Black–Scholes với IV và Greeks cho **350/353 mã
+  khớp lệnh**, lãi suất phi rủi ro nội suy từ đường cong TPCP HNX.
+- **Không có, và lý do:** giá CW theo phút/giây (nguồn không có); định giá cho **54 mã không
+  khớp lệnh** (không có giá thị trường thì không có IV); khuyến nghị mua/bán.
+- **Cách lịch sử được tạo:** OHLCV theo ngày **tích luỹ dần** từ mỗi lần workflow chạy sau giờ
+  đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Mã không khớp
+  lệnh không có giá đóng cửa; `RefP` không được dùng thay.
 
 ## Giao diện (`docs/`)
 

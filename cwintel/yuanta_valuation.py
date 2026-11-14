@@ -336,7 +336,10 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         derived_s = underlying                  # S suy từ Vietstock, giữ lại để đối chiếu
         if history_row and history_row["close"]:
             underlying = float(history_row["close"])
-            underlying_source = f"lịch sử Yuanta ({history_row['date']})"
+            # Nhãn này hiện lên ngăn kéo chi tiết ("Nguồn giá cơ sở"). Ghi cái người đọc
+            # cần biết — giá đóng cửa thật của cổ phiếu cơ sở, lấy từ kho OHLCV — chứ không
+            # phải tên nhà cung cấp dữ liệu.
+            underlying_source = f"giá đóng cửa cổ phiếu cơ sở ({history_row['date']})"
         else:
             underlying_source = "suy từ premium/đòn bẩy Vietstock"
 

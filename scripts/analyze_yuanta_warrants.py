@@ -126,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             payload = fetch_board(retries=args.retries, transport=args.transport,
                                   warmup=not args.no_warmup)
         except (YuantaHTTPError, ValueError) as exc:
-            print(f"LỖI: không gọi được API Yuanta: {exc}", file=sys.stderr)
+            print(f"LỖI: không gọi được API bảng giá: {exc}", file=sys.stderr)
             body = getattr(exc, "body", None)
             if body:
                 print(f"--- body ({len(body)} ký tự) ---", file=sys.stderr)

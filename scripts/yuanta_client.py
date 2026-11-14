@@ -364,7 +364,7 @@ def fetch_board(*, session: requests.Session | None = None, retries: int = 3,
         if own_session:
             session.close()
 
-    message = f"Gọi Yuanta thất bại sau {retries} lần thử"
+    message = f"Gọi API bảng giá thất bại sau {retries} lần thử"
     if last_status is not None:
         message += f" (HTTP cuối={last_status}, content-type={last_type})"
     message += f": {last_error}"

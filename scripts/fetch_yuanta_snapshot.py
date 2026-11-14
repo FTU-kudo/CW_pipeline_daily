@@ -54,7 +54,7 @@ def main() -> int:
         snapshot = normalize_payload(payload)
     except YuantaHTTPError as exc:
         # In ngữ cảnh đầy đủ: status, content-type, body (không cắt mất chỗ quan trọng).
-        print(f"LỖI: không lấy được bảng giá Yuanta: {exc}", file=sys.stderr)
+        print(f"LỖI: không lấy được bảng giá: {exc}", file=sys.stderr)
         if exc.body:
             print(f"--- body ({len(exc.body)} ký tự) ---", file=sys.stderr)
             print(exc.body, file=sys.stderr)
@@ -65,10 +65,10 @@ def main() -> int:
         )
         return 1
     except YuantaPayloadError as exc:
-        print(f"LỖI: payload Yuanta không đúng schema mong đợi: {exc}", file=sys.stderr)
+        print(f"LỖI: payload bảng giá không đúng schema mong đợi: {exc}", file=sys.stderr)
         return 1
     write_atomic(args.out, snapshot)
-    print(f"Yuanta EW snapshot: {snapshot['count']} symbols; fetchedAt={snapshot['fetchedAt']}; output={args.out}")
+    print(f"Bảng giá CW: {snapshot['count']} symbols; fetchedAt={snapshot['fetchedAt']}; output={args.out}")
     print(f"Endpoint: {API_URL}")
     print("Historical warrant OHLCV is unavailable; this output contains the current board only.")
     return 0
