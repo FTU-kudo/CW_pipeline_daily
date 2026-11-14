@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "yuanta_details",
   "source": "Yuanta YS Radar price board",
-  "fetchedAt": "2026-11-14T09:21:59+00:00",
+  "fetchedAt": "2026-11-14T09:59:12+00:00",
   "session": "2026-11-13",
   "historyMeta": {
     "available": true,
@@ -1108,7 +1108,7 @@
         "moneynessPct": -11.52,
         "premiumPct": 13.66,
         "leverage": 156.538,
-        "vsBsPct": 0.0,
+        "vsBsPct": -0.0,
         "underlyingSource": "lịch sử Yuanta (2026-11-13)",
         "hvShort": 21.66,
         "hvLong": 21.32,
