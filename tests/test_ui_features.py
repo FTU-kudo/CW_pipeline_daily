@@ -48,8 +48,8 @@ def test_light_theme_is_not_a_hair_darker_dark_theme():
     css = UI_CSS[UI_CSS.index("*/"):]
     light = css[css.index('html[data-theme="light"] {'):]
     light = light[: light.index("}")]
-    assert "--bg: #f4f6f8" in light, "nền light phải sáng"
-    assert "--text: #0f1a24" in light, "chữ light phải tối"
+    assert "--bg: #f8fafc" in light, "nền light phải sáng (xám rất nhạt #F8FAFC)"
+    assert "--text: #0f172a" in light, "chữ light phải tối"
     root = css[css.index(":root,"):]
     root = root[: root.index("}")]
     assert "--bg: #0b1118" in root, "nền dark phải tối"

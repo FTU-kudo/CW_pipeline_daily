@@ -8,7 +8,7 @@
   <style>
     /* Bảng màu do ui.css quản lý qua html[data-theme]; ở đây chỉ giữ biến dự phòng. */
     :root{color-scheme:dark;--bg:#0b1118;--panel:#121c27;--line:#263646;--text:#e6edf5;--muted:#93a4b6;--accent:#43d3a0;--warn:#f3c969;--panel-2:#172330;--line-soft:#1e2b39;--accent-soft:rgba(67,211,160,.12);--up:#43d3a0;--down:#ff8a7a;--track:#0e1620}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
     main{max-width:1500px;margin:auto;padding:24px}header{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
     h1{font-size:24px;margin:0 0 4px}.sub,.muted{color:var(--muted)}.stamp{white-space:nowrap;color:var(--accent);font-variant-numeric:tabular-nums}
     .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0}.toolbar input{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px}
@@ -40,32 +40,35 @@
     .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
     .flag{color:var(--warn)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
   </style>
+  <!-- Inter cho chữ; fallback hệ thống nên trang vẫn đúng nếu không tải được webfont.
+       `display=swap` để chữ hiện ngay bằng font hệ thống rồi đổi sang Inter, không bị trắng chữ. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="assets/ui.css">
 </head>
 <body>
 <main>
+  <!-- Header một hàng: tiêu đề + MỘT câu thời gian bên trái; công tắc giao diện, ngôn ngữ
+       và đồng hồ thời gian thực dồn sang phải. Trước đây khối này chiếm bốn dòng dọc vì
+       mỗi dòng thời gian ("cập nhật lúc", "phiên") đứng riêng và các công tắc có nhãn trên. -->
   <header>
     <div class="topbar">
       <div class="topbar-left">
         <h1>Covered Warrants — Quant Analysis</h1>
-        <div class="sub" id="sub-line">Bảng giá chứng quyền (CW) — được cập nhật lúc —.</div>
-        <!-- Dòng này trả lời "dữ liệu cập nhật lúc mấy giờ" và dữ liệu cũ bao lâu rồi. -->
-        <p class="freshness" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
+        <!-- Dòng thời gian duy nhất. `sub-line` và `freshness` đều được renderFreshness() đổ
+             vào đây nên không lặp lại hai lần cùng một mốc giờ. -->
+        <p class="brand-meta" id="sub-line">Bảng giá chứng quyền (CW) — được cập nhật lúc —.</p>
+        <p class="brand-meta muted-line" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
       </div>
       <div class="controls">
-        <div>
-          <div class="seg-label">Sáng / Tối</div>
-          <div class="seg" role="group" aria-label="Giao diện sáng hoặc tối">
-            <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
-            <button type="button" data-theme-set="dark" aria-pressed="true">Tối</button>
-          </div>
+        <div class="seg" role="group" aria-label="Giao diện sáng hoặc tối">
+          <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
+          <button type="button" data-theme-set="dark" aria-pressed="true">Tối</button>
         </div>
-        <div>
-          <div class="seg-label">Ngôn ngữ</div>
-          <div class="seg" role="group" aria-label="Ngôn ngữ">
-            <button type="button" data-lang-set="vi" aria-pressed="true">Tiếng Việt</button>
-            <button type="button" data-lang-set="en" aria-pressed="false">English</button>
-          </div>
+        <div class="seg" role="group" aria-label="Ngôn ngữ">
+          <button type="button" data-lang-set="vi" aria-pressed="true">VI</button>
+          <button type="button" data-lang-set="en" aria-pressed="false">EN</button>
         </div>
         <div class="clock" id="market-clock" data-session="closed">
           <span class="dot" aria-hidden="true"></span>
@@ -82,23 +85,38 @@
        tính được từ dữ liệu đang có thì KHÔNG hiện (xem renderOverview) — thà thiếu còn hơn
        hiện số 0 giả. -->
   <section class="overview" id="overview" hidden>
-    <h2 class="ov-title"><span aria-hidden="true">🌐</span><span class="t-txt">Toàn cảnh thị trường chứng quyền</span></h2>
+    <h2 class="ov-title"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><span class="t-txt">Toàn cảnh thị trường chứng quyền</span></h2>
     <div class="ov-grid" id="ov-grid"></div>
   </section>
-  <div class="stats" id="stats"></div>
   <!-- Năm tab đầu là các mục chính người xem quan tâm nhất → tô nổi (class `feature`).
        Emoji đứng trước nhãn để quét bằng mắt nhanh hơn đọc chữ. -->
-  <nav class="tabs" id="tabs" role="tablist">
-    <button type="button" class="tab active feature" data-view="board" role="tab"><span class="t-ico" aria-hidden="true">📋</span><span class="t-txt">Bảng giá</span></button>
-    <button type="button" class="tab feature" data-view="scoring" role="tab"><span class="t-ico" aria-hidden="true">🏆</span><span class="t-txt">Xếp hạng</span></button>
-    <button type="button" class="tab feature" data-view="valuation" role="tab"><span class="t-ico" aria-hidden="true">🧮</span><span class="t-txt">Định giá</span></button>
-    <button type="button" class="tab feature" data-view="liquidity" role="tab"><span class="t-ico" aria-hidden="true">💵</span><span class="t-txt">Thanh khoản</span></button>
-    <button type="button" class="tab feature" data-view="underlyings" role="tab"><span class="t-ico" aria-hidden="true">🏦</span><span class="t-txt">Theo cơ sở</span></button>
-    <button type="button" class="tab" data-view="stale" role="tab"><span class="t-ico" aria-hidden="true">❌</span><span class="t-txt">Mã không giao dịch</span></button>
-    <button type="button" class="tab" data-view="intraday" role="tab"><span class="t-ico" aria-hidden="true">⏱️</span><span class="t-txt">Trong phiên</span></button>
-    <button type="button" class="tab" data-view="band" role="tab"><span class="t-ico" aria-hidden="true">📊</span><span class="t-txt">Trần–sàn</span></button>
-    <button type="button" class="tab" data-view="history" role="tab"><span class="t-ico" aria-hidden="true">📈</span><span class="t-txt">Lịch sử</span></button>
-    <button type="button" class="tab" data-view="glossary" role="tab"><span class="t-ico" aria-hidden="true">📖</span><span class="t-txt">Giải thích thuật ngữ</span></button>
+  <!-- Ba nhóm điều hướng tách bạch thay vì mười tab ngang hàng:
+       1. chuyển chế độ xem chính, 2. tuỳ chọn hiển thị (chip nhỏ), 3. hai nút phụ có viền
+       đẩy sang phải. Trước đây cả mười mục cùng kích thước nên người dùng không phân biệt
+       được đâu là chuyển trang, đâu là tuỳ chọn. -->
+  <nav class="nav-block" id="tabs" aria-label="Điều hướng chế độ xem">
+    <div class="nav-group" role="tablist" aria-label="Chế độ xem">
+      <span class="nav-group-label">Xem</span>
+      <button type="button" class="tab active" data-view="board" role="tab" aria-selected="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><span class="t-txt">Bảng giá</span></button>
+      <button type="button" class="tab" data-view="scoring" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg><span class="t-txt">Xếp hạng</span></button>
+      <button type="button" class="tab" data-view="valuation" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/></svg><span class="t-txt">Định giá</span></button>
+      <button type="button" class="tab" data-view="liquidity" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg><span class="t-txt">Thanh khoản</span></button>
+      <button type="button" class="tab" data-view="underlyings" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4Z"/></svg><span class="t-txt">Theo cơ sở</span></button>
+    </div>
+
+    <span class="nav-divider" aria-hidden="true"></span>
+
+    <div class="nav-group" role="group" aria-label="Tuỳ chọn hiển thị">
+      <span class="nav-group-label">Tuỳ chọn</span>
+      <button type="button" class="tab chip" data-view="stale" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg><span class="t-txt">Mã không giao dịch</span></button>
+      <button type="button" class="tab chip" data-view="intraday" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="t-txt">Trong phiên</span></button>
+      <button type="button" class="tab chip" data-view="band" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span class="t-txt">Trần–sàn</span></button>
+    </div>
+
+    <div class="nav-secondary">
+      <button type="button" class="btn-ghost" data-view="history" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="t-txt">Lịch sử</span></button>
+      <button type="button" class="btn-ghost" data-view="glossary" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="t-txt">Giải thích thuật ngữ</span></button>
+    </div>
   </nav>
   <section class="view" id="view-scoring" hidden></section>
   <section class="view" id="view-valuation" hidden></section>
@@ -111,16 +129,35 @@
   <section class="view" id="view-glossary" hidden></section>
   <section class="view" id="view-board">
   <p class="caption" id="click-hint">Bấm một mã ở cột đầu để xem toàn bộ thông tin của mã đó.</p>
-  <div class="toolbar"><input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"><button id="download" type="button">Tải JSON snapshot</button><span class="summary" id="summary"></span></div>
-  <!-- Bộ lọc dựng từ chính dữ liệu đã publish: cơ sở, ITM/ATM/OTM, đáo hạn, tổ chức phát
-       hành. Mỗi ô tự ẩn khi kho không có trường tương ứng (ví dụ chưa nạp điều khoản), thay
-       vì hiện ô rỗng bấm vào không có kết quả. -->
-  <div class="filters" id="filters">
-    <label class="filter"><span>Chứng khoán cơ sở</span><select id="f-underlying"><option value="">Tất cả</option></select></label>
-    <label class="filter"><span>ITM / ATM / OTM</span><select id="f-moneyness"><option value="">Tất cả</option><option value="ITM">ITM</option><option value="ATM">ATM</option><option value="OTM">OTM</option></select></label>
-    <label class="filter"><span>Đáo hạn</span><select id="f-maturity"><option value="">Tất cả</option></select></label>
-    <label class="filter"><span>Công ty phát hành</span><select id="f-issuer"><option value="">Tất cả</option></select></label>
-    <button id="f-reset" type="button" class="ghost">Xoá lọc</button>
+  <!-- Tìm kiếm + bốn bộ lọc + đếm mã + tải JSON trên MỘT hàng ngang. Trước đây thanh tìm
+       kiếm và hàng bộ lọc là hai khối xếp dọc, chiếm hai dòng và đẩy bảng xuống thấp.
+       Năm `<select>` không còn nhãn nổi phía trên; nhãn nằm trong option mặc định và
+       aria-label, nên mỗi ô chỉ cao một dòng. -->
+  <div class="toolbar filters" id="filters">
+    <label class="search-wrap">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"
+             aria-label="Lọc theo mã chứng quyền">
+    </label>
+    <!-- Ô lọc tự ẩn khi kho không có trường tương ứng (ví dụ chưa nạp điều khoản), thay vì
+         hiện ô rỗng bấm vào không có kết quả. -->
+    <select class="select" id="f-underlying" aria-label="Chứng khoán cơ sở"><option value="">Chứng khoán cơ sở</option></select>
+    <select class="select" id="f-moneyness" aria-label="Trạng thái tiền">
+      <option value="">ITM / ATM / OTM</option>
+      <option value="ITM">ITM</option><option value="ATM">ATM</option><option value="OTM">OTM</option>
+    </select>
+    <select class="select" id="f-maturity" aria-label="Tháng đáo hạn"><option value="">Tháng đáo hạn</option></select>
+    <select class="select" id="f-issuer" aria-label="Công ty phát hành"><option value="">Công ty phát hành</option></select>
+    <div class="toolbar-right">
+      <button id="f-reset" type="button" class="ghost" title="Xoá toàn bộ điều kiện lọc">Xoá lọc</button>
+      <span class="summary-count" id="summary"></span>
+      <button id="download" type="button" class="btn">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        Tải JSON snapshot
+      </button>
+    </div>
   </div>
   <div class="table-wrap"><table>
     <thead><tr>
@@ -194,29 +231,65 @@ const issuerOf    = (code) => detailsBy.get(code)?.issuer || null;
 const maturityBucket = (iso) => (iso ? String(iso).slice(0, 7) : null);
 
 function fillFilters(){
-  const fill = (id, values, labelOf) => {
+  // Nhãn nằm ngay trong option đầu tiên ("Chứng khoán cơ sở", "Tháng đáo hạn"…), nên ô lọc
+  // chỉ cao một dòng thay vì hai như khi có nhãn nổi phía trên.
+  const fill = (id, values, label) => {
     const el = document.querySelector(id);
     if (!el) return;
     const opts = [...new Set(values.filter(Boolean))].sort();
     const previous = el.value;
-    el.innerHTML = `<option value="">Tất cả</option>` +
-      opts.map(v => `<option value="${escAttr(v)}">${esc(labelOf ? labelOf(v) : v)}</option>`).join('');
+    el.innerHTML = `<option value="">${esc(label)}</option>` +
+      opts.map(v => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('');
     // Ẩn cả ô khi kho không có trường này (ví dụ chưa nạp điều khoản hợp đồng).
-    el.closest('.filter').hidden = opts.length === 0;
+    const wrap = el.closest('.filter');
+    if (wrap) wrap.hidden = opts.length === 0;
+    el.hidden = opts.length === 0;
     if (opts.includes(previous)) el.value = previous;
   };
   const codes = (snapshot?.rows || []).map(r => String(r.StockCode).toUpperCase());
   fill('#f-underlying', codes.map(c => detailsBy.get(c)?.underlying
-        || derived.get(c)?.u || null));
+        || derived.get(c)?.u || null), 'Chứng khoán cơ sở');
   // moneyness: dùng danh sách cố định, không lấy từ dữ liệu, để ô lọc luôn đủ ba lựa chọn.
-  document.querySelector('#f-moneyness').closest('.filter').hidden =
-    !codes.some(c => moneynessOf(c));
-  fill('#f-maturity', codes.map(c => maturityBucket(maturityOf(c))));
-  fill('#f-issuer', codes.map(c => issuerOf(c)));
+  document.querySelector('#f-moneyness').hidden = !codes.some(c => moneynessOf(c));
+  fill('#f-maturity', codes.map(c => maturityBucket(maturityOf(c))), 'Tháng đáo hạn');
+  fill('#f-issuer', codes.map(c => issuerOf(c)), 'Công ty phát hành');
 }
 
 // Toàn cảnh thị trường: gộp những chỉ số mô tả được cả thị trường từ dữ liệu đã publish.
 // Nguyên tắc: chỉ số nào không tính được thì bỏ hẳn ô đó — không in 0, không in "—" cho có.
+// Icon đơn sắc (Lucide, nhúng inline). Emoji trước đây được dùng cho thẻ KPI nhưng mỗi
+// emoji có bảng màu riêng nên hàng thẻ trông lộn xộn và không hợp bảng số liệu tài chính.
+const ICONS = {
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>',
+  bank: '<path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4Z"/>',
+  trending: '<path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  arrows: '<path d="m8 3-4 4 4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+  tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>',
+  percent: '<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+  landmark: '<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>',
+};
+// Nét vẽ đồng nhất 1.75, màu theo currentColor → mỗi chế độ tự có màu đúng.
+const icon = (name, cls = 'ov-ico') =>
+  `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+
+/** Ba thanh tỷ lệ xếp dọc. */
+// Không dùng MỘT thanh chồng cho tăng/giảm/đứng: ba phần không cộng thành 100% (còn mã
+// chưa xác định được trạng thái), nên thanh chồng sẽ ngầm nói đã đủ 100%. Ba thanh riêng
+// mỗi thanh tính trên cùng một mẫu số — nhìn ra tỷ lệ mà không nói sai.
+function miniBars(items, total){
+  return `<div class="mini-bars">${items.map(([label, value, variant]) => `
+    <div class="mini-bar">
+      <span class="mb-label">${esc(label)}</span>
+      <span class="mb-track"><span class="mb-fill ${variant}" style="width:${total ? (value / total) * 100 : 0}%"></span></span>
+      <span class="mb-pct">${num(value)}</span>
+    </div>`).join('')}</div>`;
+}
+
 function renderOverview(){
   const host = document.querySelector('#overview');
   const grid = document.querySelector('#ov-grid');
@@ -236,85 +309,107 @@ function renderOverview(){
   const sum = val?.summary || {};
   const ivhv = val?.ivVsHv || {};
   const curve = val?.yieldCurve || {};
+  const totalChange = s.gainers + s.losers + s.unchanged;
 
-  // Ô chính: giá trị lớn, nhãn ngắn, dòng phụ giải thích đơn vị/phạm vi.
+  // ĐÚNG HAI HÀNG × bốn thẻ. Hàng thống kê thứ ba trước đây lặp lại đúng những chỉ số
+  // này (CW trong snapshot, Giá trị giao dịch, Spread trung vị, Cổ phiếu cơ sở,
+  // Tăng/giảm) nên đã bỏ hẳn — xem renderStats() bên dưới.
   const cards = [
-    {k: 'Mã CW niêm yết', v: num(s.rows), n: `${num(s.traded)} mã có khớp lệnh · ${num(s.untraded)} không`,
-     icon: '📋', big: true},
-    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), n: 'VND trong phiên',
-     icon: '💰', big: true},
-    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), n: 'nhóm cổ phiếu có mã CW', icon: '🏦'},
-    {k: 'Tăng / giảm / tham chiếu', v: `${num(s.gainers)} / ${num(s.losers)} / ${num(s.unchanged)}`,
-     n: `trung vị ${fmtPct(s.medianChangePct)}`, icon: '📊'},
+    {k: 'Mã CW niêm yết', v: num(s.rows), icon: 'layers',
+     n: `<b>${num(s.traded)}</b> mã có khớp lệnh · <b>${num(s.untraded)}</b> không`},
+    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), icon: 'coins',
+     n: 'VND trong phiên · không phải ADV'},
+    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), icon: 'bank',
+     n: 'nhóm cổ phiếu có mã CW'},
+    {k: 'Tăng / giảm / đứng', icon: 'trending', split: [
+        ['up', num(s.gainers)], ['down', num(s.losers)], ['flat', num(s.unchanged)]],
+     bars: [['Tăng', s.gainers, 'up'], ['Giảm', s.losers, 'down'], ['Đứng', s.unchanged, 'flat']],
+     total: totalChange},
   ];
   if (priced) {
-    cards.push({k: 'Phân bố trạng thái tiền', v: `${num(counts.ITM)} / ${num(counts.ATM)} / ${num(counts.OTM)}`,
-      n: `ITM / ATM / OTM trên ${num(priced)} mã định giá được`, icon: '🎯'});
+    cards.push({k: 'Phân bố trạng thái tiền', icon: 'target',
+      split: [['up', num(counts.ITM)], ['flat', num(counts.ATM)], ['down', num(counts.OTM)]],
+      bars: [['ITM', counts.ITM, 'itm'], ['ATM', counts.ATM, 'atm'], ['OTM', counts.OTM, 'otm']],
+      total: priced,
+      n: `trên ${num(priced)} mã định giá được`});
   }
   if (sum.medianIv !== undefined && sum.medianIv !== null) {
-    cards.push({k: 'IV trung vị', v: `${fmtPct(sum.medianIv, 1)}`,
-      n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`, icon: '🧮'});
+    cards.push({k: 'IV trung vị', v: fmtPct(sum.medianIv, 1), icon: 'activity',
+      n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`});
   }
   if (ivhv.available && ivhv.medianIvMinusHv !== null) {
     cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${num(ivhv.medianIvMinusHv, 1)} điểm`,
-      n: `${num(ivhv.countIvAboveHv)} mã IV trên HV · ${num(ivhv.countIvBelowHv)} ngược lại`, icon: '⚖️'});
+      icon: 'scale', tone: ivhv.medianIvMinusHv >= 0 ? 'up' : 'down',
+      n: `<b>${num(ivhv.countIvAboveHv)}</b> mã IV trên HV · <b>${num(ivhv.countIvBelowHv)}</b> ngược lại`});
   }
-  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`, icon: '↔️'});
-  cards.push({k: 'Giá CW trung vị', v: `${num(s.medianLastPriceVND)} đ`, n: 'trên các mã khớp lệnh', icon: '🏷️'});
-  if (curve.available && curve.anchored1YPct !== null && curve.anchored1YPct !== undefined) {
-    cards.push({k: 'Lãi suất phi rủi ro 1Y', v: `${fmtPct(curve.anchored1YPct, 2)}`,
-      n: 'đường cong TPCP HNX', icon: '🏛️'});
-  }
-  cards.push({k: 'Tỷ trọng top 10', v: fmtPct(s.top10ValueSharePct, 1),
-    n: 'tỷ trọng của 10 mã lớn nhất', icon: '📌'});
+  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows',
+    n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`});
 
-  grid.innerHTML = cards.map(c =>
-    `<div class="ov-card${c.big ? ' ov-big' : ''}">`
-    + `<div class="ov-k"><span class="ov-ico" aria-hidden="true">${c.icon}</span>${esc(c.k)}</div>`
-    + `<div class="ov-v">${esc(c.v)}</div>`
-    + `<div class="ov-n">${esc(c.n)}</div></div>`).join('');
+  // Thanh tiến trình chỉ dành cho hai thẻ phân bố — nơi tỷ lệ mới là thông tin.
+  grid.innerHTML = cards.map(c => {
+    const value = c.split
+      ? `<div class="ov-v split">${c.split.map(([cls, v]) => `<span class="${cls}">${v}</span>`).join('<span class="sep">/</span>')}</div>`
+      : `<div class="ov-v${c.tone ? ` ${c.tone}` : ''}">${esc(c.v)}</div>`;
+    return `<div class="ov-card">`
+      + `<div class="ov-k">${icon(c.icon)}${esc(c.k)}</div>`
+      + value
+      + (c.bars ? miniBars(c.bars, c.total) : '')
+      + (c.n ? `<div class="ov-n">${c.n}</div>` : '')
+      + `</div>`;
+  }).join('');
   host.hidden = false;
 }
 
+// Hàng thẻ thống kê thứ ba đã bị bỏ: nó lặp lại đúng năm chỉ số của #ov-grid (CW trong
+// snapshot, Giá trị giao dịch, Spread trung vị, Cổ phiếu cơ sở, Tăng/giảm). Giữ lại hàm
+// rỗng để các lời gọi cũ không vỡ, và để #stats không chiếm chỗ trống trên trang.
 function renderStats(){
   const host = document.querySelector('#stats');
-  const s = analysis?.summary;
-  if(!s){host.innerHTML = ''; return;}
-  const cards = [
-    ['CW trong snapshot', num(s.rows), `${num(s.traded)} mã có khớp lệnh`],
-    ['Giá trị giao dịch', num(s.totalValueVND), 'VND trong phiên — không phải ADV'],
-    ['Spread trung vị', pct(s.medianSpreadPct, 2), `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`],
-    ['Cổ phiếu cơ sở', num(s.underlyings), 'nhóm suy ra từ mã CW'],
-    ['Tăng / giảm', `${num(s.gainers)} / ${num(s.losers)}`, `${num(s.unchanged)} mã tham chiếu`],
-  ];
-  host.innerHTML = cards.map(([k, v, n]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n)}</div></div>`).join('');
+  if (host) host.innerHTML = '';
 }
 
 // "Dữ liệu cập nhật lúc …" — giờ tuyệt đối theo ICT, kèm độ trễ để biết dữ liệu cũ hay mới.
 function renderFreshness(){
   const host = document.querySelector('#freshness');
-  if (!host) return;
+  const sub = document.querySelector('#sub-line');
   const at = analytics?.fetchedAt || snapshot?.fetchedAt;
-  if (!at) { host.innerHTML = `<span id="stamp">${esc(bi('Snapshot chưa có','No snapshot yet'))}</span>`; return; }
-  const when = new Date(at);
-  if (Number.isNaN(when.getTime())) {
-    host.innerHTML = `<span id="stamp">${esc(bi('Snapshot chưa có','No snapshot yet'))}</span>`;
+
+  // MỘT câu duy nhất cho cả khối tiêu đề: "Bảng giá chứng quyền (CW) — cập nhật lúc … · phiên …".
+  // Trước đây có hai dòng gần trùng nhau (một dòng câu, một dòng "Dữ liệu cập nhật lúc"), vừa
+  // chiếm chỗ vừa khiến người đọc phải so hai con số giờ giống hệt nhau.
+  // `#freshness` chỉ là chỗ hiện TRẠNG THÁI khi chưa có giờ (đang tải / lỗi). Có giờ rồi thì
+  // ẩn hẳn — để hai dòng cùng nói một mốc thời gian là đúng lỗi cần sửa.
+  const paint = (text, pending) => {
+    if (sub) sub.textContent = text;
+    if (host) {
+      host.hidden = !pending;
+      const stamp = host.querySelector('#stamp');
+      if (pending && stamp) stamp.textContent = text;
+    }
+  };
+
+  if (!at) {
+    if (sub) sub.textContent = 'Bảng giá chứng quyền (CW) — đang đọc snapshot…';
+    paint('Đang đọc snapshot…', true);
     return;
   }
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) {
+    if (sub) sub.textContent = 'Bảng giá chứng quyền (CW) — đang đọc snapshot…';
+    paint('Đang đọc snapshot…', true);
+    return;
+  }
+
   const absolute = when.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  // Chỉ in thời điểm cập nhật tuyệt đối. Độ trễ ("cách đây N phút") và mã phiên đã bị bỏ
-  // theo yêu cầu: chúng chiếm chỗ mà không giúp người đọc quyết định điều gì.
-  host.innerHTML = `${esc(bi('Dữ liệu cập nhật lúc','Data updated at'))} <b>${esc(absolute)} ICT</b>`;
-
-  // Dòng phụ nêu giờ cập nhật ở dạng câu, đúng yêu cầu "Bảng giá chứng quyền (CW) — được
-  // cập nhật lúc [giờ]". Không lặp lại "ICT" hai lần trên cùng một khối tiêu đề.
-  const sub = document.querySelector('#sub-line');
-  if (sub) {
-    sub.textContent = bi(
-      `Bảng giá chứng quyền (CW) — được cập nhật lúc ${absolute}.`,
-      `Covered warrants (CW) — updated at ${absolute}.`);
-  }
+  // Mã phiên lấy từ kho lịch sử; thiếu thì bỏ phần đó thay vì in "phiên —".
+  const session = sessions?.coverage?.last;
+  const tail = session ? ` · phiên ${session}` : '';
+  // Tham số thứ hai phải là `false` (đã có giờ → ẩn #freshness). Bỏ trống thì `!undefined`
+  // bằng true và dòng phụ hiện lại — đúng lỗi đã xảy ra ở lần chạy thử đầu tiên.
+  paint(bi(
+    `Bảng giá chứng quyền (CW) — cập nhật lúc ${absolute} ICT${tail}.`,
+    `Covered warrants (CW) — updated at ${absolute} ICT${tail}.`), false);
 }
 
 function render(){
@@ -845,8 +940,12 @@ let currentView = 'board';
 
 function setView(name) {
   currentView = name;
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.view === name);
+  // Chọn theo [data-view], không theo .tab: hai nút phụ (Lịch sử, Thuật ngữ) cố ý không
+  // mang class .tab — chúng là nút viền, không phải tab — nhưng vẫn phải sáng lên khi mở.
+  document.querySelectorAll('#tabs [data-view]').forEach(tab => {
+    const on = tab.dataset.view === name;
+    tab.classList.toggle('active', on);
+    tab.setAttribute('aria-selected', String(on));
   });
   for (const view of ['board', 'scoring', 'valuation', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history', 'glossary']) {
     const node = document.querySelector(`#view-${view}`);
@@ -928,6 +1027,8 @@ try {
   loadOptional('analytics', ANALYTICS_URL),
   loadOptional('sessions', SESSIONS_URL),
 ]);
+// Vẽ lại dòng thời gian: mã phiên nằm trong sessions, mà lúc này mới tải xong.
+renderFreshness();
 renderScoring();
 renderValuation();
 renderLiquidity();
@@ -936,7 +1037,9 @@ renderStale();
 renderIntraday();
 renderBand();
 renderHistory();
-document.querySelectorAll('.tab').forEach(tab => {
+// Gắn cho MỌI mục có data-view trong thanh điều hướng — hai nút phụ (Lịch sử, Thuật ngữ)
+// cố ý không mang class .tab nhưng vẫn phải bấm được.
+document.querySelectorAll('#tabs [data-view]').forEach(tab => {
   tab.addEventListener('click', () => setView(tab.dataset.view));
 });
 setView('board');

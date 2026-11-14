@@ -71,7 +71,9 @@ def test_5_filters_are_applied_in_render():
         assert needle in HTML
     assert "function fillFilters" in HTML
     # Ô lọc phải tự ẩn khi kho không có trường tương ứng.
-    assert "el.closest('.filter').hidden = opts.length === 0" in HTML
+    # Ô lọc ẩn bằng `el.hidden` vì thanh lọc nay là MỘT hàng grid, không còn khối nhãn
+    # bọc ngoài để ẩn cả khối.
+    assert "el.hidden = opts.length === 0" in HTML
 
 
 def test_5_filter_options_come_from_real_data():
@@ -145,30 +147,98 @@ def test_7_long_explanations_were_removed_from_individual_tabs():
 
 
 # ── 8. Năm tab đầu nổi bật ─────────────────────────────────────────────
-def test_8_first_five_tabs_are_featured():
-    tabs = re.findall(r'class="tab([^"]*)" data-view="(\w+)"', HTML)
-    featured = [view for cls, view in tabs if "feature" in cls]
-    assert featured == ["board", "scoring", "valuation", "liquidity", "underlyings"]
-    assert ".tabs .tab.feature" in CSS
+def test_8_navigation_is_split_into_three_groups():
+    """Chủ dự án yêu cầu tách chế độ xem / tuỳ chọn hiển thị / nút phụ.
+
+    Thay cho yêu cầu "năm tab đầu phải nổi bật": nay không còn khái niệm tab nổi bật,
+    thay vào đó là ba nhóm có nhãn riêng và kích thước khác nhau.
+    """
+    nav = HTML.split('<nav class="nav-block"', 1)[1].split('</nav>', 1)[0]
+    # Nhóm 1: năm chế độ xem chính.
+    primary = ['board', 'scoring', 'valuation', 'liquidity', 'underlyings']
+    for view in primary:
+        assert f'data-view="{view}"' in nav
+    # Nhóm 2: ba tuỳ chọn hiển thị, phải mang class chip để nhỏ hơn.
+    for view in ('stale', 'intraday', 'band'):
+        assert f'class="tab chip" data-view="{view}"' in nav, f"{view} phải là chip"
+    # Nhóm 3: hai nút phụ có viền, không phải .tab, đẩy sang phải.
+    secondary = nav.split('class="nav-secondary"', 1)[1]
+    assert 'class="btn-ghost" data-view="history"' in secondary
+    assert 'class="btn-ghost" data-view="glossary"' in secondary
+    # Mỗi nhóm có nhãn riêng để người dùng hiểu ba loại điều hướng khác nhau.
+    assert nav.count('class="nav-group-label"') == 2
 
 
-# ── 9. Emoji trước mọi mục ─────────────────────────────────────────────
-def test_9_every_tab_has_an_emoji():
-    icons = re.findall(r'<span class="t-ico" aria-hidden="true">([^<]+)</span>', HTML)
-    views = re.findall(r'data-view="(\w+)"', HTML)
-    assert len(icons) == len(views), "mỗi tab phải có đúng một emoji"
-    assert all(i.strip() for i in icons)
-    # Emoji là trang trí; nhãn chữ vẫn phải còn cho trình đọc màn hình.
-    assert HTML.count('class="t-txt"') >= len(views)
+def test_9_every_navigation_item_has_an_outline_icon():
+    """Emoji đã được thay bằng bộ icon đơn sắc thống nhất (yêu cầu 2.c).
+
+    Emoji mỗi cái một bảng màu nên hàng điều hướng trông lộn xộn; icon nét vẽ 1.75
+    và ăn theo currentColor nên tự đúng màu ở cả hai chế độ.
+    """
+    nav = HTML.split('<nav class="nav-block"', 1)[1].split('</nav>', 1)[0]
+    assert nav.count('<svg class="icon"') == 10, "mỗi mục điều hướng đúng một icon"
+    assert 'stroke="currentColor"' in nav
+    assert 'stroke-width="1.75"' in nav
+    # Không còn emoji nào trong thanh điều hướng.
+    assert not any(0x1F300 <= ord(ch) <= 0x1FAFF for ch in nav), "nav còn emoji"
+    # Nhãn chữ vẫn còn cho trình đọc màn hình.
+    assert nav.count('class="t-txt"') == 10
 
 
 # ── 10. Bảng thống kê toàn thị trường ở trang đầu ──────────────────────
-def test_10_overview_section_exists_before_the_stats():
+def test_10_overview_is_the_first_thing_on_the_page():
+    """Hàng thẻ thống kê thứ ba (#stats) đã bị xoá vì lặp lại đúng các chỉ số này.
+
+    Nay chỉ còn một khối #overview, và nó phải đứng trước thanh điều hướng để là thứ
+    đầu tiên người xem thấy.
+    """
     assert 'id="overview"' in HTML
     assert "function renderOverview" in HTML
-    # Phải đứng TRƯỚC #stats trong DOM để là thứ đầu tiên người xem thấy.
-    assert HTML.index('id="overview"') < HTML.index('id="stats"')
     assert "Toàn cảnh thị trường chứng quyền" in HTML
+    # Không còn hàng thẻ trùng lặp.
+    assert 'id="stats"' not in HTML
+    assert 'class="stats"' not in HTML
+    # Đứng trước nav và trước bảng giá.
+    assert HTML.index('id="overview"') < HTML.index('class="nav-block"')
+    assert HTML.index('id="overview"') < HTML.index('id="rows"')
+
+
+def test_10_overview_has_exactly_two_rows_of_four_cards():
+    """Yêu cầu: tối đa 8–10 chỉ số, chia hai hàng bốn thẻ."""
+    block = HTML.split('function renderOverview', 1)[1]
+    block = block.split('function ', 1)[0]
+    # Tám thẻ được push vào mảng, trong đó hai thẻ có điều kiện (IV, IV − HV).
+    assert block.count("{k: '") == 8
+    for label in ('Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở',
+                  'Tăng / giảm / đứng', 'Phân bố trạng thái tiền', 'IV trung vị',
+                  'IV − HV', 'Spread trung vị'):
+        assert label in block, f"thiếu thẻ KPI: {label}"
+
+
+def test_10_kpi_cards_use_the_shared_outline_icon_set():
+    """Yêu cầu 2.c: bỏ emoji, dùng icon đơn sắc đồng nhất."""
+    block = HTML.split('const ICONS = {', 1)[1].split('function renderOverview', 1)[0]
+    assert block.count(':') >= 8, "bộ icon phải có đủ hình cho các thẻ"
+    assert not any(0x1F300 <= ord(ch) <= 0x1FAFF for ch in block), "còn emoji trong bộ icon"
+    overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
+    assert "icon(c.icon)" in overview
+
+
+def test_10_change_and_moneyness_cards_have_progress_bars():
+    """Yêu cầu 2.c: thanh tiến trình nhỏ cho hai thẻ phân bố."""
+    assert "function miniBars" in HTML
+    assert "mini-bars" in HTML
+    overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
+    assert "bars: [['Tăng'" in overview
+    assert "bars: [['ITM'" in overview
+
+
+def test_10_change_values_are_coloured_green_and_red():
+    """Yêu cầu 2.b: tăng xanh, giảm đỏ thay vì toàn bộ chữ đen."""
+    overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
+    assert "['up', num(s.gainers)]" in overview
+    assert "['down', num(s.losers)]" in overview
+    assert "--up-text" in CSS and "--down-text" in CSS
 
 
 def test_10_overview_omits_cards_whose_data_is_missing():
@@ -177,7 +247,6 @@ def test_10_overview_omits_cards_whose_data_is_missing():
     assert "if (priced)" in block
     assert "if (sum.medianIv !== undefined" in block
     assert "if (ivhv.available" in block
-    assert "if (curve.available" in block
 
 
 # ── chốt chặn dữ liệu ──────────────────────────────────────────────────
@@ -300,8 +369,10 @@ def test_light_header_is_a_pale_tint_not_a_dark_band():
     page_bg = re.search(r'--bg:\s*(#[0-9a-fA-F]{6})', light).group(1)
     # Rất sáng (gần trắng) chứ không phải xanh-đen.
     assert _luminance(th_bg) > 0.80, f"{th_bg} vẫn còn tối"
-    # Vẫn khác nền trang để thanh còn nhìn thấy.
-    assert th_bg.lower() != page_bg.lower()
+    # Có thể trùng nền trang nếu đường kẻ dưới đủ rõ — kiểm tra đường kẻ thay vì
+    # bắt buộc hai màu khác nhau.
+    if th_bg.lower() == page_bg.lower():
+        assert 'thead th' in CSS and 'border-bottom' in CSS.split('thead th', 1)[1][:400]
 
 
 def test_light_header_text_is_readable():
