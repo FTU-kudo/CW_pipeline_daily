@@ -6,7 +6,8 @@
   <meta name="description" content="Bảng giá chứng quyền snapshot từ API Yuanta.">
   <title>CW Board — Yuanta</title>
   <style>
-    :root{color-scheme:dark;--bg:#0b1118;--panel:#121c27;--line:#263646;--text:#e6edf5;--muted:#93a4b6;--accent:#43d3a0;--warn:#f3c969}
+    /* Bảng màu do ui.css quản lý qua html[data-theme]; ở đây chỉ giữ biến dự phòng. */
+    :root{color-scheme:dark;--bg:#0b1118;--panel:#121c27;--line:#263646;--text:#e6edf5;--muted:#93a4b6;--accent:#43d3a0;--warn:#f3c969;--panel-2:#172330;--line-soft:#1e2b39;--accent-soft:rgba(67,211,160,.12);--up:#43d3a0;--down:#ff8a7a;--track:#0e1620}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
     main{max-width:1500px;margin:auto;padding:24px}header{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
     h1{font-size:24px;margin:0 0 4px}.sub,.muted{color:var(--muted)}.stamp{white-space:nowrap;color:var(--accent);font-variant-numeric:tabular-nums}
@@ -42,12 +43,43 @@
     .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
     .flag{color:var(--warn)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
   </style>
+  <link rel="stylesheet" href="assets/ui.css">
 </head>
 <body>
 <main>
   <header>
-    <div><h1>Covered Warrants — Yuanta</h1><div class="sub">Bảng giá hiện tại từ endpoint stock_type=EW · dữ liệu được cập nhật theo lịch, không phải realtime</div></div>
-    <div class="stamp" id="stamp">Đang đọc snapshot…</div>
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Covered Warrants — Yuanta</h1>
+        <div class="sub">Bảng giá hiện tại từ endpoint stock_type=EW · dữ liệu được cập nhật theo lịch, không phải realtime</div>
+        <!-- Dòng này trả lời "dữ liệu cập nhật lúc mấy giờ" và dữ liệu cũ bao lâu rồi. -->
+        <p class="freshness" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
+      </div>
+      <div class="controls">
+        <div>
+          <div class="seg-label">Sáng / Tối</div>
+          <div class="seg" role="group" aria-label="Giao diện sáng hoặc tối">
+            <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
+            <button type="button" data-theme-set="dark" aria-pressed="true">Tối</button>
+          </div>
+        </div>
+        <div>
+          <div class="seg-label">Ngôn ngữ</div>
+          <div class="seg" role="group" aria-label="Ngôn ngữ">
+            <button type="button" data-lang-set="vi" aria-pressed="true">Tiếng Việt</button>
+            <button type="button" data-lang-set="en" aria-pressed="false">English</button>
+          </div>
+        </div>
+        <div class="clock" id="market-clock" data-session="closed">
+          <span class="dot" aria-hidden="true"></span>
+          <time id="clock-time">--:--:--</time>
+          <span class="cmeta">
+            <span class="cdate" id="clock-date"></span>
+            <span class="csession" id="clock-session"></span>
+          </span>
+        </div>
+      </div>
+    </div>
   </header>
   <div class="notice"><strong>Phạm vi dữ liệu:</strong> endpoint Yuanta chỉ trả bảng giá tại thời điểm gọi. OHLCV theo ngày được <b>tích luỹ dần</b> từ mỗi lần workflow chạy sau giờ đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Mã không khớp lệnh không có giá đóng cửa (RefP không được dùng thay). Vẫn không có Greeks, định giá, tín hiệu, khuyến nghị hay backtest vì nguồn không có strike, hạn mức hay chuỗi quá khứ để hiệu chỉnh. Đơn vị đã đối chiếu trên chính payload (TotalVal ≈ TotalVol × AvgP ⇒ VND).</div>
   <div class="stats" id="stats"></div>
@@ -72,6 +104,7 @@
   <section class="view" id="view-band" hidden></section>
   <section class="view" id="view-history" hidden></section>
   <section class="view" id="view-board">
+  <p class="caption" id="click-hint">Bấm một mã ở cột đầu để xem toàn bộ thông tin của mã đó.</p>
   <div class="toolbar"><input id="search" type="search" placeholder="Lọc theo mã chứng quyền…" autocomplete="off"><button id="download" type="button">Tải JSON snapshot</button><span class="summary" id="summary"></span></div>
   <div class="table-wrap"><table>
     <thead><tr><th>Mã</th><th>RefP</th><th>CeilingP</th><th>FloorP</th><th>OpenP</th><th>HighestP</th><th>LowestP</th><th>AvgP</th><th>LastMP</th><th>LastMVol</th><th>TotalVol</th><th>TotalVal</th><th>FTBuyVol</th><th>FTSellVol</th><th>FRoom</th><th>Giá (VND)</th><th>%Ngày</th><th>Spread (bước giá)</th><th>Tỷ trọng GT</th><th>Bid 1–3</th><th>Ask 1–3</th><th>Payload</th></tr></thead>
@@ -81,6 +114,12 @@
   <footer>Trường dữ liệu mang tên gốc từ API Yuanta. `Bid 1–3` / `Ask 1–3` hiển thị các mức B1–B3/S1–S3 và khối lượng tương ứng. <b>Giá (VND)</b> chỉ hiển thị khi mã có khớp lệnh trong phiên; mã không giao dịch để trống thay vì dùng lại giá phiên trước. <b>Spread</b> = (S1P − B1P) / giá giữa, chia bước giá 10 VND. <b>Cơ sở</b> trong JSON phân tích suy ra từ quy ước mã, không phải trường của API. Snapshot công khai chỉ được thay thế khi lần lấy mới thành công.</footer>
 </main>
 <script type="module">
+import {
+  initI18n, initTheme, startClock, applyI18n, num as uiNum, bi, getLang,
+} from './assets/ui.js';
+import { initDetail, openDetail } from './assets/detail.js';
+
+const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
 const ANALYSIS_URL = 'data/yuanta_board_analysis.json';
 const ANALYTICS_URL = 'data/yuanta_analytics.json';
@@ -127,6 +166,30 @@ function renderQuality(){
   host.innerHTML = head + chips;
 }
 
+// "Dữ liệu cập nhật lúc …" — giờ tuyệt đối theo ICT, kèm độ trễ để biết dữ liệu cũ hay mới.
+function renderFreshness(){
+  const host = document.querySelector('#freshness');
+  if (!host) return;
+  const at = analytics?.fetchedAt || snapshot?.fetchedAt;
+  if (!at) { host.innerHTML = `<span id="stamp">${esc(bi('Snapshot chưa có','No snapshot yet'))}</span>`; return; }
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) {
+    host.innerHTML = `<span id="stamp">${esc(bi('Snapshot chưa có','No snapshot yet'))}</span>`;
+    return;
+  }
+  const absolute = when.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
+    day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  // Độ trễ tính từ chính fetchedAt, không phải từ lần tải trang: mở tab lúc nào cũng đúng.
+  const minutes = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
+  const lag = minutes < 60 ? `${minutes} ${bi('phút','min')}`
+    : minutes < 1440 ? `${Math.round(minutes/60)} ${bi('giờ','h')}`
+    : `${Math.round(minutes/1440)} ${bi('ngày','d')}`;
+  const stale = minutes > 24 * 60;
+  host.innerHTML = `${esc(bi('Dữ liệu cập nhật lúc','Data updated at'))} <b>${esc(absolute)} ICT</b>`
+    + `<span class="${stale ? 'lag' : ''}">· ${esc(bi('cách đây','ago'))} ${esc(lag)}</span>`
+    + `<span>· ${esc(bi('phiên','session'))} ${esc(analytics?.asof || '—')}</span>`;
+}
+
 function render(){
   const query = document.querySelector('#search').value.trim().toUpperCase();
   const list = (snapshot?.rows || []).filter(r => !query || String(r.StockCode).toUpperCase().includes(query));
@@ -141,7 +204,8 @@ function render(){
     const ask = ['S1P','S1V','S2P','S2V','S3P','S3V'].map(k=>`${k}: ${cell(r,k)}`).join('<br>');
     const chgCls = d.priceChangePct > 0 ? 'positive' : (d.priceChangePct < 0 ? 'negative' : '');
     const price = d.traded ? num(d.lastPrice) : '<span class="idle" title="Không khớp lệnh trong phiên">—</span>';
-    return `<tr><td>${cell(r,'StockCode')}</td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
+    const codeAttr = escAttr(code);
+    return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button></td><td>${cell(r,'RefP')}</td><td>${cell(r,'CeilingP')}</td><td>${cell(r,'FloorP')}</td><td>${cell(r,'OpenP')}</td><td>${cell(r,'HighestP')}</td><td>${cell(r,'LowestP')}</td><td>${cell(r,'AvgP')}</td><td>${cell(r,'LastMP')}</td><td>${cell(r,'LastMVol')}</td><td>${cell(r,'TotalVol')}</td><td>${cell(r,'TotalVal')}</td><td>${cell(r,'FTBuyVol')}</td><td>${cell(r,'FTSellVol')}</td><td>${cell(r,'FRoom')}</td><td class="num">${price}</td><td class="num ${chgCls}">${pct(d.priceChangePct)}</td><td class="num">${num(d.spreadTicks, 1)}</td><td class="num">${pct(d.valueSharePct)}</td><td>${bid}</td><td>${ask}</td><td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
   }).join('');
 }
 
@@ -530,7 +594,10 @@ function renderScoring() {
   `;
 }
 
+let currentView = 'board';
+
 function setView(name) {
+  currentView = name;
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.view === name);
   });
@@ -550,6 +617,27 @@ async function loadOptional(key, url) {
   }
 }
 
+// Giao diện chạy trước khi tải dữ liệu: tránh nháy sai màu và để đồng hồ chạy ngay.
+initTheme();
+startClock({ lang: getLang });
+initI18n();
+
+// Nạp chi tiết từng mã (tuỳ chọn): thiếu file thì bảng vẫn đầy đủ, chỉ mất phần chi tiết.
+let details = null;
+try {
+  const response = await fetch(`${DETAILS_URL}?v=${Date.now()}`, {cache:'no-store'});
+  if (response.ok) details = await response.json();
+} catch { details = null; }
+initDetail(details);
+
+// Bấm mã ở bất kỳ bảng nào có data-ticker đều mở ngăn kéo chi tiết.
+document.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-ticker]');
+  if (!target) return;
+  event.preventDefault();
+  openDetail(target.dataset.ticker);
+});
+
 await loadAnalysis();
 indexAnalysis();
 renderStats();
@@ -559,7 +647,7 @@ try {
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   snapshot = await response.json();
   if(snapshot.schemaVersion !== 1 || !Array.isArray(snapshot.rows)) throw new Error('Sai schema snapshot');
-  document.querySelector('#stamp').textContent = `Lấy lúc ${new Date(snapshot.fetchedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} ICT`;
+  renderFreshness();
   document.querySelector('#search').addEventListener('input',render);
   document.querySelector('#download').addEventListener('click',()=>{
     const blob = new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
@@ -587,6 +675,28 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => setView(tab.dataset.view));
 });
 setView('board');
+
+// Nội dung các view do JS sinh nên phải dịch lại sau khi render, và vẽ lại khi đổi ngôn ngữ.
+renderFreshness();
+applyI18n(document.body);
+window.addEventListener('cwintel:lang', () => {
+  renderStats();
+  renderQuality();
+  if (snapshot) render();
+  renderScoring();
+  renderValuation();
+  renderLiquidity();
+  renderUnderlyings();
+  renderStale();
+  renderIntraday();
+  renderBand();
+  renderHistory();
+  renderFreshness();
+  setView(currentView);      // giữ nguyên tab đang mở sau khi vẽ lại
+});
+
+// Độ trễ ("cách đây …") phải tự nhích theo thời gian, không đóng băng lúc tải trang.
+setInterval(renderFreshness, 60000);
 </script>
 </body>
 </html>

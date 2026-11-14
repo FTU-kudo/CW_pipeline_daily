@@ -4,6 +4,65 @@ Bảng giá chứng quyền dạng **snapshot** lấy từ API Yuanta mà chủ 
 
 > **Giới hạn dữ liệu có chủ ý:** endpoint này không cung cấp OHLCV ngày riêng cho từng chứng quyền. Vì vậy bản này không có chuỗi lịch sử, biểu đồ nến, backtest, Greeks, định giá hay khuyến nghị. Snapshot mới ghi đè snapshot cũ; dự án không tạo dữ liệu lịch sử giả.
 
+## Giao diện (`docs/`)
+
+Trang là một ứng dụng tĩnh, **không gọi API nhà cung cấp từ trình duyệt** — chỉ đọc các file
+JSON đã publish cùng repo. Ba module độc lập trong `docs/assets/`:
+
+| File | Việc |
+|---|---|
+| `ui.js` | Từ điển VI→EN, sáng/tối, đồng hồ thị trường, định dạng số |
+| `detail.js` | Ngăn kéo chi tiết một chứng quyền |
+| `ui.css` | Bảng màu hai chế độ + bố cục ngăn kéo |
+
+### Sáng / Tối
+
+`html[data-theme]` quyết định toàn bộ hệ màu; `ui.css` khai báo hai bộ biến. Chế độ chọn được
+lưu vào `localStorage`; lần đầu truy cập thì theo `prefers-color-scheme` của hệ điều hành.
+Phần bảng giá cũ dùng tên biến riêng (`--bg`, `--panel`, `--line`…) nên hai bộ dùng chung tên
+đó để không phải sửa từng rule.
+
+### Tiếng Việt (mặc định) / English
+
+Khoá của từ điển là **chuỗi tiếng Việt hiển thị**, giá trị là tiếng Anh — nhờ vậy không phải
+đặt `data-i18n` cho hàng trăm nhãn. Nội dung do JS sinh được dịch lại nhờ `MutationObserver`;
+đổi ngôn ngữ thì trang vẽ lại toàn bộ nhưng **giữ nguyên tab đang mở**.
+
+Chuỗi chưa có trong từ điển thì `translate()` trả `null` và **giữ nguyên tiếng Việt**. Không
+bao giờ tự dịch bừa — một bản dịch sai khó phát hiện hơn một câu chưa dịch.
+
+### Dữ liệu cập nhật lúc mấy giờ
+
+Dòng ngay dưới tiêu đề: `Dữ liệu cập nhật lúc HH:MM:SS ICT · cách đây N phút · phiên …`.
+Độ trễ tính từ `freshestAt` của chính dữ liệu (không phải lúc tải trang) và tự nhích mỗi phút,
+nên mở tab cũ để đó vẫn thấy đúng. Quá 24 giờ thì con số chuyển màu cảnh báo.
+
+### Đồng hồ
+
+Hiển thị giờ Việt Nam bất kể máy người xem ở múi giờ nào (`Intl.DateTimeFormat` với
+`timeZone: 'Asia/Ho_Chi_Minh'`), kèm trạng thái phiên HOSE/HNX (ATO · khớp liên tục · nghỉ
+trưa · ATC · sau giờ · đóng cửa · cuối tuần · nghỉ lễ).
+
+Mỗi nhịp **đọc lại `Date.now()`** thay vì cộng dồn biến đếm — cộng dồn sẽ trôi khi tab bị treo
+hoặc máy sleep. Quay lại tab thì đồng hồ nhảy đúng ngay (`visibilitychange`/`pageshow`/`focus`).
+
+### Chi tiết từng mã
+
+Bấm mã ở cột đầu (hoặc mở `?t=CACB2515`) để mở ngăn kéo chia 10 khối: giá & thanh khoản ·
+bid/ask · khối ngoại · định giá Black–Scholes · điểm số · dải trần–sàn · trong phiên · lịch sử
+theo phiên · cổ phiếu cơ sở · trường gốc API.
+
+Dữ liệu được ghép **ở Python** (`cwintel/yuanta_detail.py` → `docs/data/yuanta_details.json`),
+không ghép ở trình duyệt, vì hai lý do: lý do vắng mặt là lý do engine trả về chứ không phải
+trang tự đoán, và trang chỉ phải tải thêm một file khi bấm mã.
+
+Nguyên tắc hiển thị: **thiếu dữ liệu là "—" kèm lý do, không phải 0.** Mã không khớp lệnh thì
+giá để trống và ghi rõ "không giao dịch trong phiên" (không dùng RefP thay giá); mã không có
+khối định giá thì nêu lý do; kho lịch sử mới 1 phiên thì nói "chưa tích luỹ đủ" thay vì vẽ một
+đường phẳng.
+
+Ngăn kéo là **tuỳ chọn**: thiếu `yuanta_details.json` thì bảng giá vẫn chạy đầy đủ.
+
 ## Nguồn
 
 ```text
