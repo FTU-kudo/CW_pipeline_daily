@@ -112,6 +112,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add -f docs/data/yuanta_snapshot.json docs/data/yuanta_board_analysis.json
           git add -f docs/data/yuanta_sessions.json docs/data/yuanta_analytics.json
+          git add -f docs/data/yuanta_details.json
           git add -f data/cw_history/*.csv 2>/dev/null || true
           git add -f data/cw_terms/*.csv 2>/dev/null || true
           git add -f data/underlying_history/*.parquet 2>/dev/null || true

@@ -53,7 +53,13 @@ def test_translation_values_contain_latin_letters() -> None:
     assert not bad, f"bản dịch còn tiếng Việt: {bad[:3]}"
 
 
-def test_yuanta_snapshot_shell_has_only_current_board_controls() -> None:
+def test_yuanta_snapshot_shell_has_board_controls() -> None:
+    """Trang Yuanta là một ứng dụng độc lập, không dùng dashboard `assets/app.js`.
+
+    Trước đây test này cấm công tắc ngôn ngữ vì trang chỉ có bảng giá. Nay yêu cầu đã đổi:
+    trang có song ngữ VI/EN, sáng/tối, đồng hồ và chi tiết từng mã — nhưng vẫn phải là
+    trang TĨNH chỉ đọc file JSON đã publish, không gọi API nhà cung cấp.
+    """
     html = HTML.read_text(encoding="utf-8")
     assert 'id="search"' in html
     assert 'id="download"' in html
@@ -62,7 +68,11 @@ def test_yuanta_snapshot_shell_has_only_current_board_controls() -> None:
     assert 'id="tabs"' in html
     for view in ("liquidity", "underlyings", "stale", "history"):
         assert f'id="view-{view}"' in html
-    assert 'data-lang-set=' not in html
+    # Song ngữ + sáng/tối phải có công tắc thật trong HTML, không chỉ trong file JS.
+    assert 'data-lang-set="vi"' in html and 'data-lang-set="en"' in html
+    assert 'data-theme-set="light"' in html and 'data-theme-set="dark"' in html
+    # Không gọi API nhà cung cấp từ trình duyệt.
+    assert "ysradar.yuanta.com.vn" not in html
 
 
 def test_i18n_wired_into_runtime() -> None:

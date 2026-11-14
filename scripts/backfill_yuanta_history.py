@@ -32,6 +32,7 @@ sys.path.insert(0, str(ROOT))
 from cwintel import yuanta_history as hist  # noqa: E402
 from cwintel.yuanta_analytics import build_analytics  # noqa: E402
 from cwintel.yuanta_board import BoardIntegrityError, clean_board, write_json  # noqa: E402
+from cwintel import yuanta_detail  # noqa: E402
 from cwintel import yuanta_underlying as hist_underlying  # noqa: E402
 from cwintel.yuanta_intraday import ref_continuity  # noqa: E402
 from scripts.analyze_yuanta_warrants import extract_rows  # noqa: E402
@@ -39,6 +40,8 @@ from scripts.yuanta_client import YuantaHTTPError, fetch_board  # noqa: E402
 
 DEFAULT_SNAPSHOT = ROOT / "docs" / "data" / "yuanta_snapshot.json"
 DEFAULT_SESSIONS = ROOT / "docs" / "data" / "yuanta_sessions.json"
+DEFAULT_DETAILS = ROOT / "docs" / "data" / "yuanta_details.json"
+DEFAULT_BOARD_ANALYSIS = ROOT / "docs" / "data" / "yuanta_board_analysis.json"
 DEFAULT_ANALYTICS = ROOT / "docs" / "data" / "yuanta_analytics.json"
 
 
@@ -79,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="thư mục kho CSV theo tháng (mặc định data/cw_history)")
     parser.add_argument("--sessions-out", type=Path, default=DEFAULT_SESSIONS)
     parser.add_argument("--analytics-out", type=Path, default=DEFAULT_ANALYTICS)
+    parser.add_argument("--details-out", type=Path, default=DEFAULT_DETAILS,
+                        help="file chi tiết từng chứng quyền cho trang bấm vào mã")
+    parser.add_argument("--board-analysis", type=Path, default=DEFAULT_BOARD_ANALYSIS,
+                        help="phân tích bảng giá đã publish (movers theo mã)")
     parser.add_argument("--underlying-store", type=Path,
                         default=ROOT / "data" / "underlying_history",
                         help="kho lịch sử cổ phiếu cơ sở (parquet/mã); thiếu thì S lấy từ "
@@ -149,6 +156,27 @@ def main(argv: list[str] | None = None) -> int:
 
     write_json(sessions_payload, args.sessions_out)
     write_json(analytics, args.analytics_out)
+
+    # Chi tiết một mã: ghép 5 nguồn ở Python để trang chỉ tải 1 file khi bấm vào mã, và để
+    # lý do vắng mặt là lý do engine trả về chứ không phải trang tự đoán.
+    published = yuanta_detail.load_published({
+        "board": args.board_analysis,
+        "analytics": args.analytics_out,
+    })
+    # Dùng chính payload vừa ghi: `sessions_payload` được dựng TRƯỚC khi upsert nên
+    # `tickers` trong đó có thể rỗng ở lần chạy đầu.
+    bars, history_meta = yuanta_detail.choose_history_bars(sessions_payload)
+    details = yuanta_detail.build_details(
+        snapshot=payload,
+        board_analysis=published.get("board"),
+        analytics=published.get("analytics") or analytics,
+        history_bars=bars,
+        history_meta=history_meta,
+    )
+    write_json(details, args.details_out)
+    priced = sum(1 for row in details["rows"] if row.get("valuation"))
+    print(f"Chi tiết: {details['count']} mã, {priced} mã có khối định giá "
+          f"→ {args.details_out}")
     if args.cwintel_cache:
         written = hist.write_cwintel_cache(history, args.cwintel_cache)
         print(f"Cache cwintel: {written} ({len(hist.to_cwintel_ohlcv(history))} bar OHLCV)")
