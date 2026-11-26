@@ -171,14 +171,14 @@ function priceGrid(row) {
 function bookGrid(row) {
   const raw = row.raw || {};
   const bids = [
-    { price: raw.B1P, volume: raw.B1V },
-    { price: raw.B2P, volume: raw.B2V },
-    { price: raw.B3P, volume: raw.B3V },
+    { level: 'B1', price: raw.B1P, volume: raw.B1V },
+    { level: 'B2', price: raw.B2P, volume: raw.B2V },
+    { level: 'B3', price: raw.B3P, volume: raw.B3V },
   ];
   const asks = [
-    { price: raw.S1P, volume: raw.S1V },
-    { price: raw.S2P, volume: raw.S2V },
-    { price: raw.S3P, volume: raw.S3V },
+    { level: 'S1', price: raw.S1P, volume: raw.S1V },
+    { level: 'S2', price: raw.S2P, volume: raw.S2V },
+    { level: 'S3', price: raw.S3P, volume: raw.S3V },
   ];
   const maxVolume = (levels) => Math.max(0, ...levels.map(({ volume }) => {
     const n = Number(volume);
@@ -200,7 +200,8 @@ function bookGrid(row) {
   };
   const rows = bids.map((bid, i) => {
     const ask = asks[i];
-    return `<tr>`
+    const levelLabel = `${bid.level} / ${ask.level}`;
+    return `<tr aria-label="${esc(levelLabel)}">`
       + `<td class="book-qty buy" style="--depth:${depth(bid.volume, bidMax)}%">${esc(volume(bid.volume))}</td>`
       + `<td class="book-price">${esc(price(bid.price))}</td>`
       + `<td class="book-price">${esc(price(ask.price))}</td>`
