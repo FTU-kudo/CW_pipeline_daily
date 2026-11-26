@@ -1453,3 +1453,24 @@ html[data-theme="dark"] .market-pill[data-session="open"] .dot {
   .controls { flex-wrap: wrap; row-gap: 5px; }
   .market-pill { margin-left: auto; }
 }
+
+.disclaimer-banner {
+  margin-top: 24px;
+  padding: 13px 16px;
+  border: 1px solid rgba(245,158,11,.30);
+  border-left: 3px solid #f59e0b;
+  border-radius: 10px;
+  background: color-mix(in srgb, #fffbeb 72%, var(--panel));
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+.disclaimer-banner strong { color: #92400e; font-weight: 750; }
+html[data-theme="dark"] .disclaimer-banner {
+  border-color: rgba(245,158,11,.24);
+  border-left-color: #f59e0b;
+  background: rgba(245,158,11,.07);
+}
+html[data-theme="dark"] .disclaimer-banner strong { color: #fbbf24; }
+.disclaimer-banner .footer-guide { margin: 0 0 6px; color: var(--muted); }
+.disclaimer-banner .disclaimer-copy { margin: 0; }
