@@ -184,9 +184,8 @@
       <th title="Phần trăm giá trị giao dịch của mã trên toàn bảng">Tỷ trọng GT</th>
       <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)">Chênh lệch mua–bán</th>
       <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)">Room ngoại</th>
-      <th title="Toàn bộ trường gốc nguồn trả về">Dữ liệu gốc</th>
     </tr></thead>
-    <tbody id="rows"><tr><td colspan="12" id="state">Đang tải…</td></tr></tbody>
+    <tbody id="rows"><tr><td colspan="11" id="state">Đang tải…</td></tr></tbody>
   </table></div>
   </section>
   <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
@@ -204,7 +203,6 @@ const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
 const ANALYSIS_URL = 'data/yuanta_board_analysis.json';
 const ANALYTICS_URL = 'data/yuanta_analytics.json';
 const SESSIONS_URL = 'data/yuanta_sessions.json';
-const FIELDS = ['StockCode','Exchange','RefP','CeilingP','FloorP','OpenP','HighestP','LowestP','AvgP','LastMP','LastMVol','TotalVol','TotalVal','FTBuyVol','FTSellVol','FRoom','S1P','S1V','S2P','S2V','S3P','S3V','B1P','B1V','B2P','B2V','B3P','B3V'];
 let snapshot = null;
 let analysis = null;
 let analytics = null;
@@ -452,9 +450,8 @@ function render(){
   });
   document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
   const tbody = document.querySelector('#rows');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="12" id="state">Không có mã phù hợp.</td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="11" id="state">Không có mã phù hợp.</td></tr>';return;}
   tbody.innerHTML = list.map(r => {
-    const raw = JSON.stringify(r,null,2);
     const code = String(r.StockCode ?? '').trim().toUpperCase();
     const d = derived.get(code) || {};
     // Ba trạng thái tiền: ITM xanh, ATM vàng, OTM đỏ. Không có định giá thì không tô — mã
@@ -484,8 +481,7 @@ function render(){
       + `<td>${cell(r,'TotalVal')}</td>`
       + `<td class="num">${pct(d.valueSharePct)}</td>`
       + `<td class="num">${num(d.spreadTicks, 1)}</td>`
-      + `<td>${cell(r,'FRoom')}</td>`
-      + `<td><details><summary>JSON gốc</summary><pre>${esc(raw)}</pre></details></td></tr>`;
+      + `<td>${cell(r,'FRoom')}</td></tr>`;
   }).join('');
 }
 
