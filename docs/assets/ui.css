@@ -1474,3 +1474,90 @@ html[data-theme="dark"] .disclaimer-banner {
 html[data-theme="dark"] .disclaimer-banner strong { color: #fbbf24; }
 .disclaimer-banner .footer-guide { margin: 0 0 6px; color: var(--muted); }
 .disclaimer-banner .disclaimer-copy { margin: 0; }
+
+/* Header typography scale: strengthen the brand and keep controls legible at a glance. */
+.app-header { padding-block: 8px; }
+.topbar { min-height: 72px; gap: 24px; }
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+  border-radius: 13px;
+}
+.brand-mark svg { width: 25px; height: 25px; }
+.brand-copy h1 {
+  gap: 9px;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.035em;
+}
+.brand-divider { font-size: 18px; }
+.product-badge {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.brand-meta { font-size: 13.5px; line-height: 1.35; }
+.brand-meta strong { color: var(--text); font-weight: 650; }
+.meta-icon { width: 16px; height: 16px; }
+.controls .top-action {
+  min-height: 42px;
+  padding: 8px 12px;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.controls .top-action .icon { width: 18px; height: 18px; }
+.control-divider { height: 32px; }
+.controls .seg button {
+  min-height: 36px;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.toggle-icon { width: 15px; height: 15px; }
+.market-pill { min-height: 50px; }
+.market-pill time { min-width: 84px; font-size: 19px; }
+.market-pill .cdate { font-size: 12px; }
+.market-pill .csession { font-size: 12.5px; font-weight: 700; }
+.market-pill .dot { width: 10px; height: 10px; }
+.overview { margin-top: 28px; }
+.ov-title { gap: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 750; letter-spacing: .07em; }
+.ov-title-icon { width: 32px; height: 32px; flex-basis: 32px; }
+.ov-title-icon svg { width: 20px; height: 20px; }
+
+@media (max-width: 1100px) {
+  .topbar { padding-block: 8px; }
+  .controls { width: calc(100% - 57px); margin-left: 57px; }
+}
+@media (max-width: 700px) {
+  .app-header { padding-block: 6px; }
+  .topbar { gap: 8px; }
+  .topbar-left { gap: 9px; }
+  .brand-mark { width: 40px; height: 40px; flex-basis: 40px; border-radius: 11px; }
+  .brand-mark svg { width: 22px; height: 22px; }
+  .brand-copy h1 { flex-wrap: wrap; gap: 5px; font-size: 21px; white-space: normal; }
+  .brand-divider { display: none; }
+  .product-badge { padding: 4px 7px; font-size: 11px; }
+  .brand-meta { max-width: calc(100vw - 70px); font-size: 11.5px; }
+  .meta-icon { width: 14px; height: 14px; }
+  .controls .top-action { width: 40px; min-width: 40px; min-height: 40px; padding: 6px; font-size: 0; }
+  .controls .top-action .icon { width: 18px; height: 18px; }
+  .control-divider { height: 27px; }
+  .controls .seg button { min-height: 34px; min-width: 30px; padding: 4px 7px; font-size: 12px; }
+  .market-pill { min-height: 44px; padding: 5px 8px; }
+  .market-pill time { min-width: 64px; font-size: 14px; }
+  .market-pill .cdate, .market-pill .csession { font-size: 10.5px; }
+  .market-pill .dot { width: 8px; height: 8px; }
+  .overview { margin-top: 24px; }
+  .ov-title { gap: 8px; margin-bottom: 16px; font-size: 12.5px; }
+  .ov-title-icon { width: 29px; height: 29px; flex-basis: 29px; }
+  .ov-title-icon svg { width: 18px; height: 18px; }
+}
+@media (max-width: 420px) {
+  .controls { flex-wrap: wrap; row-gap: 5px; }
+  .market-pill { margin-left: auto; }
+}

@@ -390,9 +390,11 @@ function renderFreshness(){
   // Metadata chỉ có một dòng, có nhãn cập nhật rõ ràng và giữ nguyên icon đồng hồ trong DOM.
   // `#freshness` chỉ là chỗ hiện TRẠNG THÁI khi chưa có giờ (đang tải / lỗi). Có giờ rồi thì
   // ẩn hẳn — để hai dòng cùng nói một mốc thời gian là đúng lỗi cần sửa.
-  const paint = (text, pending) => {
-    if (sub) sub.textContent = pending
-      ? bi('Đang tải dữ liệu…', 'Loading market data…') : text;
+  const paint = (content, pending) => {
+    if (sub) {
+      if (pending) sub.textContent = bi('Đang tải dữ liệu…', 'Loading market data…');
+      else sub.innerHTML = content;
+    }
     if (host) {
       host.hidden = !pending;
       const stamp = host.querySelector('#stamp');
@@ -418,18 +420,19 @@ function renderFreshness(){
     day:'2-digit', month:'2-digit', year:'numeric'});
   // Mã phiên lấy từ kho lịch sử; thiếu thì bỏ phần đó thay vì in "Phiên —".
   const session = sessions?.coverage?.last;
-  const tail = session ? `${bi(' · Phiên ', ' · Session ')}${session}` : '';
+  const sessionMeta = session
+    ? ` · <strong>${bi('Phiên','Session')} ${esc(session)}</strong>` : '';
   paint(bi(
-    `Cập nhật: ${updatedTime} ICT (${updatedDate})${tail}.`,
-    `Updated: ${updatedTime} ICT (${updatedDate})${tail}.`), false);
+    `Cập nhật: <strong>${updatedTime} ICT</strong> (${updatedDate})${sessionMeta}.`,
+    `Updated: <strong>${updatedTime} ICT</strong> (${updatedDate})${sessionMeta}.`), false);
 }
 
 function renderFooter(){
   const footer = document.querySelector('#app-footer');
   if (!footer) return;
   footer.innerHTML = bi(
-    '<p class="footer-guide">Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm.</p><p class="disclaimer-copy">⚠️ <strong>Đây không phải khuyến nghị đầu tư.</strong> CW Intelligence chỉ cung cấp thông tin phân tích và giáo dục; nội dung tại đây không phải tư vấn cá nhân hóa, lời mời chào hay khuyến nghị mua/bán bất kỳ chứng khoán nào. Dữ liệu là snapshot cuối phiên, có thể chậm, thiếu hoặc khác với diễn biến hiện tại; điểm số và chỉ số chỉ mô tả dữ liệu đã quan sát, không dự báo hay bảo đảm kết quả tương lai. Chứng quyền có đòn bẩy, có thể biến động mạnh và mất toàn bộ giá trị khi đáo hạn. Hãy tự kiểm tra thông tin, cân nhắc khả năng chịu rủi ro và tham khảo chuyên gia được cấp phép trước khi giao dịch. Bạn tự chịu trách nhiệm với quyết định đầu tư của mình.</p>',
-    '<p class="footer-guide">Use the <b>Glossary</b> button in the top bar to look up column definitions, data sources, and what this project does not cover.</p><p class="disclaimer-copy">⚠️ <strong>This is not investment advice.</strong> CW Intelligence provides analytics and educational information only; nothing here is personalized advice, an offer, or a recommendation to buy or sell any security. Data is an end-of-session snapshot and may be delayed, incomplete, or differ from current market conditions. Scores and metrics describe observed data; they do not predict or guarantee future results. Covered warrants are leveraged, can be highly volatile, and may expire worthless. Verify the information, consider your risk tolerance, and consult a licensed professional before trading. You are responsible for your own investment decisions.</p>'
+    '<p class="footer-guide">🟢 Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm.</p><p class="disclaimer-copy">⚠️ <strong>Đây không phải khuyến nghị đầu tư.</strong> CW Intelligence chỉ cung cấp thông tin phân tích và giáo dục; nội dung tại đây không phải tư vấn cá nhân hóa, lời mời chào hay khuyến nghị mua/bán bất kỳ chứng khoán nào. Dữ liệu là snapshot cuối phiên, có thể chậm, thiếu hoặc khác với diễn biến hiện tại; điểm số và chỉ số chỉ mô tả dữ liệu đã quan sát, không dự báo hay bảo đảm kết quả tương lai. Chứng quyền có đòn bẩy, có thể biến động mạnh và mất toàn bộ giá trị khi đáo hạn. Hãy tự kiểm tra thông tin, cân nhắc khả năng chịu rủi ro và tham khảo chuyên gia được cấp phép trước khi giao dịch. Bạn tự chịu trách nhiệm với quyết định đầu tư của mình.</p>',
+    '<p class="footer-guide">🟢 Use the <b>Glossary</b> button in the top bar to look up column definitions, data sources, and what this project does not cover.</p><p class="disclaimer-copy">⚠️ <strong>This is not investment advice.</strong> CW Intelligence provides analytics and educational information only; nothing here is personalized advice, an offer, or a recommendation to buy or sell any security. Data is an end-of-session snapshot and may be delayed, incomplete, or differ from current market conditions. Scores and metrics describe observed data; they do not predict or guarantee future results. Covered warrants are leveraged, can be highly volatile, and may expire worthless. Verify the information, consider your risk tolerance, and consult a licensed professional before trading. You are responsible for your own investment decisions.</p>'
   );
 }
 
