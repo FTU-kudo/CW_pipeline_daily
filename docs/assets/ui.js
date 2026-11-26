@@ -449,8 +449,15 @@ export function startClock(opts = {}) {
    4. ĐỊNH DẠNG SỐ — dùng chung, không làm tròn quá mức
    --------------------------------------------------------------- */
 export function num(value, digits = 0) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  return Number(value).toLocaleString('vi-VN', {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  const n = Number(value);
+  const scale = 10 ** digits;
+  const magnitude = Math.abs(n) * scale;
+  // Explicit half-away-from-zero rounding for display (not for model calculations).
+  // The small epsilon compensates for binary floating-point values such as 1.005.
+  const rounded = Math.sign(n)
+    * Math.floor(magnitude + 0.5 + Number.EPSILON * Math.max(1, magnitude)) / scale;
+  return rounded.toLocaleString('vi-VN', {
     minimumFractionDigits: digits, maximumFractionDigits: digits,
   });
 }
