@@ -191,9 +191,7 @@
   </section>
   <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
        để chân trang không còn là một khối chữ dày đặc ngay dưới bảng giá. -->
-  <footer>Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu
-    và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra —
-    không phải khuyến nghị mua/bán.</footer>
+  <footer id="app-footer"></footer>
 </main>
 <script type="module">
 import {
@@ -426,6 +424,15 @@ function renderFreshness(){
   paint(bi(
     `Cập nhật: ${updatedTime} ICT (${updatedDate})${tail}.`,
     `Updated: ${updatedTime} ICT (${updatedDate})${tail}.`), false);
+}
+
+function renderFooter(){
+  const footer = document.querySelector('#app-footer');
+  if (!footer) return;
+  footer.innerHTML = bi(
+    'Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra — không phải khuyến nghị mua/bán.',
+    'Use the <b>Glossary</b> button in the top bar to look up column definitions, data sources, and what this project does not cover. All figures on this page describe a completed session — not buy/sell recommendations.'
+  );
 }
 
 function render(){
@@ -1505,6 +1512,7 @@ async function loadOptional(key, url) {
 initTheme();
 startClock({ lang: getLang });
 initI18n();
+renderFooter();
 
 // Nạp chi tiết từng mã (tuỳ chọn): thiếu file thì bảng vẫn đầy đủ, chỉ mất phần chi tiết.
 let details = null;
@@ -1597,6 +1605,7 @@ window.addEventListener('cwintel:lang', () => {
   renderBand();
   renderHistory();
   renderFreshness();
+  renderFooter();
   setView(currentView);      // giữ nguyên tab đang mở sau khi vẽ lại
 });
 
