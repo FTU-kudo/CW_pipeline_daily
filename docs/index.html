@@ -398,23 +398,22 @@ function renderFreshness(){
     }
   };
 
+  const loading = bi('Đang đọc snapshot…', 'Loading snapshot…');
   if (!at) {
-    if (sub) sub.textContent = 'Bảng giá chứng quyền (CW) — đang đọc snapshot…';
-    paint('Đang đọc snapshot…', true);
+    paint(loading, true);
     return;
   }
   const when = new Date(at);
   if (Number.isNaN(when.getTime())) {
-    if (sub) sub.textContent = 'Bảng giá chứng quyền (CW) — đang đọc snapshot…';
-    paint('Đang đọc snapshot…', true);
+    paint(loading, true);
     return;
   }
 
-  const absolute = when.toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
+  const absolute = when.toLocaleString(getLang() === 'en' ? 'en-GB' : 'vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
   // Mã phiên lấy từ kho lịch sử; thiếu thì bỏ phần đó thay vì in "phiên —".
   const session = sessions?.coverage?.last;
-  const tail = session ? ` · phiên ${session}` : '';
+  const tail = session ? `${bi(' · phiên ', ' · session ')}${session}` : '';
   // Tham số thứ hai phải là `false` (đã có giờ → ẩn #freshness). Bỏ trống thì `!undefined`
   // bằng true và dòng phụ hiện lại — đúng lỗi đã xảy ra ở lần chạy thử đầu tiên.
   paint(bi(

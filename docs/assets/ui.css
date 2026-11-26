@@ -1186,3 +1186,7 @@ html[data-theme="dark"] .maturity-warn { color: #fbbf24 !important; }
   .quant-search { width: 100%; }
   .valuation-heading { align-items: flex-start; }
 }
+
+/* Respect the semantic hidden state: `.brand-meta` sets display explicitly, which otherwise
+   overrides the browser's default `[hidden]` rule and leaves the loading line visible. */
+#freshness[hidden] { display: none !important; }
