@@ -26,6 +26,9 @@ from . import config
 
 ICT = timezone(timedelta(hours=7))
 
+#: Từ mốc này, snapshot trong ngày có thể đại diện cho phiên hiện tại (ATO bắt đầu).
+OPEN_READY = time(9, 0)
+
 #: Sau mốc này thì phiên hôm nay được coi là đã đóng và dữ liệu phải có.
 CLOSE_READY = time(15, 10)
 

@@ -42,6 +42,21 @@ def test_snapshot_currency_units_follow_selected_language() -> None:
     assert "bi('tr', 'm')" in html
 
 
+def test_analysis_tabs_have_explicit_english_copy_and_table_labels() -> None:
+    html = HTML.read_text(encoding="utf-8")
+    for phrase in (
+        'Tier cutoffs are quantiles from today\'s snapshot',
+        'Bar length equals each underlying’s share of traded value',
+        'Idle sessions are counted from the accumulated history archive',
+        'Measured from four session prices: open, high, low and last trade',
+        'Ceiling and floor prices are read directly from the source',
+        'No contract-terms data is available for session',
+        "'Giá TV': 'Median price'",
+        "'Số phiên im lặng': 'Idle sessions'",
+    ):
+        assert phrase in html or phrase in UI.read_text(encoding="utf-8"), f"missing EN copy: {phrase}"
+
+
 def test_overview_cards_use_five_columns_without_a_singleton_desktop_row() -> None:
     css = CSS.read_text(encoding="utf-8")
     assert ".ov-grid {" in css
@@ -64,6 +79,9 @@ def test_snapshot_translates_dynamic_labels_and_preserves_unknown_text() -> None
         summary: translate('439 / 442 mã'),
         overviewNote: translate('VND trong phiên · không phải ADV'),
         spreadNote: translate('1,0 bước giá (10 VND)'),
+        unavailable: translate('Chưa định giá được.'),
+        missingSession: translate('Bảng điều khoản không có phiên 2026-11-27.'),
+        termRequirements: translate('Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu cơ sở (S). Nạp bằng'),
         unknown: translate('một câu kiểm thử không có trong từ điển'),
       }};
       console.log(JSON.stringify(cases));
@@ -87,5 +105,8 @@ def test_snapshot_translates_dynamic_labels_and_preserves_unknown_text() -> None
         "summary": "439 / 442 tickers",
         "overviewNote": "VND this session · not ADV",
         "spreadNote": "1,0 ticks (10 VND)",
+        "unavailable": "Valuation unavailable.",
+        "missingSession": "No contract-terms data is available for session 2026-11-27.",
+        "termRequirements": "Required contract terms: strike (K), conversion ratio (n), maturity date (T), and underlying price (S). Load them with",
         "unknown": None,
     }

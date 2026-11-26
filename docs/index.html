@@ -192,7 +192,7 @@
 </main>
 <script type="module">
 import {
-  initI18n, initTheme, startClock, applyI18n, num as uiNum, bi, getLang,
+  initI18n, initTheme, startClock, applyI18n, num as uiNum, bi, getLang, translate as translateUI,
 } from './assets/ui.js';
 import { initDetail, openDetail } from './assets/detail.js';
 
@@ -211,6 +211,7 @@ const cell = (row,key) => row[key] === null || row[key] === undefined ? '—' : 
 const num = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
   ? '—' : value.toLocaleString('vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
 const pct = (value, digits = 2) => (value === null || value === undefined) ? '—' : `${value.toFixed(digits)}%`;
+const tx = (text) => getLang() === 'en' ? (translateUI(text) || text) : text;
 // Dòng phân tích được key theo mã để bảng có thể hiển thị cả cột suy ra.
 // Phải dựng SAU khi tải xong analysis — dựng ở cấp module sẽ luôn rỗng.
 let derived = new Map();
@@ -497,9 +498,34 @@ const medianKnown = (v) => (v === null || v === undefined || Number.isNaN(v)) ? 
 const tierClass = (chg) => chg > 0 ? 'positive' : chg < 0 ? 'negative' : '';
 const escAttr = (v) => esc(v).replace(/"/g, '&quot;');
 
+const EN_TABLE_HEADERS = {
+  'Nhóm': 'Tier', 'Số mã': 'Tickers', 'Tỷ trọng': 'Share', 'Giá trị (VND)': 'Value (VND)',
+  'Spread trung vị': 'Median spread', 'Mã': 'Ticker', 'Cơ sở': 'Underlying', 'Giá': 'Price',
+  '%Ngày': '% change', 'KL': 'Volume', 'Giá trị': 'Value', 'Spread': 'Spread',
+  'Số CW': 'Warrants', 'Có khớp': 'Traded', 'Spread TV': 'Median spread', 'Giá TV': 'Median price',
+  'Tốt nhất': 'Best change', 'Xấu nhất': 'Worst change', 'Giá tham chiếu': 'Reference price',
+  'Giá mua': 'Best bid', 'Giá bán': 'Best ask', 'Số phiên im lặng': 'Idle sessions',
+  'Cảnh báo': 'Warnings', 'Chuỗi im lặng dài nhất': 'Longest idle streak', 'Độ phủ': 'Coverage',
+  'Phiên': 'Session', 'Tăng/Giảm/Đứng': 'Up/Down/Unchanged', 'Mở cửa': 'Open',
+  'Cao nhất': 'High', 'Thấp nhất': 'Low', 'Khớp cuối': 'Last trade', 'Biên độ': 'Range',
+  'Bước giá': 'Ticks', 'Vị trí khớp cuối': 'Last-trade position', '% trong ngày': 'Daily change',
+  'Sàn': 'Floor', 'Trần': 'Ceiling', 'Đóng': 'Close', 'Dải': 'Range',
+  'Còn tới trần': 'To ceiling', 'Còn tới sàn': 'To floor', 'Trạng thái': 'Status',
+  'IV nhóm': 'Peer IV', 'Chênh lệch IV': 'IV spread', 'IV − HV': 'IV − HV',
+  'Delta': 'Delta', 'ITM/OTM': 'ITM/OTM', 'Strike': 'Strike', 'S': 'Underlying price',
+  'Nguồn S': 'Price source', 'Giá CW': 'Warrant price', 'Đáo hạn (ngày)': 'Days to maturity',
+  'Premium': 'Premium', 'IV': 'IV', '#': '#', 'Đóng': 'Close', 'KL lệnh cuối': 'Last-trade volume',
+  'KL phiên': 'Session volume', 'Tỷ lệ': 'Share', 'Số ngày': 'Days', 'Điểm': 'Score',
+  'Mã điểm cao nhất': 'Top-scoring warrant', 'Trung vị nhóm': 'Group median', 'Giá trị nhóm': 'Group value',
+};
+
 function simpleTable(headers, rows, renderRow, emptyText) {
-  if (!rows || !rows.length) return `<div class="empty">${esc(emptyText || 'Không có dữ liệu')}</div>`;
-  return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>`
+  const label = (header) => getLang() === 'en' ? (EN_TABLE_HEADERS[header] || header) : header;
+  if (!rows || !rows.length) {
+    const empty = emptyText || 'Không có dữ liệu';
+    return `<div class="empty">${esc(getLang() === 'en' ? (empty === 'Không có dữ liệu' ? 'No data available' : empty) : empty)}</div>`;
+  }
+  return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(label(h))}</th>`).join('')}</tr></thead>`
     + `<tbody>${rows.map(renderRow).join('')}</tbody></table></div>`;
 }
 
@@ -546,18 +572,21 @@ function renderLiquidity() {
   const ranking = liq.ranking || [];
   const thresholds = (liq.thresholds || []).map(t => `${t.quantile} = ${fmtVnd(t.valueVND)} VND`).join(' · ') || '—';
   host.innerHTML = `
-    <h2>Phân bố thanh khoản theo phiên</h2>
-    <p class="caption">Ngưỡng chia nhóm lấy từ phân vị của chính snapshot hôm nay — ${esc(thresholds)}. Không phải ngưỡng VND cố định, nên vẫn đọc được khi thanh khoản toàn thị trường thay đổi.</p>
-    <p class="caption">Thanh vẽ theo thang tuyến tính, nhóm lớn nhất = 100%. Giá trị trải hơn 4 bậc
-      độ lớn (25,76 tỷ xuống 4,1 tr), nên nhóm nào dưới 1,5% mức lớn nhất đều hiện ở bề rộng tối
-      thiểu — đọc số bên phải, đừng so bề rộng của các nhóm nhỏ. Nhóm không giao dịch không có
-      thanh vì không có giá trị.</p>
+    <h2>${bi('Phân bố thanh khoản theo phiên', 'Liquidity distribution by session')}</h2>
+    <p class="caption">${bi(
+      `Ngưỡng chia nhóm lấy từ phân vị của chính snapshot hôm nay — ${esc(thresholds)}. Không phải ngưỡng VND cố định, nên vẫn đọc được khi thanh khoản toàn thị trường thay đổi.`,
+      `Tier cutoffs are quantiles from today's snapshot — ${esc(thresholds)}. They are not fixed VND thresholds, so they remain useful as overall market liquidity changes.`)}</p>
+    <p class="caption">${bi(
+      'Thanh vẽ theo thang tuyến tính, nhóm lớn nhất = 100%. Giá trị trải hơn 4 bậc độ lớn (25,76 tỷ xuống 4,1 tr), nên nhóm nào dưới 1,5% mức lớn nhất đều hiện ở bề rộng tối thiểu — đọc số bên phải, đừng so bề rộng của các nhóm nhỏ. Nhóm không giao dịch không có thanh vì không có giá trị.',
+      'Bars use a linear scale, with the largest tier set to 100%. Values span more than four orders of magnitude (from VND 25.76bn to VND 4.1m), so tiers below 1.5% of the maximum are shown at a minimum visible width. Read the values at right rather than comparing the smallest bars. The untraded tier has no bar because it has no traded value.')}</p>
     ${barList(tiers, 'tier', 'valueVND', v => (v === null || v === undefined || v === 0)
-      ? 'không có' : fmtVnd(v))}
+      ? bi('không có', 'none') : fmtVnd(v))}
     ${simpleTable(['Nhóm', 'Số mã', 'Tỷ trọng', 'Giá trị (VND)', 'Spread trung vị'], tiers,
       t => `<tr><td>${esc(t.tier)}</td><td>${t.count}</td><td>${fmtPct(t.sharePct, 1)}</td><td>${fmtVnd(t.valueVND)}</td><td>${fmtPct(t.medianSpreadPct)}</td></tr>`)}
-    <h2>Xếp hạng theo giá trị giao dịch</h2>
-    <p class="caption">Top 10 chiếm ${fmtPct(liq.concentration?.top10ValueSharePct, 1)} giá trị toàn bảng; HHI = ${liq.concentration?.hhi ?? '—'}. Mã không khớp lệnh không được xếp hạng.</p>
+    <h2>${bi('Xếp hạng theo giá trị giao dịch', 'Ranked by traded value')}</h2>
+    <p class="caption">${bi(
+      `Top 10 chiếm ${fmtPct(liq.concentration?.top10ValueSharePct, 1)} giá trị toàn bảng; HHI = ${liq.concentration?.hhi ?? '—'}. Mã không khớp lệnh không được xếp hạng.`,
+      `The top 10 account for ${fmtPct(liq.concentration?.top10ValueSharePct, 1)} of total board value; HHI = ${liq.concentration?.hhi ?? '—'}. Untraded warrants are not ranked.`)}</p>
     ${simpleTable(['#', 'Mã', 'Cơ sở', 'Giá', '%Ngày', 'KL', 'Giá trị', 'Tỷ trọng', 'Spread', 'Nhóm'], ranking,
       r => `<tr><td>${r.rank}</td><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.price ?? '—'}</td>`
         + `<td class="${tierClass(r.chgPct)}">${fmtPct(r.chgPct)}</td><td>${fmtVnd(r.volume)}</td>`
@@ -571,9 +600,10 @@ function renderUnderlyings() {
   const rows = analytics?.underlyings || [];
   if (!rows.length) { host.innerHTML = emptyNotice('nhóm cổ phiếu cơ sở'); return; }
   host.innerHTML = `
-    <h2>Nhóm theo cổ phiếu cơ sở</h2>
-    <p class="caption">Thanh dài bằng đúng tỷ trọng giá trị giao dịch, nên so trực tiếp được
-      với cột <strong>Tỷ trọng</strong> bên dưới. Chỉ hiện 12 cổ phiếu cơ sở đứng đầu.</p>
+    <h2>${bi('Nhóm theo cổ phiếu cơ sở', 'Groups by underlying stock')}</h2>
+    <p class="caption">${bi(
+      'Thanh dài bằng đúng tỷ trọng giá trị giao dịch, nên so trực tiếp được với cột Tỷ trọng bên dưới. Chỉ hiện 12 cổ phiếu cơ sở đứng đầu.',
+      'Bar length equals each underlying’s share of traded value, so it can be compared directly with the Share column below. Only the top 12 underlyings are shown.')}</p>
     ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1),
       { useShares: true })}
     ${simpleTable(['Cơ sở', 'Số CW', 'Có khớp', 'Giá trị', 'Tỷ trọng', 'KL', 'Spread TV', 'Giá TV', 'Tốt nhất', 'Xấu nhất'], rows,
@@ -589,20 +619,29 @@ function renderStale() {
   const stale = analytics?.stale;
   if (!stale) { host.innerHTML = emptyNotice('giám sát mã không giao dịch'); return; }
   const recovered = stale.recovered || [];
+  const flagsEn = (flags) => (flags || []).map(flag => {
+    const idle = flag.match(/^≥(\d+) phiên không khớp$/);
+    if (idle) return `≥${idle[1]} idle sessions`;
+    const spread = flag.match(/^spread\s+(.+)$/i);
+    if (spread) return `spread ${spread[1]}`;
+    return flag;
+  }).join(' · ');
   host.innerHTML = `
-    <h2>Không giao dịch trong phiên: ${stale.count} mã (${fmtPct(stale.sharePct, 1)})</h2>
+    <h2>${bi('Không giao dịch trong phiên', 'Not traded this session')}: ${stale.count} ${bi('mã', 'warrants')} (${fmtPct(stale.sharePct, 1)})</h2>
     <p class="caption">${stale.historyAvailable
-      ? 'Số phiên im lặng đếm trên kho lịch sử đã tích luỹ.'
-      : 'Chưa đủ lịch sử để đếm số phiên im lặng — chỉ biết trạng thái phiên này.'} ${esc(stale.note)}</p>
+      ? bi('Số phiên im lặng đếm trên kho lịch sử đã tích luỹ.', 'Idle sessions are counted from the accumulated history archive.')
+      : bi('Chưa đủ lịch sử để đếm số phiên im lặng — chỉ biết trạng thái phiên này.', 'There is not enough history to count idle sessions; only the current session status is known.')} ${bi(
+        stale.note,
+        'An untraded warrant has no session close. RefP is the reference price, shown for context only and never used as a substitute for a traded price.')}</p>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá tham chiếu', 'Giá mua', 'Giá bán', 'Số phiên im lặng', 'Cảnh báo'], stale.rows,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.refPrice ?? '—'}</td>`
-        + `<td>${r.bid ?? '—'}</td><td>${r.ask ?? '—'}</td><td>${r.sessionsIdle ?? 'chưa xác định'}</td>`
-        + `<td class="flag">${esc((r.flags || []).join(' · '))}</td></tr>`, 'Không có mã nào không giao dịch')}
-    <h2>Vừa giao dịch lại sau chuỗi im lặng ≥ ${stale.thresholdSessions} phiên: ${stale.recoveredCount || 0} mã</h2>
+        + `<td>${r.bid ?? '—'}</td><td>${r.ask ?? '—'}</td><td>${r.sessionsIdle ?? bi('chưa xác định', 'unknown')}</td>`
+        + `<td class="flag">${esc(flagsEn(r.flags))}</td></tr>`, bi('Không có mã nào không giao dịch', 'No untraded warrants'))}
+    <h2>${bi('Vừa giao dịch lại sau chuỗi im lặng', 'Recently resumed trading after an idle streak')} ≥ ${stale.thresholdSessions} ${bi('phiên', 'sessions')}: ${stale.recoveredCount || 0} ${bi('mã', 'warrants')}</h2>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá', 'Giá trị', 'Chuỗi im lặng dài nhất', 'Độ phủ'], recovered,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.lastPrice ?? '—'}</td>`
         + `<td>${fmtVnd(r.valueVND)}</td><td>${r.longestGapSessions}</td><td>${fmtPct(r.coveragePct, 1)}</td></tr>`,
-      'Chưa có mã nào hồi phục thanh khoản')}
+      bi('Chưa có mã nào hồi phục thanh khoản', 'No warrants have recovered liquidity yet'))}
   `;
 }
 
@@ -665,19 +704,19 @@ function renderIntraday() {
   const block = analytics?.intraday;
   const last = analytics?.lastTrade;
   if (!block || block.available === false) {
-    host.innerHTML = `<div class="empty">${esc(block?.reason || 'Chưa có dữ liệu phân tích trong phiên.')}</div>`;
+    const reason = block?.reason || 'Chưa có dữ liệu phân tích trong phiên.';
+    host.innerHTML = `<div class="empty">${esc(getLang() === 'en' ? (translateUI(reason) || 'No intraday analysis data available.') : reason)}</div>`;
     return;
   }
   const s2 = block.summary || {};
   host.innerHTML = `
-    <h2>Biên độ trong phiên</h2>
-    <p class="caption">Tính trên bốn mốc giá của phiên: mở cửa, cao nhất, thấp nhất và giá khớp cuối. Mẫu số là
-      <strong>giá tham chiếu — giá đóng cửa phiên trước</strong>, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap.
-      Trung vị biên độ ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} bước giá;
-      ${num(s2.countFlatSession, 0)} mã tham chiều cả phiên (biên độ 0).</p>
-    <p class="caption">Vị trí giá khớp cuối trong khoảng thấp nhất–cao nhất của phiên: <strong>${num(s2.countCloseInUpperHalf, 0)}</strong>
-      mã đóng ở nửa trên, <strong>${num(s2.countCloseInLowerHalf, 0)}</strong> mã đóng ở nửa dưới.
-      0 = đóng ở đáy, 1 = đóng ở đỉnh. Đây là mô tả phiên đã xảy ra, không phải tín hiệu.</p>
+    <h2>${bi('Biên độ trong phiên', 'Intraday range')}</h2>
+    <p class="caption">${bi(
+      `Tính trên bốn mốc giá của phiên: mở cửa, cao nhất, thấp nhất và giá khớp cuối. Mẫu số là giá tham chiếu — giá đóng cửa phiên trước, nên so sánh được giữa các mã kể cả khi mở cửa nhảy gap. Trung vị biên độ ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} bước giá; ${num(s2.countFlatSession, 0)} mã tham chiếu cả phiên (biên độ 0).`,
+      `Measured from four session prices: open, high, low and last trade. The reference price (the previous session close) is the denominator, allowing comparisons across warrants even when the open gaps. Median range: ${fmtPct(medianKnown(s2.medianRangePct), 1)} ≈ ${num(s2.medianRangeTicks, 1)} ticks; ${num(s2.countFlatSession, 0)} warrants had no intraday range (0).`)}</p>
+    <p class="caption">${bi(
+      `Vị trí giá khớp cuối trong khoảng thấp nhất–cao nhất của phiên: ${num(s2.countCloseInUpperHalf, 0)} mã đóng ở nửa trên, ${num(s2.countCloseInLowerHalf, 0)} mã đóng ở nửa dưới. 0 = đóng ở đáy, 1 = đóng ở đỉnh. Đây là mô tả phiên đã xảy ra, không phải tín hiệu.`,
+      `Last-trade location within each session's low–high range: ${num(s2.countCloseInUpperHalf, 0)} warrants closed in the upper half and ${num(s2.countCloseInLowerHalf, 0)} in the lower half. 0 = at the low; 1 = at the high. This describes a completed session; it is not a signal.`)}</p>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá tham chiếu', 'Mở cửa', 'Cao nhất', 'Thấp nhất', 'Khớp cuối', 'Biên độ', 'Bước giá', 'Vị trí khớp cuối', '% trong ngày', 'Giá trị'], block.rows,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td class="num">${num(r.ref)}</td>`
         + `<td class="num">${num(r.open)}</td><td class="num">${num(r.high)}</td><td class="num">${num(r.low)}</td>`
@@ -686,11 +725,10 @@ function renderIntraday() {
         + `<td class="num ${r.chgPct > 0 ? 'positive' : (r.chgPct < 0 ? 'negative' : '')}">${fmtPct(r.chgPct)}</td>`
         + `<td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
     ${last?.available ? `
-      <h2>Chất lượng lệnh khớp cuối</h2>
-      <p class="caption">Cột KL khớp cuối là khối lượng của <em>riêng lệnh khớp cuối</em>. Trung vị
-        ${fmtPct(last.summary.medianLastSharePct, 1)} khối lượng phiên; <strong>${num(last.summary.countSingleTradeClose, 0)}
-        / ${num(last.summary.countTraded, 0)}</strong> mã (${fmtPct(last.summary.singleTradeSharePct, 1)}) đóng cửa
-        bằng đúng một lệnh — giá đóng cửa của các mã này kém đại diện cho cả phiên.</p>
+      <h2>${bi('Chất lượng lệnh khớp cuối', 'Last-trade quality')}</h2>
+      <p class="caption">${bi(
+        `Khối lượng khớp cuối là khối lượng của riêng lệnh cuối cùng. Trung vị ${fmtPct(last.summary.medianLastSharePct, 1)} khối lượng phiên; ${num(last.summary.countSingleTradeClose, 0)}/${num(last.summary.countTraded, 0)} mã (${fmtPct(last.summary.singleTradeSharePct, 1)}) đóng cửa bằng đúng một lệnh — giá đóng cửa của các mã này kém đại diện cho cả phiên.`,
+        `Last-trade volume is the size of the final matched order only. The median is ${fmtPct(last.summary.medianLastSharePct, 1)} of session volume; ${num(last.summary.countSingleTradeClose, 0)}/${num(last.summary.countTraded, 0)} warrants (${fmtPct(last.summary.singleTradeSharePct, 1)}) closed on a single trade, making those closing prices less representative of the session.`)}</p>
       ${simpleTable(['Mã', 'Đóng', 'KL lệnh cuối', 'KL phiên', 'Tỷ lệ', 'Giá trị'], last.rows,
         r => `<tr><td>${esc(r.t)}</td><td class="num">${num(r.close)}</td><td class="num">${num(r.lastTradeVol, 0)}</td>`
           + `<td class="num">${num(r.volume, 0)}</td><td class="num">${fmtPct(r.lastSharePct, 1)}</td>`
@@ -704,37 +742,37 @@ function renderBand() {
   const block = analytics?.priceBand;
   const cont = analytics?.refContinuity;
   if (!block || block.available === false) {
-    host.innerHTML = `<div class="empty">${esc(block?.reason || 'Chưa có dữ liệu dải trần–sàn.')}</div>`;
+    const reason = block?.reason || 'Chưa có dữ liệu dải trần–sàn.';
+    host.innerHTML = `<div class="empty">${esc(getLang() === 'en' ? (translateUI(reason) || 'No price-band data available.') : reason)}</div>`;
     return;
   }
   const s2 = block.summary || {};
+  const verdicts = {
+    'Có đứt gãy — xem chi tiết từng mã': 'Discontinuity detected — review the affected warrants',
+    'Không có đứt gãy': 'No discontinuity detected',
+  };
   host.innerHTML = `
-    <h2>Khoảng cách tới trần / sàn</h2>
-    <p class="caption">Giá trần và giá sàn <strong>đọc trực tiếp từ nguồn</strong>, không suy ra bằng công thức.
-      Tỷ lệ dải trần–sàn không cố định: trong snapshot này trung vị ${num(medianKnown(s2.medianBandPct), 1)}%,
-      trải từ ${num(medianKnown(s2.minBandPct), 1)}% tới ${num(medianKnown(s2.maxBandPct), 1)}% — vì giá CW
-      có thể xuống sát bước giá tối thiểu (giá sàn 10 VND). Vì thế không bao giờ dùng ±7%.</p>
-    <p class="caption">Chạm trần: <strong>${num(s2.countAtCeiling, 0)}</strong> mã
-      ${s2.atCeiling?.length ? `(${esc(s2.atCeiling.join(', '))})` : ''} ·
-      chạm sàn: <strong>${num(s2.countAtFloor, 0)}</strong> mã
-      ${s2.atFloor?.length ? `(${esc(s2.atFloor.join(', '))})` : ''} ·
-      còn ≤ 1 bước giá tới trần: <strong>${num(s2.countNearCeiling, 0)}</strong> mã.</p>
+    <h2>${bi('Khoảng cách tới trần / sàn', 'Distance to ceiling / floor')}</h2>
+    <p class="caption">${bi(
+      `Giá trần và giá sàn được đọc trực tiếp từ nguồn, không suy ra bằng công thức. Tỷ lệ dải trần–sàn không cố định: trong snapshot này trung vị ${num(medianKnown(s2.medianBandPct), 1)}%, trải từ ${num(medianKnown(s2.minBandPct), 1)}% tới ${num(medianKnown(s2.maxBandPct), 1)}% — giá CW có thể xuống sát bước giá tối thiểu (giá sàn 10 VND). Vì thế không bao giờ dùng ±7%.`,
+      `Ceiling and floor prices are read directly from the source, never inferred by formula. The price-band width varies: this snapshot's median is ${num(medianKnown(s2.medianBandPct), 1)}%, ranging from ${num(medianKnown(s2.minBandPct), 1)}% to ${num(medianKnown(s2.maxBandPct), 1)}%. Warrant prices can approach the minimum tick (a 10 VND floor), so a fixed ±7% band must not be assumed.`)}</p>
+    <p class="caption">${bi(
+      `Chạm trần: ${num(s2.countAtCeiling, 0)} mã ${s2.atCeiling?.length ? `(${esc(s2.atCeiling.join(', '))})` : ''} · chạm sàn: ${num(s2.countAtFloor, 0)} mã ${s2.atFloor?.length ? `(${esc(s2.atFloor.join(', '))})` : ''} · còn ≤ 1 bước giá tới trần: ${num(s2.countNearCeiling, 0)} mã.`,
+      `At ceiling: ${num(s2.countAtCeiling, 0)} warrants ${s2.atCeiling?.length ? `(${esc(s2.atCeiling.join(', '))})` : ''} · at floor: ${num(s2.countAtFloor, 0)} warrants ${s2.atFloor?.length ? `(${esc(s2.atFloor.join(', '))})` : ''} · within 1 tick of ceiling: ${num(s2.countNearCeiling, 0)} warrants.`)}</p>
     ${simpleTable(['Mã', 'Cơ sở', 'Sàn', 'Trần', 'Đóng', 'Dải', 'Còn tới trần', 'Bước giá', 'Còn tới sàn', 'Trạng thái'], block.rows,
       r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td class="num">${num(r.floor)}</td>`
         + `<td class="num">${num(r.ceiling)}</td><td class="num">${num(r.close)}</td>`
         + `<td class="num">${num(medianKnown(r.bandPct), 0)}%</td><td class="num">${fmtPct(r.toCeilingPct, 1)}</td>`
         + `<td class="num">${num(r.toCeilingTicks, 1)}</td><td class="num">${fmtPct(r.toFloorPct, 1)}</td>`
-        + `<td>${r.atCeiling ? '<span class="flag">chạm trần</span>' : (r.atFloor ? '<span class="flag">chạm sàn</span>' : '—')}</td></tr>`)}
-    <h2>Kiểm tra liên tục bằng giá tham chiếu</h2>
+        + `<td>${r.atCeiling ? `<span class="flag">${bi('chạm trần', 'At ceiling')}</span>` : (r.atFloor ? `<span class="flag">${bi('chạm sàn', 'At floor')}</span>` : '—')}</td></tr>`)}
+    <h2>${bi('Kiểm tra liên tục bằng giá tham chiếu', 'Reference-price continuity check')}</h2>
     ${cont?.available
-      ? `<p class="caption">So <strong>giá tham chiếu hôm nay</strong> với <strong>giá đóng cửa phiên liền trước trong kho</strong>
-          (${esc(cont.prevSession)}). Khớp: ${num(cont.summary.linked, 0)}/${num(cont.summary.checked, 0)}
-          (${fmtPct(cont.summary.linkedPct, 1)}) · lệch &gt; ${num(cont.summary.tolerancePct, 0)}%:
-          ${num(cont.summary.mismatch, 0)} · thiếu phiên: ${num(cont.summary.missingSession, 0)} ·
-          không có close để so: ${num(cont.summary.untradedRef, 0)} →
-          <strong>${esc(cont.summary.verdict)}</strong></p>
-        <p class="caption">${esc(cont.summary.basis)}</p>`
-      : `<div class="empty">${esc(cont?.reason || 'Chưa có phiên trước trong kho để đối chiếu giá tham chiếu.')}</div>`}
+      ? `<p class="caption">${bi(
+          `So giá tham chiếu hôm nay với giá đóng cửa phiên liền trước trong kho (${esc(cont.prevSession)}). Khớp: ${num(cont.summary.linked, 0)}/${num(cont.summary.checked, 0)} (${fmtPct(cont.summary.linkedPct, 1)}) · lệch > ${num(cont.summary.tolerancePct, 0)}%: ${num(cont.summary.mismatch, 0)} · thiếu phiên: ${num(cont.summary.missingSession, 0)} · không có close để so: ${num(cont.summary.untradedRef, 0)}.`,
+          `Compares today's reference price with the previous session close in the archive (${esc(cont.prevSession)}). Linked: ${num(cont.summary.linked, 0)}/${num(cont.summary.checked, 0)} (${fmtPct(cont.summary.linkedPct, 1)}) · mismatches > ${num(cont.summary.tolerancePct, 0)}%: ${num(cont.summary.mismatch, 0)} · missing sessions: ${num(cont.summary.missingSession, 0)} · no close available for comparison: ${num(cont.summary.untradedRef, 0)}.`)}
+          <strong>${esc(getLang() === 'en' ? (verdicts[cont.summary.verdict] || cont.summary.verdict) : cont.summary.verdict)}</strong></p>
+        <p class="caption">${bi(cont.summary.basis, 'RefP is the previous session close, so comparing it with the prior archived close directly checks data continuity. This is a data-quality check, not a trading indicator.')}</p>`
+      : `<div class="empty">${bi(cont?.reason || 'Chưa có phiên trước trong kho để đối chiếu giá tham chiếu.', 'No previous session is available in the archive for reference-price comparison.')}</div>`}
   `;
 }
 
@@ -743,14 +781,16 @@ function renderBand() {
 //   (b) file có nhưng thiếu đúng khối này.
 // Gộp cả hai thành "Chạy workflow" là chẩn đoán sai và làm người đọc đi sai hướng.
 function emptyNotice(what) {
-  const stamp = analytics?.asof ? ` Dữ liệu phân tích đang có: phiên ${esc(analytics.asof)}.` : '';
+  const sections = { 'xếp hạng': 'Ranking', 'định giá': 'Valuation', 'thanh khoản': 'Liquidity',
+    'nhóm cổ phiếu cơ sở': 'underlying groups', 'giám sát mã không giao dịch': 'no-trade monitoring' };
+  const label = getLang() === 'en' ? (sections[what] || what) : what;
+  const stamp = analytics?.asof ? ` ${bi('Dữ liệu phân tích đang có: phiên', 'Available analytics session')}: ${esc(analytics.asof)}.` : '';
   if (!analytics) {
-    return `<div class="empty">Trang không tải được tệp phân tích — file này
-      chưa được sinh cho lần chạy gần nhất. Workflow publish phải chạy tới bước
-      <em>Append session bar</em> thì file mới tồn tại; nếu lần chạy gần nhất dùng code cũ
-      (trước khi có bước đó), bấm <em>Run workflow</em> để sinh lại.</div>`;
+    return `<div class="empty">${bi(
+      'Trang không tải được tệp phân tích — file này chưa được sinh cho lần chạy gần nhất. Workflow publish phải chạy tới bước Append session bar thì file mới tồn tại; nếu lần chạy gần nhất dùng code cũ, bấm Run workflow để sinh lại.',
+      'The analytics file could not be loaded or was not generated by the latest run. The publish workflow must complete the Append session bar step; rerun the workflow if it used an older version.')}</div>`;
   }
-  return `<div class="empty">Không có khối ${esc(what)} trong file phân tích.${stamp}</div>`;
+  return `<div class="empty">${bi(`Không có khối ${esc(label)} trong file phân tích.`, `No ${esc(label)} block is available in the analytics file.`)}${stamp}</div>`;
 }
 
 // ── Định giá: Black–Scholes + IV, từ điều khoản Vietstock ──
@@ -759,51 +799,50 @@ function renderValuation() {
   const val = analytics?.valuation;
   if (!val) { host.innerHTML = emptyNotice('định giá'); return; }
   if (val.available === false) {
-    host.innerHTML = `<div class="empty"><strong>Chưa định giá được.</strong> ${esc(val.reason || '')}
-      <br>Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu
-      cơ sở (S). Nạp bằng <code>scripts/import_vietstock_terms.py</code>.</div>`;
+    const reason = val.reason || 'Lớp định giá không khả dụng ở phiên này.';
+    host.innerHTML = `<div class="empty"><strong>${bi('Chưa định giá được.', 'Valuation unavailable.')}</strong> ${esc(tx(reason))}
+      <br>${bi('Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu cơ sở (S). Nạp bằng', 'Required contract terms: strike (K), conversion ratio (n), maturity date (T), and underlying price (S). Load them with')} <code>scripts/import_vietstock_terms.py</code>.</div>`;
     return;
   }
   const sum = val.summary || {};
   const rows = val.warrants || [];
   const excluded = val.excluded || {};
-  const exclText = Object.entries(excluded).map(([k, v]) => `${esc(k)}: ${v}`).join(' · ') || 'không có';
+  const exclText = Object.entries(excluded).map(([k, v]) => `${esc(tx(k))}: ${v}`).join(' · ') || bi('không có', 'none');
   host.innerHTML = `
-    <h2>Black–Scholes, IV và Greeks</h2>
-    <p class="caption">Định giá <strong>${num(val.priced, 0)} mã</strong> bằng Black–Scholes–Merton.
-      Cột <em>Nguồn S</em> ghi rõ giá cổ phiếu cơ sở lấy từ đâu cho từng mã.</p>
+    <h2>${bi('Black–Scholes, IV và Greeks', 'Black–Scholes, IV and Greeks')}</h2>
+    <p class="caption">${bi(
+      `Định giá ${num(val.priced, 0)} mã bằng Black–Scholes–Merton. Cột Nguồn S ghi rõ giá cổ phiếu cơ sở lấy từ đâu cho từng mã.`,
+      `Black–Scholes–Merton valuations for ${num(val.priced, 0)} warrants. The Source for S column identifies the underlying-price source for each warrant.`)}</p>
 
-    <p class="caption"><strong>IV trung vị ${num(sum.medianIv, 1)}%</strong>
-      (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) ·
-      ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM
-      ${num((sum.moneyness || {}).OTM, 0)} · delta trung vị ${num(sum.medianDelta, 3)}</p>
+    <p class="caption">${bi(
+      `IV trung vị ${num(sum.medianIv, 1)}% (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) · ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM ${num((sum.moneyness || {}).OTM, 0)} · delta trung vị ${num(sum.medianDelta, 3)}`,
+      `Median IV ${num(sum.medianIv, 1)}% (p25–p75: ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) · ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM ${num((sum.moneyness || {}).OTM, 0)} · median delta ${num(sum.medianDelta, 3)}`)}</p>
     ${(() => {
       const ivhv = val.ivVsHv || {};
       if (!ivhv.available) {
-        return `<p class="caption"><strong>IV − HV:</strong> chưa đo được — ${esc(ivhv.reason || 'chưa tải lịch sử cổ phiếu cơ sở')}</p>`;
+        const reason = ivhv.reason || 'chưa tải lịch sử cổ phiếu cơ sở';
+        return `<p class="caption"><strong>IV − HV:</strong> ${bi('chưa đo được', 'not available')} — ${esc(tx(reason))}</p>`;
       }
       return `<div class="card">
-        <h3>IV − HV: mức bù rủi ro thị trường đang tính</h3>
-        <p class="caption"><strong>Trung vị ${num(ivhv.medianIvMinusHv, 1)} điểm</strong>
-          (p25–p75 = ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) trên ${num(ivhv.count, 0)} mã ·
-          IV trên HV ${num(ivhv.countIvAboveHv, 0)} mã / dưới HV ${num(ivhv.countIvBelowHv, 0)} mã</p>
-        <p class="caption">${esc(ivhv.note || '')}</p>
+        <h3>${bi('IV − HV: mức bù rủi ro thị trường đang tính', 'IV − HV: implied market risk premium')}</h3>
+        <p class="caption">${bi(
+          `Trung vị ${num(ivhv.medianIvMinusHv, 1)} điểm (p25–p75 = ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) trên ${num(ivhv.count, 0)} mã · IV trên HV ${num(ivhv.countIvAboveHv, 0)} mã / dưới HV ${num(ivhv.countIvBelowHv, 0)} mã`,
+          `Median ${num(ivhv.medianIvMinusHv, 1)} percentage points (p25–p75: ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) across ${num(ivhv.count, 0)} warrants · IV above HV: ${num(ivhv.countIvAboveHv, 0)} · IV below HV: ${num(ivhv.countIvBelowHv, 0)}`)}</p>
+        <p class="caption">${bi(ivhv.note || '', 'IV − HV is expressed in percentage points. Positive values mean the market prices in more risk than the underlying stock has realized. This describes the market; it is not a signal.')}</p>
       </div>`;
     })()}
-    <p class="caption">Lãi suất phi rủi ro ${num(val.riskFree, 4)} — ${esc(val.riskFreeSource || '')}</p>
-    <p class="caption">Loại khỏi định giá: ${exclText}</p>
+    <p class="caption">${bi('Lãi suất phi rủi ro', 'Risk-free rate')} ${num(val.riskFree, 4)} — ${esc(tx(val.riskFreeSource || ''))}</p>
+    <p class="caption">${bi('Loại khỏi định giá', 'Excluded from valuation')}: ${exclText}</p>
 
-    <h2>Mã rẻ nhất so với nhóm cùng cơ sở</h2>
+    <h2>${bi('Mã rẻ nhất so với nhóm cùng cơ sở', 'Lowest implied volatility vs. underlying peers')}</h2>
     ${simpleTable(['Mã', 'Cơ sở', 'IV', 'IV nhóm', 'Chênh lệch IV', 'IV − HV', 'Delta', 'ITM/OTM', 'Strike', 'S', 'Nguồn S', 'Giá CW', 'Đáo hạn (ngày)', 'Premium'], rows.slice(0, 40),
       r => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.underlying || '—')}</td>`
         + `<td class="num">${fmtPct(r.iv, 1)}</td><td class="num">${fmtPct(r.ivGroupMedian, 1)}</td>`
         + `<td class="num ${r.ivResidualPct < 0 ? 'positive' : (r.ivResidualPct > 0 ? 'negative' : '')}">${fmtPct(r.ivResidualPct, 1)}</td>`
-        // IV − HV chỉ có khi đã tải lịch sử cổ phiếu cơ sở; ô trống nghĩa là chưa đo được,
-        // không phải bằng 0.
         + `<td class="num">${r.ivMinusHv === null || r.ivMinusHv === undefined ? '—' : (r.ivMinusHv > 0 ? '+' : '') + num(r.ivMinusHv, 1)}</td>`
         + `<td class="num">${num(r.delta, 3)}</td><td>${esc(r.moneyness || '—')}</td>`
         + `<td class="num">${fmtVnd(r.strike)}</td><td class="num">${fmtVnd(r.underlyingPrice)}</td>`
-        + `<td class="muted">${esc(r.underlyingSource || '—')}</td>`
+        + `<td class="muted">${esc(tx(r.underlyingSource || '—'))}</td>`
         + `<td class="num">${fmtVnd(r.cwPrice)}</td><td class="num">${num(r.daysToMaturity, 0)}</td>`
         + `<td class="num">${fmtPct(r.premiumPct, 1)}</td></tr>`)}
   `;
@@ -823,6 +862,7 @@ const WEIGHT_LABELS = {
   liquidity: 'Thanh khoản', cost: 'Chi phí', valuation: 'Định giá',
   priceQuality: 'Chất lượng giá',
 };
+const WEIGHT_LABELS_EN = {liquidity: 'Liquidity', cost: 'Cost', valuation: 'Valuation', priceQuality: 'Price quality'};
 
 /** Giá trị dùng để sắp xếp một dòng theo khoá của cột. */
 function scoringValue(row, key) {
@@ -845,8 +885,9 @@ function scoringValue(row, key) {
  * không được hiển thị giống nhau, nếu không người đọc sẽ hiểu mã bị trừ điểm.
  */
 function partCell(value, label) {
+  const labelText = getLang() === 'en' ? (EN_TABLE_HEADERS[label] || tx(label)) : label;
   if (value === null || value === undefined) {
-    return `<td class="part-cell"><span class="na" title="${escAttr(label)}: chưa đủ dữ liệu để chấm">chưa chấm</span></td>`;
+    return `<td class="part-cell"><span class="na" title="${escAttr(labelText)}: ${bi('chưa đủ dữ liệu để chấm', 'not enough data to score')}">${bi('chưa chấm', 'not scored')}</span></td>`;
   }
   const v = Math.max(0, Math.min(100, value));
   return `<td class="part-cell"><span class="part-num">${num(v, 0)}</span>`
@@ -867,7 +908,7 @@ function scoreCell(score) {
 function rankCell(rank) {
   const medal = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
   return medal
-    ? `<td class="rank-cell"><span class="medal ${medal}" title="Hạng ${rank}">${rank}</span></td>`
+    ? `<td class="rank-cell"><span class="medal ${medal}" title="${bi('Hạng', 'Rank')} ${rank}">${rank}</span></td>`
     : `<td class="rank-cell"><span class="rank-plain">${rank}</span></td>`;
 }
 
@@ -890,7 +931,9 @@ function changeCellRank(row) {
  */
 function warnCell(row, sc) {
   const notes = [];
-  if (row.nearCeiling) notes.push(`Giá đang sát trần (còn ${fmtPct(row.headroomPct)} tới trần)`);
+  if (row.nearCeiling) notes.push(bi(
+    `Giá đang sát trần (còn ${fmtPct(row.headroomPct)} tới trần)`,
+    `Price is near the ceiling (${fmtPct(row.headroomPct)} headroom)`));
   const available = {
     valuation: sc?.valuation?.available,
     cost: true,
@@ -903,7 +946,12 @@ function warnCell(row, sc) {
   }
   if (row.parts?.cost === null || row.parts?.cost === undefined) missing.push('chi phí');
   if (missing.length) {
-    notes.push(`Thiếu dữ liệu để chấm: ${missing.join(', ')} — điểm chỉ tính trên phần còn lại`);
+    const missingLabels = getLang() === 'en'
+      ? missing.map(label => ({'định giá': 'valuation', 'chi phí': 'cost'}[label] || tx(label)))
+      : missing;
+    notes.push(bi(
+      `Thiếu dữ liệu để chấm: ${missing.join(', ')} — điểm chỉ tính trên phần còn lại`,
+      `Missing data for ${missingLabels.join(', ')}; the score uses the remaining factors only`));
   }
   if (!notes.length) return '<td class="warn-cell"><span class="na">—</span></td>';
   const text = notes.join('. ');
@@ -960,16 +1008,16 @@ function scoringTable(rows, sc) {
     <table class="rank-table">
       <thead><tr>
         ${scoringHead('rank', '#')}
-        ${scoringHead('ticker', 'Mã / Cơ sở')}
-        ${scoringHead('score', 'Điểm tổng')}
-        ${scoringHead('coveragePct', 'Độ phủ')}
-        ${scoringHead('valueVND', 'Giá trị')}
-        ${scoringHead('chgPct', '% trong ngày')}
-        ${scoringHead('liquidity', `Thanh khoản ${Math.round((sc.weights?.liquidity || 0) * 100)}%`)}
-        ${scoringHead('cost', `Chi phí ${Math.round((sc.weights?.cost || 0) * 100)}%`)}
-        ${scoringHead('valuation', `Định giá ${Math.round((sc.weights?.valuation || 0) * 100)}%`)}
-        ${scoringHead('priceQuality', `Chất lượng giá ${Math.round((sc.weights?.priceQuality || 0) * 100)}%`)}
-        <th class="warn-head">Cảnh báo</th>
+        ${scoringHead('ticker', bi('Mã / Cơ sở', 'Ticker / Underlying'))}
+        ${scoringHead('score', bi('Điểm tổng', 'Total score'))}
+        ${scoringHead('coveragePct', bi('Độ phủ', 'Coverage'))}
+        ${scoringHead('valueVND', bi('Giá trị', 'Value'))}
+        ${scoringHead('chgPct', bi('% trong ngày', '% change'))}
+        ${scoringHead('liquidity', `${bi(WEIGHT_LABELS.liquidity, WEIGHT_LABELS_EN.liquidity)} ${Math.round((sc.weights?.liquidity || 0) * 100)}%`)}
+        ${scoringHead('cost', `${bi(WEIGHT_LABELS.cost, WEIGHT_LABELS_EN.cost)} ${Math.round((sc.weights?.cost || 0) * 100)}%`)}
+        ${scoringHead('valuation', `${bi(WEIGHT_LABELS.valuation, WEIGHT_LABELS_EN.valuation)} ${Math.round((sc.weights?.valuation || 0) * 100)}%`)}
+        ${scoringHead('priceQuality', `${bi(WEIGHT_LABELS.priceQuality, WEIGHT_LABELS_EN.priceQuality)} ${Math.round((sc.weights?.priceQuality || 0) * 100)}%`)}
+        <th class="warn-head">${bi('Cảnh báo', 'Warnings')}</th>
       </tr></thead>
       <tbody>${rows.map(r => `<tr>
         ${rankCell(r.rank)}
@@ -1004,7 +1052,8 @@ function renderScoring() {
   // nhiêu phần trăm mà không phải đọc cả đoạn.
   const weightBadges = Object.keys(WEIGHT_LABELS).map(k => {
     const pctWeight = Math.round((weights[k] || 0) * 100);
-    return `<span class="wbadge"><b>${esc(WEIGHT_LABELS[k])}</b><span class="wv">${pctWeight}%</span>`
+    const label = getLang() === 'en' ? WEIGHT_LABELS_EN[k] : WEIGHT_LABELS[k];
+    return `<span class="wbadge"><b>${esc(label)}</b><span class="wv">${pctWeight}%</span>`
       + `<span class="wtrack"><span class="wfill" style="width:${pctWeight}%"></span></span></span>`;
   }).join('');
 
@@ -1020,41 +1069,38 @@ function renderScoring() {
             <rect x="18" y="4" width="3" height="14" rx="1"/></svg>
         </span>
         <div class="sb-main">
-          <div class="sb-title">Điểm CW theo ngày</div>
-          <div class="sb-sub"><b>${num(sc.scored, 0)}</b> mã có khớp lệnh được chấm
-            · ${num(sc.unscored, 0)} mã không giao dịch không chấm
-            · trung vị <b>${num(dist.median, 1)}</b> (p25–p75 ${num(dist.p25, 1)}–${num(dist.p75, 1)})
-            · ${val.available ? `định giá đã bật cho <b>${num(val.priced, 0)}</b> mã` : 'định giá chưa bật'}</div>
+          <div class="sb-title">${bi('Điểm CW theo ngày', 'Daily warrant score')}</div>
+          <div class="sb-sub"><b>${num(sc.scored, 0)}</b> ${bi('mã có khớp lệnh được chấm', 'traded warrants scored')}
+            · ${num(sc.unscored, 0)} ${bi('mã không giao dịch không chấm', 'untraded warrants not scored')}
+            · ${bi('trung vị', 'median')} <b>${num(dist.median, 1)}</b> (p25–p75 ${num(dist.p25, 1)}–${num(dist.p75, 1)})
+            · ${val.available ? `${bi('định giá đã bật cho', 'valuation available for')} <b>${num(val.priced, 0)}</b> ${bi('mã', 'warrants')}` : bi('định giá chưa bật', 'valuation unavailable')}</div>
         </div>
         <button type="button" class="sb-toggle" id="score-detail-toggle"
-                aria-expanded="false" aria-controls="score-detail">Xem chi tiết cách tính điểm</button>
+                aria-expanded="false" aria-controls="score-detail">${bi('Xem chi tiết cách tính điểm', 'Scoring methodology')}</button>
       </div>
       <div class="sb-weights">${weightBadges}</div>
       <div class="sb-detail" id="score-detail" hidden>
-        <h4>Cách tính</h4>
+        <h4>${bi('Cách tính', 'Methodology')}</h4>
         <ul>
-          <li>Điểm 0–100 cho từng mã, tính trên ${num(sc.scored, 0)} mã có khớp lệnh.
-            Mã không giao dịch bị loại vì không có giá thì không có gì để chấm.</li>
-          <li>Mỗi trục cho điểm 0–100 rồi nhân trọng số ở trên. Trục nào thiếu dữ liệu thì
-            <strong>tính lại trọng số trên phần còn lại</strong>, không cộng 0 — vì cộng 0 sẽ
-            trừ điểm oan cho mã chỉ thiếu một trường.</li>
-          <li><strong>Độ phủ</strong> = phần trăm trọng số thực sự có dữ liệu. Độ phủ 100% nghĩa
-            là cả bốn trục đều chấm được; thấp hơn thì điểm đó chỉ dựa trên phần trọng số còn
-            lại.</li>
-          <li><strong>Định giá ${Math.round((weights.valuation || 0) * 100)}%</strong> tính từ IV
-            của mã so với trung vị IV các CW cùng cổ phiếu cơ sở
-            (${num(sc.valuationMeta?.scored, 0)} mã được chấm).
-            ${val.available ? `Đã định giá ${num(val.priced, 0)} mã bằng Black–Scholes — xem tab <strong>Định giá</strong>.` : ''}</li>
-          <li>Điểm này <strong>không phải khuyến nghị mua/bán</strong>. Nó xếp hạng trên các
-            tiêu chí đã nêu, không dự phóng lợi nhuận.</li>
+          <li>${bi(`Điểm 0–100 cho từng mã, tính trên ${num(sc.scored, 0)} mã có khớp lệnh. Mã không giao dịch bị loại vì không có giá thì không có gì để chấm.`,
+            `Each warrant receives a score from 0 to 100, based on ${num(sc.scored, 0)} traded warrants. Untraded warrants are excluded because they have no traded price to score.`)}</li>
+          <li>${bi('Mỗi trục cho điểm 0–100 rồi nhân trọng số ở trên. Trục nào thiếu dữ liệu thì tính lại trọng số trên phần còn lại, không cộng 0 — vì cộng 0 sẽ trừ điểm oan cho mã chỉ thiếu một trường.',
+            'Each factor is scored from 0 to 100 and multiplied by its weight above. If a factor is missing, the remaining weights are renormalized rather than assigning zero, which would unfairly penalize a warrant for one missing field.')}</li>
+          <li>${bi('Độ phủ = phần trăm trọng số thực sự có dữ liệu. Độ phủ 100% nghĩa là cả bốn trục đều chấm được; thấp hơn thì điểm đó chỉ dựa trên phần trọng số còn lại.',
+            'Coverage is the percentage of factor weights with available data. 100% means all four factors were scored; lower coverage means the score uses only the available factors.')}</li>
+          <li>${bi(`Định giá ${Math.round((weights.valuation || 0) * 100)}% tính từ IV của mã so với trung vị IV các CW cùng cổ phiếu cơ sở (${num(sc.valuationMeta?.scored, 0)} mã được chấm).`,
+            `${Math.round((weights.valuation || 0) * 100)}% valuation weight compares each warrant’s implied volatility with the median IV of warrants on the same underlying (${num(sc.valuationMeta?.scored, 0)} scored warrants).`)}
+            ${val.available ? bi(`Đã định giá ${num(val.priced, 0)} mã bằng Black–Scholes — xem tab Định giá.`, `Black–Scholes valuation is available for ${num(val.priced, 0)} warrants; see the Valuation tab.`) : ''}</li>
+          <li>${bi('Điểm này không phải khuyến nghị mua/bán. Nó xếp hạng trên các tiêu chí đã nêu, không dự phóng lợi nhuận.',
+            'This score is not a buy/sell recommendation. It ranks warrants on the stated criteria and does not forecast returns.')}</li>
         </ul>
       </div>
     </div>
 
     <div id="scoring-table-host">${scoringTable(scoringRows(sc), sc)}</div>
-    <p class="caption">Hiện 50 mã điểm cao nhất. Bấm tiêu đề cột để sắp xếp theo tiêu chí đó.</p>
+    <p class="caption">${bi('Hiện 50 mã điểm cao nhất. Bấm tiêu đề cột để sắp xếp theo tiêu chí đó.', 'Showing the top 50 warrants by score. Click a column heading to sort.')}</p>
 
-    <h2>CW tốt nhất theo từng cổ phiếu cơ sở</h2>
+    <h2>${bi('CW tốt nhất theo từng cổ phiếu cơ sở', 'Top warrants by underlying')}</h2>
     ${simpleTable(['Cơ sở', 'Số CW', 'Mã điểm cao nhất', 'Điểm', 'Trung vị nhóm', 'Giá trị nhóm'], sc.byUnderlying || [],
       r => `<tr><td><strong>${esc(r.u || '—')}</strong></td><td class="num">${r.count}</td>`
         + `<td>${esc(r.bestTicker)}</td><td class="num"><strong>${num(r.bestScore, 1)}</strong></td>`
@@ -1069,7 +1115,7 @@ function renderScoring() {
       const open = detail.hidden;
       detail.hidden = !open;
       toggle.setAttribute('aria-expanded', String(open));
-      toggle.textContent = open ? 'Thu gọn cách tính điểm' : 'Xem chi tiết cách tính điểm';
+      toggle.textContent = open ? bi('Thu gọn cách tính điểm', 'Hide methodology') : bi('Xem chi tiết cách tính điểm', 'Scoring methodology');
     });
   }
 

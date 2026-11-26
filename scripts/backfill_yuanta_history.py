@@ -55,6 +55,13 @@ def _fetched_at(payload: dict, fallback: datetime) -> str:
     return str(value) if value else fallback.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
+def _history_through_session(history: pd.DataFrame, session: str) -> pd.DataFrame:
+    """Không cho bar tương lai (ví dụ provisional do lần chạy trước pre-market) lọt vào build."""
+    if history is None or history.empty:
+        return history
+    return history.loc[history["session"].astype(str) <= str(session)].copy()
+
+
 def build_sessions_payload(history, coverage: dict, *, gaps: dict[str, list[str]]) -> dict:
     return {
         "schemaVersion": 1,
@@ -168,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     history = hist.load_history(args.store)
+    # Analytics and public history are always bounded by this snapshot's resolved session.
+    # In particular, stale provisional bars dated in the future must not be presented as data.
+    history = _history_through_session(history, snapshot_session.iso)
     cov = hist.coverage(history)
     gaps = hist.ticker_gaps(history)
     sessions_payload = build_sessions_payload(history, cov, gaps=gaps)
