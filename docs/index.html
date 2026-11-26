@@ -190,7 +190,7 @@
   </section>
   <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
        để chân trang không còn là một khối chữ dày đặc ngay dưới bảng giá. -->
-  <footer id="app-footer"></footer>
+  <footer id="app-footer" class="disclaimer-banner" role="note"></footer>
 </main>
 <script type="module">
 import {
@@ -428,8 +428,8 @@ function renderFooter(){
   const footer = document.querySelector('#app-footer');
   if (!footer) return;
   footer.innerHTML = bi(
-    'Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra — không phải khuyến nghị mua/bán.',
-    'Use the <b>Glossary</b> button in the top bar to look up column definitions, data sources, and what this project does not cover. All figures on this page describe a completed session — not buy/sell recommendations.'
+    '<p class="footer-guide">Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm.</p><p class="disclaimer-copy">⚠️ <strong>Đây không phải khuyến nghị đầu tư.</strong> CW Intelligence chỉ cung cấp thông tin phân tích và giáo dục; nội dung tại đây không phải tư vấn cá nhân hóa, lời mời chào hay khuyến nghị mua/bán bất kỳ chứng khoán nào. Dữ liệu là snapshot cuối phiên, có thể chậm, thiếu hoặc khác với diễn biến hiện tại; điểm số và chỉ số chỉ mô tả dữ liệu đã quan sát, không dự báo hay bảo đảm kết quả tương lai. Chứng quyền có đòn bẩy, có thể biến động mạnh và mất toàn bộ giá trị khi đáo hạn. Hãy tự kiểm tra thông tin, cân nhắc khả năng chịu rủi ro và tham khảo chuyên gia được cấp phép trước khi giao dịch. Bạn tự chịu trách nhiệm với quyết định đầu tư của mình.</p>',
+    '<p class="footer-guide">Use the <b>Glossary</b> button in the top bar to look up column definitions, data sources, and what this project does not cover.</p><p class="disclaimer-copy">⚠️ <strong>This is not investment advice.</strong> CW Intelligence provides analytics and educational information only; nothing here is personalized advice, an offer, or a recommendation to buy or sell any security. Data is an end-of-session snapshot and may be delayed, incomplete, or differ from current market conditions. Scores and metrics describe observed data; they do not predict or guarantee future results. Covered warrants are leveraged, can be highly volatile, and may expire worthless. Verify the information, consider your risk tolerance, and consult a licensed professional before trading. You are responsible for your own investment decisions.</p>'
   );
 }
 
