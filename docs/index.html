@@ -59,27 +59,34 @@
   <!-- Header một hàng: tiêu đề + MỘT câu thời gian bên trái; công tắc giao diện, ngôn ngữ
        và đồng hồ thời gian thực dồn sang phải. Trước đây khối này chiếm bốn dòng dọc vì
        mỗi dòng thời gian ("cập nhật lúc", "phiên") đứng riêng và các công tắc có nhãn trên. -->
-  <header>
+  <header class="app-header">
     <div class="topbar">
       <div class="topbar-left">
-        <h1>Covered Warrants — Quant Analysis</h1>
-        <!-- Dòng thời gian duy nhất. `sub-line` và `freshness` đều được renderFreshness() đổ
-             vào đây nên không lặp lại hai lần cùng một mốc giờ. -->
-        <p class="brand-meta" id="sub-line">Bảng giá chứng quyền (CW) — được cập nhật lúc —.</p>
-        <p class="brand-meta muted-line" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19V5M8 19V9M13 19V4M18 19v-7M2 19h20"/><path d="m4 8 4-3 5 2 6-4"/></svg></span>
+        <div class="brand-copy">
+          <h1><span>Covered Warrants</span><span class="brand-divider">/</span><span class="product-badge">Quant Analysis</span></h1>
+          <p class="brand-meta" id="sub-line"><svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8.1 8.1 0 0 1-8.5 8.5 8.4 8.4 0 0 1-4-.9L3 20l.9-4.5a8.4 8.4 0 0 1-.9-4A8.1 8.1 0 0 1 11.5 3h.5a8.1 8.1 0 0 1 8 8v.5Z"/><path d="M12 7v5l3 2"/></svg><span id="sub-line-text">Cập nhật: —</span></p>
+          <p class="brand-meta muted-line" id="freshness" hidden><span id="stamp">Đang đọc snapshot…</span></p>
+        </div>
       </div>
       <div class="controls">
-        <button type="button" class="btn-ghost top-action" data-view="history" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="t-txt">Lịch sử</span></button>
-        <button type="button" class="btn-ghost top-action" data-view="glossary" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="t-txt">Giải thích thuật ngữ</span></button>
-        <div class="seg" role="group" aria-label="Giao diện sáng hoặc tối">
-          <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
-          <button type="button" data-theme-set="dark" aria-pressed="true">Tối</button>
+        <div class="control-cluster utility-cluster" aria-label="Điều hướng phụ">
+          <button type="button" class="btn-ghost top-action" data-view="history" aria-pressed="false" title="Lịch sử"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="t-txt">Lịch sử</span></button>
+          <button type="button" class="btn-ghost top-action" data-view="glossary" aria-pressed="false" title="Giải thích thuật ngữ"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="t-txt">Giải thích thuật ngữ</span></button>
         </div>
-        <div class="seg" role="group" aria-label="Ngôn ngữ">
-          <button type="button" data-lang-set="vi" aria-pressed="true">VI</button>
-          <button type="button" data-lang-set="en" aria-pressed="false">EN</button>
+        <span class="control-divider" aria-hidden="true"></span>
+        <div class="control-cluster preference-cluster">
+          <div class="seg lang-seg" role="group" aria-label="Ngôn ngữ">
+            <button type="button" data-lang-set="vi" aria-pressed="true" title="Tiếng Việt">VI</button>
+            <button type="button" data-lang-set="en" aria-pressed="false" title="English">EN</button>
+          </div>
+          <div class="seg theme-seg" role="group" aria-label="Giao diện sáng hoặc tối">
+            <button type="button" data-theme-set="light" aria-pressed="false"><svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg><span>Sáng</span></button>
+            <button type="button" data-theme-set="dark" aria-pressed="false"><svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg><span>Tối</span></button>
+          </div>
         </div>
-        <div class="clock" id="market-clock" data-session="closed">
+        <span class="control-divider status-divider" aria-hidden="true"></span>
+        <div class="clock market-pill" id="market-clock" data-session="closed" aria-live="off">
           <span class="dot" aria-hidden="true"></span>
           <time id="clock-time">--:--:--</time>
           <span class="cmeta">
@@ -94,7 +101,7 @@
        tính được từ dữ liệu đang có thì KHÔNG hiện (xem renderOverview) — thà thiếu còn hơn
        hiện số 0 giả. -->
   <section class="overview" id="overview" hidden>
-    <h2 class="ov-title"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><span class="t-txt">Toàn cảnh thị trường chứng quyền</span></h2>
+    <h2 class="ov-title"><span class="ov-title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><span class="t-txt">Toàn cảnh thị trường chứng quyền</span><span class="ov-title-rule" aria-hidden="true"></span></h2>
     <div class="ov-grid" id="ov-grid"></div>
   </section>
   <!-- Năm tab đầu là các mục chính người xem quan tâm nhất → tô nổi (class `feature`).
@@ -381,16 +388,15 @@ function renderStats(){
 // "Dữ liệu cập nhật lúc …" — giờ tuyệt đối theo ICT, kèm độ trễ để biết dữ liệu cũ hay mới.
 function renderFreshness(){
   const host = document.querySelector('#freshness');
-  const sub = document.querySelector('#sub-line');
+  const sub = document.querySelector('#sub-line-text');
   const at = analytics?.fetchedAt || snapshot?.fetchedAt;
 
-  // MỘT câu duy nhất cho cả khối tiêu đề: "Bảng giá chứng quyền (CW) — cập nhật lúc … · phiên …".
-  // Trước đây có hai dòng gần trùng nhau (một dòng câu, một dòng "Dữ liệu cập nhật lúc"), vừa
-  // chiếm chỗ vừa khiến người đọc phải so hai con số giờ giống hệt nhau.
+  // Metadata chỉ có một dòng, có nhãn cập nhật rõ ràng và giữ nguyên icon đồng hồ trong DOM.
   // `#freshness` chỉ là chỗ hiện TRẠNG THÁI khi chưa có giờ (đang tải / lỗi). Có giờ rồi thì
   // ẩn hẳn — để hai dòng cùng nói một mốc thời gian là đúng lỗi cần sửa.
   const paint = (text, pending) => {
-    if (sub) sub.textContent = text;
+    if (sub) sub.textContent = pending
+      ? bi('Đang tải dữ liệu…', 'Loading market data…') : text;
     if (host) {
       host.hidden = !pending;
       const stamp = host.querySelector('#stamp');
@@ -409,16 +415,17 @@ function renderFreshness(){
     return;
   }
 
-  const absolute = when.toLocaleString(getLang() === 'en' ? 'en-GB' : 'vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
-    day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  // Mã phiên lấy từ kho lịch sử; thiếu thì bỏ phần đó thay vì in "phiên —".
+  const dateLocale = getLang() === 'en' ? 'en-GB' : 'vi-VN';
+  const updatedTime = when.toLocaleTimeString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+  const updatedDate = when.toLocaleDateString(dateLocale, {timeZone:'Asia/Ho_Chi_Minh',
+    day:'2-digit', month:'2-digit', year:'numeric'});
+  // Mã phiên lấy từ kho lịch sử; thiếu thì bỏ phần đó thay vì in "Phiên —".
   const session = sessions?.coverage?.last;
-  const tail = session ? `${bi(' · phiên ', ' · session ')}${session}` : '';
-  // Tham số thứ hai phải là `false` (đã có giờ → ẩn #freshness). Bỏ trống thì `!undefined`
-  // bằng true và dòng phụ hiện lại — đúng lỗi đã xảy ra ở lần chạy thử đầu tiên.
+  const tail = session ? `${bi(' · Phiên ', ' · Session ')}${session}` : '';
   paint(bi(
-    `Bảng giá chứng quyền (CW) — cập nhật lúc ${absolute} ICT${tail}.`,
-    `Covered warrants (CW) — updated at ${absolute} ICT${tail}.`), false);
+    `Cập nhật: ${updatedTime} ICT (${updatedDate})${tail}.`,
+    `Updated: ${updatedTime} ICT (${updatedDate})${tail}.`), false);
 }
 
 function render(){
