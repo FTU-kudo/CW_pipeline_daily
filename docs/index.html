@@ -208,6 +208,8 @@ const esc = (value) => String(value ?? '—').replace(/[&<>"']/g, c => ({'&':'&a
 const cell = (row,key) => row[key] === null || row[key] === undefined ? '—' : esc(row[key]);
 const num = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
   ? '—' : value.toLocaleString('vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
+const numLang = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
+  ? '—' : Number(value).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
 const pct = (value, digits = 2) => (value === null || value === undefined) ? '—' : `${value.toFixed(digits)}%`;
 const tx = (text) => getLang() === 'en' ? (translateUI(text) || text) : text;
 // Dòng phân tích được key theo mã để bảng có thể hiển thị cả cột suy ra.
@@ -346,9 +348,9 @@ function renderOverview(){
       n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`});
   }
   if (ivhv.available && ivhv.medianIvMinusHv !== null) {
-    cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${num(ivhv.medianIvMinusHv, 1)} điểm`,
+    cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${numLang(ivhv.medianIvMinusHv, 1)} ${bi('điểm','pts')}`,
       icon: 'scale', help: 'Chênh lệch biến động hàm ý và biến động lịch sử, tính theo điểm phần trăm; không phải tín hiệu giao dịch.', tone: ivhv.medianIvMinusHv >= 0 ? 'up' : 'down',
-      n: `<b>${num(ivhv.countIvAboveHv)}</b> mã IV trên HV · <b>${num(ivhv.countIvBelowHv)}</b> ngược lại`});
+      n: `<b>${num(ivhv.countIvAboveHv)}</b> ${bi('mã IV trên HV','warrants with IV above HV')} · <b>${num(ivhv.countIvBelowHv)}</b> ${bi('ngược lại','below HV')}`});
   }
   cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows', help: 'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.',
     n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`});
