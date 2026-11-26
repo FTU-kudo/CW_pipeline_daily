@@ -35,6 +35,19 @@ def test_closed_market_snapshot_belongs_to_the_same_session():
     assert s.closed is True and s.provisional is False
 
 
+def test_premarket_snapshot_maps_to_last_closed_session():
+    """01:57 ICT must not create a provisional bar for a market day that has not opened."""
+    s = snap("2026-11-27T01:57:00+07:00")
+    assert s.session == date(2026, 11, 26)
+    assert s.closed is False and s.provisional is True
+
+
+def test_snapshot_at_market_open_belongs_to_current_session():
+    s = snap("2026-11-27T09:00:00+07:00")
+    assert s.session == date(2026, 11, 27)
+    assert s.closed is False and s.provisional is True
+
+
 def test_intraday_snapshot_is_provisional():
     """10:00 ICT (03:00 UTC) → cùng phiên nhưng dữ liệu chưa trọn."""
     s = snap("2026-11-13T03:00:00+00:00")

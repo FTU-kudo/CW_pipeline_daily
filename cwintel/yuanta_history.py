@@ -97,8 +97,9 @@ def resolve_session(fetched_at: datetime | str, *, holidays=None,
 
     * Chụp sau ``close_ready`` (mặc định 15:10 ICT) trong một phiên → bar của **ngày đó**,
       ``closed=True``.
-    * Chụp trước giờ đóng (hoặc vào ngày nghỉ) → bar dở dang của ngày đó nếu là phiên,
-      ngược lại thuộc phiên đã đóng gần nhất; ``closed=False`` khi dữ liệu chưa trọn phiên.
+    * Chụp trong giờ thị trường (09:00 đến trước ``close_ready``) → bar dở dang của ngày đó.
+    * Chụp trước 09:00 hoặc vào ngày nghỉ → thuộc phiên đã đóng gần nhất; không tạo bar cho
+      ngày hiện tại khi thị trường chưa mở.
     """
     current = _as_ict(fetched_at)
     ready = close_ready or sessions.CLOSE_READY
@@ -106,6 +107,10 @@ def resolve_session(fetched_at: datetime | str, *, holidays=None,
     if sessions.is_session_day(today, holidays):
         if current.time() >= ready:
             return SnapshotSession(today, True, current)
+        if current.time() < sessions.OPEN_READY:
+            # Trước ATO endpoint chỉ còn dữ liệu phiên trước; gán ngày hôm nay sẽ tạo
+            # provisional bar tương lai và khiến điều khoản theo phiên bị lệch.
+            return SnapshotSession(sessions.last_closed_session(current, holidays), False, current)
         return SnapshotSession(today, False, current)
     # Ngày nghỉ: dữ liệu không đổi trong ngày, thuộc phiên đã đóng gần nhất.
     return SnapshotSession(sessions.last_closed_session(current, holidays), False, current)

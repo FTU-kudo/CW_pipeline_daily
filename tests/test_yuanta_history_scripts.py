@@ -31,6 +31,16 @@ def _write_snapshot(path: Path, fetched_at: str, rows: list[dict] | None = None)
     return path
 
 
+def test_backfill_public_history_excludes_bars_after_resolved_session():
+    history = pd.DataFrame([
+        {"session": "2026-11-26", "ticker": "AAA", "provisional": False},
+        {"session": "2026-11-27", "ticker": "AAA", "provisional": True},
+    ])
+    bounded = backfill._history_through_session(history, "2026-11-26")
+    assert bounded["session"].tolist() == ["2026-11-26"]
+    assert history["session"].tolist() == ["2026-11-26", "2026-11-27"]
+
+
 def test_backfill_writes_store_and_payloads(tmp_path):
     snapshot = _write_snapshot(tmp_path / "snap.json", "2026-11-13T10:30:00+00:00")
     store = tmp_path / "store"
