@@ -207,9 +207,16 @@ function valuationSection(row) {
       + `<p class="dhint">${esc(reason)}</p>`);
   }
   const iv = val.iv;
+  const breakEven = val.breakeven ?? (
+    val.strike === null || val.strike === undefined
+      || val.cwPrice === null || val.cwPrice === undefined
+      || val.ratio === null || val.ratio === undefined
+      ? null : val.strike + val.cwPrice * val.ratio
+  );
   const deltaCls = '';
   return section(bi('Định giá Black–Scholes', 'Black–Scholes valuation'), grid([
     [bi('Strike', 'Strike'), num(val.strike)],
+    [bi('Hòa vốn (giá cơ sở)', 'Break-even (underlying price)'), num(breakEven)],
     [bi('Tỷ lệ chuyển đổi', 'Conversion ratio'), num(val.ratio, 3)],
     [bi('Ngày đáo hạn', 'Maturity date'), esc(val.maturity)],
     [bi('Số ngày còn lại', 'Days to maturity'), num(val.daysToMaturity)],

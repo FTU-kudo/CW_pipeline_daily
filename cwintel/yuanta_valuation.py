@@ -444,6 +444,7 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
                           ("ATM" if abs(underlying - strike) <= strike * 0.01 else "OTM")),
             "moneynessPct": _f((underlying / strike - 1) * 100, 2),
             "premiumPct": _f(premium_pct, 2),
+            "breakeven": _f(breakeven, 4),
             "leverage": _f((underlying / cw_close) / ratio, 3),
             # Giá thị trường đắt/rẻ hơn giá lý thuyết bao nhiêu %. Dương = thị trường trả
             # nhiều hơn mô hình; âm = rẻ hơn mô hình. KHÔNG phải tín hiệu mua/bán.
