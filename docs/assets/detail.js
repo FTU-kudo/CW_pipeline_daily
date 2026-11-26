@@ -170,20 +170,51 @@ function priceGrid(row) {
 
 function bookGrid(row) {
   const raw = row.raw || {};
-  const sides = [
-    ['B1', raw.B1P, raw.B1V], ['B2', raw.B2P, raw.B2V], ['B3', raw.B3P, raw.B3V],
-    ['S1', raw.S1P, raw.S1V], ['S2', raw.S2P, raw.S2V], ['S3', raw.S3P, raw.S3V],
+  const bids = [
+    { level: 'B1', price: raw.B1P, volume: raw.B1V },
+    { level: 'B2', price: raw.B2P, volume: raw.B2V },
+    { level: 'B3', price: raw.B3P, volume: raw.B3V },
   ];
-  const cells = sides.map(([label, price, volume]) => (
-    `<div class="book-row ${label.startsWith('S') ? 'ask' : 'bid'}">`
-    + `<span class="bl">${label}</span>`
-    + `<span class="bp">${price === null || price === undefined ? '—' : num(price)}</span>`
-    + `<span class="bv">${volume === null || volume === undefined ? '—' : num(volume)}</span>`
-    + '</div>'
-  )).join('');
-  return `<div class="book"><div class="book-head"><span></span>`
-    + `<span>${esc(bi('Giá', 'Price'))}</span><span>${esc(bi('Khối lượng', 'Volume'))}</span></div>`
-    + cells + '</div>';
+  const asks = [
+    { level: 'S1', price: raw.S1P, volume: raw.S1V },
+    { level: 'S2', price: raw.S2P, volume: raw.S2V },
+    { level: 'S3', price: raw.S3P, volume: raw.S3V },
+  ];
+  const maxVolume = (levels) => Math.max(0, ...levels.map(({ volume }) => {
+    const n = Number(volume);
+    return Number.isFinite(n) ? n : 0;
+  }));
+  const bidMax = maxVolume(bids);
+  const askMax = maxVolume(asks);
+  const depth = (volume, max) => {
+    const n = Number(volume);
+    return Number.isFinite(n) && max > 0 ? Math.max(0, Math.min(100, n / max * 100)) : 0;
+  };
+  const price = (value) => value === null || value === undefined ? '—' : num(value, 2);
+  const volume = (value) => {
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+    const n = Number(value);
+    if (Math.abs(n) >= 1_000_000) return `${num(n / 1_000_000, 1)} M`;
+    if (Math.abs(n) >= 1_000) return `${num(n / 1_000, n % 1_000 === 0 ? 0 : 1)} K`;
+    return num(n);
+  };
+  const rows = bids.map((bid, i) => {
+    const ask = asks[i];
+    const levelLabel = `${bid.level} / ${ask.level}`;
+    return `<tr aria-label="${esc(levelLabel)}">`
+      + `<td class="book-qty buy" style="--depth:${depth(bid.volume, bidMax)}%">${esc(volume(bid.volume))}</td>`
+      + `<td class="book-price">${esc(price(bid.price))}</td>`
+      + `<td class="book-price">${esc(price(ask.price))}</td>`
+      + `<td class="book-qty sell" style="--depth:${depth(ask.volume, askMax)}%">${esc(volume(ask.volume))}</td>`
+      + '</tr>';
+  }).join('');
+  return `<table class="book" aria-label="${esc(bi('Sổ lệnh mua bán', 'Bid and ask order book'))}">`
+    + '<colgroup><col><col><col><col></colgroup>'
+    + `<thead><tr><th class="book-group buy" colspan="2">${esc(bi('Dư mua', 'Bid'))}</th>`
+    + `<th class="book-group sell" colspan="2">${esc(bi('Dư bán', 'Ask'))}</th></tr>`
+    + `<tr class="book-labels"><th>${esc(bi('KL mua', 'Bid qty'))}</th>`
+    + `<th>${esc(bi('Giá mua', 'Bid price'))}</th><th>${esc(bi('Giá bán', 'Ask price'))}</th>`
+    + `<th>${esc(bi('KL bán', 'Ask qty'))}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function foreignGrid(row) {

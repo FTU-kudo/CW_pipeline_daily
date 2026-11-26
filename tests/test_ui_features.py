@@ -158,6 +158,17 @@ def test_detail_drawer_sections_are_all_wired():
         assert f"{block}(row)" in body, f"khối {block} không được gọi"
 
 
+def test_order_book_uses_parallel_bid_ask_columns_with_depth_bars():
+    assert 'class="book-group buy" colspan="2"' in DETAIL_JS
+    assert 'class="book-group sell" colspan="2"' in DETAIL_JS
+    for heading in ("KL mua", "Giá mua", "Giá bán", "KL bán"):
+        assert heading in DETAIL_JS
+    assert "book-qty buy" in DETAIL_JS and "book-qty sell" in DETAIL_JS
+    assert "--depth:${depth(" in DETAIL_JS
+    assert ".book tbody .book-qty.buy" in UI_CSS
+    assert ".book tbody .book-qty.sell" in UI_CSS
+
+
 def test_detail_escapes_every_injected_value():
     assert "esc(" in DETAIL_JS
     # Không được nội suy trực tiếp giá trị thô vào HTML mà bỏ qua esc().
