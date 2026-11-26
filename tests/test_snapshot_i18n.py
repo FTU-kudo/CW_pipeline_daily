@@ -13,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "docs" / "assets" / "ui.js"
 CSS = ROOT / "docs" / "assets" / "ui.css"
+HTML = ROOT / "docs" / "index.html"
 
 
 def test_snapshot_dictionary_has_unique_keys_and_bilingual_shell() -> None:
@@ -33,6 +34,12 @@ def test_snapshot_dictionary_has_unique_keys_and_bilingual_shell() -> None:
         "Giá khớp cuối",
     ):
         assert text in keys, f"missing snapshot UI translation: {text}"
+
+
+def test_snapshot_currency_units_follow_selected_language() -> None:
+    html = HTML.read_text(encoding="utf-8")
+    assert "bi('tỷ', 'bn')" in html
+    assert "bi('tr', 'm')" in html
 
 
 def test_overview_cards_use_five_columns_without_a_singleton_desktop_row() -> None:

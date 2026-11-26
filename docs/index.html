@@ -487,7 +487,8 @@ async function loadAnalysis(){
 // CÁC VIEW PHÂN TÍCH (dữ liệu do workflow sinh thêm, đều là tuỳ chọn)
 // ─────────────────────────────────────────────────────────────────
 const fmtVnd = (v) => v === null || v === undefined ? '—'
-  : v >= 1e9 ? `${(v / 1e9).toFixed(2)} tỷ` : v >= 1e6 ? `${(v / 1e6).toFixed(1)} tr`
+  : v >= 1e9 ? `${(v / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`
+  : v >= 1e6 ? `${(v / 1e6).toFixed(1)} ${bi('tr', 'm')}`
   : v.toLocaleString('vi-VN');
 const fmtPct = (v, d = 2) => v === null || v === undefined ? '—' : `${v.toFixed(d)}%`;
 // Giá trị có thể rất lớn (dải trần–sàn khi giá sàn = 10 VND) — vẫn in bình thường, chỉ thêm
