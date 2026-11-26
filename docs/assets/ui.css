@@ -23,6 +23,10 @@ html[data-theme="dark"] {
   --warn: #f3c969;
   --up: #43d3a0;
   --down: #ff8a7a;
+  --book-buy-bg: rgba(67, 211, 160, .2);
+  --book-sell-bg: rgba(255, 138, 122, .2);
+  --book-buy-depth: rgba(67, 211, 160, .18);
+  --book-sell-depth: rgba(255, 138, 122, .16);
   --shadow: 0 18px 48px rgba(0, 0, 0, .55);
   --overlay: rgba(4, 8, 12, .62);
   --track: #0e1620;
@@ -66,6 +70,10 @@ html[data-theme="light"] {
   --warn: #8a5b00;
   --up: #00795d;
   --down: #c62d2d;
+  --book-buy-bg: rgba(0, 121, 93, .12);
+  --book-sell-bg: rgba(198, 45, 45, .1);
+  --book-buy-depth: rgba(0, 121, 93, .14);
+  --book-sell-depth: rgba(198, 45, 45, .12);
   --shadow: 0 18px 44px rgba(16, 24, 32, .16);
   --overlay: rgba(24, 34, 44, .38);
   --track: #e2e8f0;
@@ -290,16 +298,51 @@ body.drawer-open { overflow: hidden; }
 .dkv .dv .positive { color: var(--up); }
 .dkv .dv .negative { color: var(--down); }
 
-/* Sổ lệnh */
-.book { display: flex; flex-direction: column; gap: 2px; }
-.book-head, .book-row { display: grid; grid-template-columns: 36px 1fr 1fr; gap: 8px; align-items: center; }
-.book-head { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 4px; }
-.book-row { padding: 5px 6px; border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
-.book-row .bl { font-weight: 700; color: var(--muted); }
-.book-row .bp, .book-row .bv { text-align: right; }
-.book-row.bid { background: var(--accent-soft); }
-.book-row.ask { background: rgba(255, 138, 122, .1); }
-html[data-theme="light"] .book-row.ask { background: rgba(198, 45, 45, .07); }
+/* Sổ lệnh: hai phía mua/bán đặt song song như bảng độ sâu thị trường. */
+.book {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.book th, .book td { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book col:nth-child(1), .book col:nth-child(4) { width: 28%; }
+.book col:nth-child(2), .book col:nth-child(3) { width: 22%; }
+.book .book-group {
+  padding: 8px 6px;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.book .book-group.buy { background: var(--book-buy-bg); color: var(--up-text); }
+.book .book-group.sell { background: var(--book-sell-bg); color: var(--down-text); }
+.book .book-labels th {
+  padding: 4px 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.book tbody td { padding: 8px 7px; background-color: var(--panel-2); }
+.book tbody .book-qty { text-align: left; }
+.book tbody .book-qty.buy {
+  background: linear-gradient(90deg, var(--book-buy-depth) 0, var(--book-buy-depth) var(--depth), var(--panel-2) var(--depth), var(--panel-2) 100%);
+}
+.book tbody .book-qty.sell {
+  background: linear-gradient(270deg, var(--book-sell-depth) 0, var(--book-sell-depth) var(--depth), var(--panel-2) var(--depth), var(--panel-2) 100%);
+  text-align: right;
+}
+.book tbody .book-price { color: var(--down-text); font-weight: 700; text-align: center; }
+@media (max-width: 480px) {
+  .book { border-spacing: 1px; font-size: 11px; }
+  .book .book-group { font-size: 12px; }
+  .book tbody td { padding: 7px 4px; }
+}
 
 /* Điểm số */
 .dscore { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
