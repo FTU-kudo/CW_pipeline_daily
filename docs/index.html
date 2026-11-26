@@ -69,6 +69,8 @@
         <p class="brand-meta muted-line" id="freshness"><span id="stamp">Đang đọc snapshot…</span></p>
       </div>
       <div class="controls">
+        <button type="button" class="btn-ghost top-action" data-view="history" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="t-txt">Lịch sử</span></button>
+        <button type="button" class="btn-ghost top-action" data-view="glossary" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="t-txt">Giải thích thuật ngữ</span></button>
         <div class="seg" role="group" aria-label="Giao diện sáng hoặc tối">
           <button type="button" data-theme-set="light" aria-pressed="false">Sáng</button>
           <button type="button" data-theme-set="dark" aria-pressed="true">Tối</button>
@@ -120,10 +122,6 @@
       <button type="button" class="tab chip" data-view="band" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span class="t-txt">Trần–sàn</span></button>
     </div>
 
-    <div class="nav-secondary">
-      <button type="button" class="btn-ghost" data-view="history" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="t-txt">Lịch sử</span></button>
-      <button type="button" class="btn-ghost" data-view="glossary" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="t-txt">Giải thích thuật ngữ</span></button>
-    </div>
   </nav>
   <section class="view" id="view-scoring" hidden></section>
   <section class="view" id="view-valuation" hidden></section>
@@ -186,7 +184,7 @@
   </section>
   <!-- Ghi chú phương pháp đã chuyển vào tab Thuật ngữ (nhóm "Nguồn gốc số liệu"),
        để chân trang không còn là một khối chữ dày đặc ngay dưới bảng giá. -->
-  <footer>Xem tab <b>Giải thích thuật ngữ</b> để tra cách gọi từng cột, nguồn gốc số liệu
+  <footer>Dùng nút <b>Giải thích thuật ngữ</b> trên thanh đầu trang để tra cách gọi từng cột, nguồn gốc số liệu
     và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra —
     không phải khuyến nghị mua/bán.</footer>
 </main>
@@ -278,18 +276,26 @@ const ICONS = {
 // Nét vẽ đồng nhất 1.75, màu theo currentColor → mỗi chế độ tự có màu đúng.
 const icon = (name, cls = 'ov-ico') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+const KPI_HELP_EN = {
+  'Tổng mã trong snapshot phiên; mã không giao dịch vẫn được tính.': 'Total tickers in the session snapshot, including untraded warrants.',
+  'Tổng giá trị khớp lệnh trong phiên, không phải thanh khoản bình quân ngày.': 'Total value matched this session, not average daily value.',
+  'Số cổ phiếu cơ sở có chứng quyền trong snapshot.': 'Underlying stocks represented in this snapshot.',
+  'Phân loại theo biến động giá so với giá tham chiếu; phần xám là chưa xác định.': 'Change versus reference price; the grey portion is unclassified.',
+  'ITM/ATM/OTM chỉ tính trên các mã có dữ liệu định giá hợp lệ; phần xám chưa phân loại.': 'ITM/ATM/OTM includes only warrants with valid valuation data; grey is unclassified.',
+  'Trung vị độ biến động hàm ý của các chứng quyền đã được định giá.': 'Median implied volatility across valued warrants.',
+  'Chênh lệch biến động hàm ý và biến động lịch sử, tính theo điểm phần trăm; không phải tín hiệu giao dịch.': 'Implied minus historical volatility, in percentage points; not a trading signal.',
+  'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.': 'Median bid–ask spread expressed as a percentage.',
+};
 
-/** Ba thanh tỷ lệ xếp dọc. */
-// Không dùng MỘT thanh chồng cho tăng/giảm/đứng: ba phần không cộng thành 100% (còn mã
-// chưa xác định được trạng thái), nên thanh chồng sẽ ngầm nói đã đủ 100%. Ba thanh riêng
-// mỗi thanh tính trên cùng một mẫu số — nhìn ra tỷ lệ mà không nói sai.
+// Thanh chồng dùng cùng một mẫu số với toàn bộ niêm yết; phần chưa phân loại còn lại
+// được để trung tính thay vì âm thầm chuẩn hoá các nhóm đã biết thành 100%.
 function miniBars(items, total){
-  return `<div class="mini-bars">${items.map(([label, value, variant]) => `
-    <div class="mini-bar">
-      <span class="mb-label">${esc(label)}</span>
-      <span class="mb-track"><span class="mb-fill ${variant}" style="width:${total ? (value / total) * 100 : 0}%"></span></span>
-      <span class="mb-pct">${num(value)}</span>
-    </div>`).join('')}</div>`;
+  const segments = items.map(([label, value, variant]) => {
+    const width = total > 0 ? Math.max(0, Math.min(100, value / total * 100)) : 0;
+    return `<span class="stack-segment ${variant}" style="width:${width}%" title="${esc(tx(label))}: ${num(value)} (${num(width, 1)}%)"></span>`;
+  }).join('');
+  return `<div class="stack-wrap"><div class="stack-track" role="img" aria-label="${items.map(([label, value]) => `${tx(label)}: ${value}`).join(', ')}">${segments}</div>
+    <div class="stack-legend">${items.map(([label, value, variant]) => `<span class="legend-pill ${variant}"><i></i>${esc(tx(label))} <b>${num(value)}</b></span>`).join('')}</div></div>`;
 }
 
 function renderOverview(){
@@ -317,34 +323,34 @@ function renderOverview(){
   // này (CW trong snapshot, Giá trị giao dịch, Spread trung vị, Cổ phiếu cơ sở,
   // Tăng/giảm) nên đã bỏ hẳn — xem renderStats() bên dưới.
   const cards = [
-    {k: 'Mã CW niêm yết', v: num(s.rows), icon: 'layers',
+    {k: 'Mã CW niêm yết', v: num(s.rows), icon: 'layers', help: 'Tổng mã trong snapshot phiên; mã không giao dịch vẫn được tính.',
      n: `<b>${num(s.traded)}</b> mã có khớp lệnh · <b>${num(s.untraded)}</b> không`},
-    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), icon: 'coins',
+    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), icon: 'coins', help: 'Tổng giá trị khớp lệnh trong phiên, không phải thanh khoản bình quân ngày.',
      n: 'VND trong phiên · không phải ADV'},
-    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), icon: 'bank',
+    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), icon: 'bank', help: 'Số cổ phiếu cơ sở có chứng quyền trong snapshot.',
      n: 'nhóm cổ phiếu có mã CW'},
-    {k: 'Tăng / giảm / đứng', icon: 'trending', split: [
+    {k: 'Tăng / giảm / đứng', icon: 'trending', help: 'Phân loại theo biến động giá so với giá tham chiếu; phần xám là chưa xác định.', split: [
         ['up', num(s.gainers)], ['down', num(s.losers)], ['flat', num(s.unchanged)]],
      bars: [['Tăng', s.gainers, 'up'], ['Giảm', s.losers, 'down'], ['Đứng', s.unchanged, 'flat']],
-     total: totalChange},
+     total: s.rows},
   ];
   if (priced) {
-    cards.push({k: 'Phân bố trạng thái tiền', icon: 'target',
+    cards.push({k: 'Phân bố trạng thái tiền', icon: 'target', help: 'ITM/ATM/OTM chỉ tính trên các mã có dữ liệu định giá hợp lệ; phần xám chưa phân loại.',
       split: [['up', num(counts.ITM)], ['flat', num(counts.ATM)], ['down', num(counts.OTM)]],
       bars: [['ITM', counts.ITM, 'itm'], ['ATM', counts.ATM, 'atm'], ['OTM', counts.OTM, 'otm']],
-      total: priced,
+      total: s.rows,
       n: `trên ${num(priced)} mã định giá được`});
   }
   if (sum.medianIv !== undefined && sum.medianIv !== null) {
-    cards.push({k: 'IV trung vị', v: fmtPct(sum.medianIv, 1), icon: 'activity',
+    cards.push({k: 'IV trung vị', v: fmtPct(sum.medianIv, 1), icon: 'activity', help: 'Trung vị độ biến động hàm ý của các chứng quyền đã được định giá.',
       n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`});
   }
   if (ivhv.available && ivhv.medianIvMinusHv !== null) {
     cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${num(ivhv.medianIvMinusHv, 1)} điểm`,
-      icon: 'scale', tone: ivhv.medianIvMinusHv >= 0 ? 'up' : 'down',
+      icon: 'scale', help: 'Chênh lệch biến động hàm ý và biến động lịch sử, tính theo điểm phần trăm; không phải tín hiệu giao dịch.', tone: ivhv.medianIvMinusHv >= 0 ? 'up' : 'down',
       n: `<b>${num(ivhv.countIvAboveHv)}</b> mã IV trên HV · <b>${num(ivhv.countIvBelowHv)}</b> ngược lại`});
   }
-  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows',
+  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows', help: 'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.',
     n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`});
 
   // Thanh tiến trình chỉ dành cho hai thẻ phân bố — nơi tỷ lệ mới là thông tin.
@@ -353,7 +359,7 @@ function renderOverview(){
       ? `<div class="ov-v split">${c.split.map(([cls, v]) => `<span class="${cls}">${v}</span>`).join('<span class="sep">/</span>')}</div>`
       : `<div class="ov-v${c.tone ? ` ${c.tone}` : ''}">${esc(c.v)}</div>`;
     return `<div class="ov-card">`
-      + `<div class="ov-k">${icon(c.icon)}${esc(c.k)}</div>`
+      + `<div class="ov-k">${icon(c.icon)}<span>${esc(tx(c.k))}</span>${c.help ? `<button class="help-tip" type="button" aria-label="${esc(getLang()==='en' ? (KPI_HELP_EN[c.help] || c.help) : c.help)}" title="${esc(getLang()==='en' ? (KPI_HELP_EN[c.help] || c.help) : c.help)}">?</button>` : ''}</div>`
       + value
       + (c.bars ? miniBars(c.bars, c.total) : '')
       + (c.n ? `<div class="ov-n">${c.n}</div>` : '')
@@ -794,58 +800,93 @@ function emptyNotice(what) {
 }
 
 // ── Định giá: Black–Scholes + IV, từ điều khoản Vietstock ──
+const valuationTableState = {query: '', page: 0, size: 25, sort: 'ivResidualPct', dir: 'asc'};
+let valuationRowsCache = [];
+const valuationColumns = [
+  ['ticker','Mã'], ['underlying','Cơ sở'], ['iv','IV'], ['ivGroupMedian','IV nhóm'],
+  ['ivResidualPct','Chênh lệch IV'], ['ivMinusHv','IV − HV'], ['delta','Delta'],
+  ['moneyness','ITM/OTM'], ['strike','Strike'], ['underlyingPrice','S'],
+  ['underlyingSource','Nguồn S'], ['cwPrice','Giá CW'], ['daysToMaturity','Đáo hạn (ngày)'], ['premiumPct','Premium'],
+];
+const valCell = (r, key) => ({
+  ticker: r.ticker, underlying: r.underlying, iv: r.iv, ivGroupMedian: r.ivGroupMedian,
+  ivResidualPct: r.ivResidualPct, ivMinusHv: r.ivMinusHv, delta: r.delta,
+  moneyness: r.moneyness, strike: r.strike, underlyingPrice: r.underlyingPrice,
+  underlyingSource: r.underlyingSource, cwPrice: r.cwPrice,
+  daysToMaturity: r.daysToMaturity, premiumPct: r.premiumPct,
+}[key]);
+function valuationRow(r){
+  const residual = Number(r.ivResidualPct);
+  const ivhv = Number(r.ivMinusHv);
+  const source = r.underlyingSource || '—';
+  const date = source.match(/\((\d{4})-(\d{2})-(\d{2})\)/);
+  const sourceShort = date ? `${bi('Đóng cửa','Close')} · ${date[3]}/${date[2]}`
+    : /premium|đòn bẩy/i.test(source) ? bi('Suy từ terms','Terms-derived') : bi('Nguồn S','S source');
+  const moneyClass = r.moneyness === 'ITM' ? 'money-itm' : r.moneyness === 'ATM' ? 'money-atm' : 'money-otm';
+  const days = Number(r.daysToMaturity);
+  return `<tr>
+    <td class="ticker-cell"><button class="ticker-btn" type="button" data-ticker="${escAttr(r.ticker)}">${esc(r.ticker)}</button></td>
+    <td><span class="underlying-pill">${esc(r.underlying || '—')}</span></td>
+    <td class="num">${fmtPct(r.iv,1)}</td><td class="num">${fmtPct(r.ivGroupMedian,1)}</td>
+    <td class="num"><span class="value-signal ${residual < 0 ? 'positive' : residual > 0 ? 'negative' : ''}">${fmtPct(r.ivResidualPct,1)}</span></td>
+    <td class="num"><span class="value-signal ${ivhv < 0 ? 'positive' : ivhv > 0 ? 'negative' : ''}">${r.ivMinusHv == null ? '—' : `${ivhv > 0 ? '+' : ''}${num(ivhv,1)}`}</span></td>
+    <td class="num">${num(r.delta,3)}</td><td><span class="mtag ${moneyClass}">${esc(r.moneyness || '—')}</span></td>
+    <td class="num">${fmtVnd(r.strike)}</td><td class="num">${fmtVnd(r.underlyingPrice)}</td>
+    <td><span class="source-pill" title="${escAttr(tx(source))}">${esc(sourceShort)}</span></td>
+    <td class="num">${fmtVnd(r.cwPrice)}</td><td class="num ${days < 14 ? 'maturity-critical' : days < 30 ? 'maturity-warn' : ''}">${num(r.daysToMaturity,0)}</td>
+    <td class="num">${fmtPct(r.premiumPct,1)}</td>
+  </tr>`;
+}
+function renderValuationTable(rows){
+  const host = document.querySelector('#valuation-table');
+  if (!host) return;
+  valuationRowsCache = rows || [];
+  const state = valuationTableState;
+  const q = state.query.trim().toLowerCase();
+  let filtered = valuationRowsCache.filter(r => !q || valuationColumns.some(([key]) => String(valCell(r,key) ?? '').toLowerCase().includes(q)));
+  filtered.sort((a,b) => {
+    const av=valCell(a,state.sort), bv=valCell(b,state.sort);
+    const an=Number(av), bn=Number(bv);
+    const cmp = av == null ? (bv == null ? 0 : 1) : bv == null ? -1
+      : Number.isFinite(an) && Number.isFinite(bn) ? an-bn : String(av).localeCompare(String(bv));
+    return cmp * (state.dir === 'asc' ? 1 : -1);
+  });
+  const pages = Math.max(1,Math.ceil(filtered.length/state.size));
+  state.page = Math.min(state.page,pages-1);
+  const start=state.page*state.size, pageRows=filtered.slice(start,start+state.size);
+  host.innerHTML = `<div class="quant-table-toolbar"><label class="quant-search"><span aria-hidden="true">⌕</span><input id="valuation-search" type="search" value="${escAttr(state.query)}" placeholder="${bi('Tìm mã CW hoặc cổ phiếu cơ sở…','Search warrant or underlying…')}" aria-label="${bi('Tìm mã CW hoặc cổ phiếu cơ sở','Search warrant or underlying')}"></label><span class="quant-result-count">${num(filtered.length)} ${bi('mã','warrants')}</span></div>
+    <div class="table-wrap quant-table-wrap"><table class="quant-table"><thead><tr>${valuationColumns.map(([key,label]) => `<th class="${['ticker','underlying','moneyness','underlyingSource'].includes(key)?'text-head':'num'}"><button type="button" data-val-sort="${key}" class="sort-head">${esc(tx(label))}<span>${state.sort===key?(state.dir==='asc'?' ↑':' ↓'):'↕'}</span></button></th>`).join('')}</tr></thead><tbody>${pageRows.map(valuationRow).join('') || `<tr><td colspan="14" class="empty-cell">${bi('Không tìm thấy mã phù hợp.','No matching warrants.')}</td></tr>`}</tbody></table></div>
+    <div class="quant-pagination"><span>${filtered.length ? `${num(start+1)}–${num(Math.min(start+state.size,filtered.length))} / ${num(filtered.length)}` : '0'}</span><div><button type="button" data-val-page="prev" ${state.page===0?'disabled':''}>${bi('Trước','Previous')}</button><span>${state.page+1} / ${pages}</span><button type="button" data-val-page="next" ${state.page>=pages-1?'disabled':''}>${bi('Sau','Next')}</button></div></div>`;
+}
+
 function renderValuation() {
   const host = document.querySelector('#view-valuation');
   const val = analytics?.valuation;
   if (!val) { host.innerHTML = emptyNotice('định giá'); return; }
   if (val.available === false) {
     const reason = val.reason || 'Lớp định giá không khả dụng ở phiên này.';
-    host.innerHTML = `<div class="empty"><strong>${bi('Chưa định giá được.', 'Valuation unavailable.')}</strong> ${esc(tx(reason))}
-      <br>${bi('Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu cơ sở (S). Nạp bằng', 'Required contract terms: strike (K), conversion ratio (n), maturity date (T), and underlying price (S). Load them with')} <code>scripts/import_vietstock_terms.py</code>.</div>`;
+    host.innerHTML = `<div class="empty"><strong>${bi('Chưa định giá được.','Valuation unavailable.')}</strong> ${esc(tx(reason))}<br>${bi('Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu cơ sở (S). Nạp bằng','Required contract terms: strike (K), conversion ratio (n), maturity date (T), and underlying price (S). Load them with')} <code>scripts/import_vietstock_terms.py</code>.</div>`;
     return;
   }
-  const sum = val.summary || {};
-  const rows = val.warrants || [];
-  const excluded = val.excluded || {};
-  const exclText = Object.entries(excluded).map(([k, v]) => `${esc(tx(k))}: ${v}`).join(' · ') || bi('không có', 'none');
-  host.innerHTML = `
-    <h2>${bi('Black–Scholes, IV và Greeks', 'Black–Scholes, IV and Greeks')}</h2>
-    <p class="caption">${bi(
-      `Định giá ${num(val.priced, 0)} mã bằng Black–Scholes–Merton. Cột Nguồn S ghi rõ giá cổ phiếu cơ sở lấy từ đâu cho từng mã.`,
-      `Black–Scholes–Merton valuations for ${num(val.priced, 0)} warrants. The Source for S column identifies the underlying-price source for each warrant.`)}</p>
-
-    <p class="caption">${bi(
-      `IV trung vị ${num(sum.medianIv, 1)}% (p25–p75 = ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) · ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM ${num((sum.moneyness || {}).OTM, 0)} · delta trung vị ${num(sum.medianDelta, 3)}`,
-      `Median IV ${num(sum.medianIv, 1)}% (p25–p75: ${num(sum.p25Iv, 1)}–${num(sum.p75Iv, 1)}%) · ITM ${num((sum.moneyness || {}).ITM, 0)} / ATM ${num((sum.moneyness || {}).ATM, 0)} / OTM ${num((sum.moneyness || {}).OTM, 0)} · median delta ${num(sum.medianDelta, 3)}`)}</p>
-    ${(() => {
-      const ivhv = val.ivVsHv || {};
-      if (!ivhv.available) {
-        const reason = ivhv.reason || 'chưa tải lịch sử cổ phiếu cơ sở';
-        return `<p class="caption"><strong>IV − HV:</strong> ${bi('chưa đo được', 'not available')} — ${esc(tx(reason))}</p>`;
-      }
-      return `<div class="card">
-        <h3>${bi('IV − HV: mức bù rủi ro thị trường đang tính', 'IV − HV: implied market risk premium')}</h3>
-        <p class="caption">${bi(
-          `Trung vị ${num(ivhv.medianIvMinusHv, 1)} điểm (p25–p75 = ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) trên ${num(ivhv.count, 0)} mã · IV trên HV ${num(ivhv.countIvAboveHv, 0)} mã / dưới HV ${num(ivhv.countIvBelowHv, 0)} mã`,
-          `Median ${num(ivhv.medianIvMinusHv, 1)} percentage points (p25–p75: ${num(ivhv.p25, 1)} → ${num(ivhv.p75, 1)}) across ${num(ivhv.count, 0)} warrants · IV above HV: ${num(ivhv.countIvAboveHv, 0)} · IV below HV: ${num(ivhv.countIvBelowHv, 0)}`)}</p>
-        <p class="caption">${bi(ivhv.note || '', 'IV − HV is expressed in percentage points. Positive values mean the market prices in more risk than the underlying stock has realized. This describes the market; it is not a signal.')}</p>
-      </div>`;
-    })()}
-    <p class="caption">${bi('Lãi suất phi rủi ro', 'Risk-free rate')} ${num(val.riskFree, 4)} — ${esc(tx(val.riskFreeSource || ''))}</p>
-    <p class="caption">${bi('Loại khỏi định giá', 'Excluded from valuation')}: ${exclText}</p>
-
-    <h2>${bi('Mã rẻ nhất so với nhóm cùng cơ sở', 'Lowest implied volatility vs. underlying peers')}</h2>
-    ${simpleTable(['Mã', 'Cơ sở', 'IV', 'IV nhóm', 'Chênh lệch IV', 'IV − HV', 'Delta', 'ITM/OTM', 'Strike', 'S', 'Nguồn S', 'Giá CW', 'Đáo hạn (ngày)', 'Premium'], rows.slice(0, 40),
-      r => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.underlying || '—')}</td>`
-        + `<td class="num">${fmtPct(r.iv, 1)}</td><td class="num">${fmtPct(r.ivGroupMedian, 1)}</td>`
-        + `<td class="num ${r.ivResidualPct < 0 ? 'positive' : (r.ivResidualPct > 0 ? 'negative' : '')}">${fmtPct(r.ivResidualPct, 1)}</td>`
-        + `<td class="num">${r.ivMinusHv === null || r.ivMinusHv === undefined ? '—' : (r.ivMinusHv > 0 ? '+' : '') + num(r.ivMinusHv, 1)}</td>`
-        + `<td class="num">${num(r.delta, 3)}</td><td>${esc(r.moneyness || '—')}</td>`
-        + `<td class="num">${fmtVnd(r.strike)}</td><td class="num">${fmtVnd(r.underlyingPrice)}</td>`
-        + `<td class="muted">${esc(tx(r.underlyingSource || '—'))}</td>`
-        + `<td class="num">${fmtVnd(r.cwPrice)}</td><td class="num">${num(r.daysToMaturity, 0)}</td>`
-        + `<td class="num">${fmtPct(r.premiumPct, 1)}</td></tr>`)}
-  `;
+  const sum=val.summary||{}, rows=val.warrants||[], ivhv=val.ivVsHv||{}, curve=val.yieldCurve||{};
+  const excluded=val.excluded||{};
+  const trulyExcluded=Object.entries(excluded).filter(([k])=>!k.includes('vẫn định giá'));
+  const excludedCount=trulyExcluded.reduce((n,[,v])=>n+Number(v||0),0);
+  const driftCount=Object.entries(excluded).filter(([k])=>k.includes('vẫn định giá')).reduce((n,[,v])=>n+Number(v||0),0);
+  const hnxText=bi('Đường cong lợi suất TPCP HNX, nội suy tuyến tính theo kỳ hạn còn lại.','HNX government-bond yield curve, linearly interpolated to remaining maturity.');
+  host.innerHTML=`<div class="valuation-heading"><div><h2>${bi('Black–Scholes, IV và Greeks','Black–Scholes, IV and Greeks')}</h2><p class="caption">${bi(`Định giá ${num(val.priced,0)} mã. Nguồn giá cơ sở hiển thị gọn trong bảng; rê chuột để xem chi tiết.`,`${num(val.priced,0)} warrants valued. Underlying-price source is abbreviated in the table; hover for details.`)}</p></div><span class="model-badge">BSM · European call</span></div>
+    <details class="quant-method"><summary><span><b>${bi('Phương pháp & tham số','Methodology & parameters')}</b><small>${bi('Mô hình, dữ liệu đầu vào và cách đọc IV − HV','Model inputs, data sources and how to read IV − HV')}</small></span><span class="method-action">${bi('Xem chi tiết','View details')} <i>＋</i></span></summary>
+      <div class="method-grid"><section class="method-panel"><h3>${bi('Tham số mô hình','Model parameters')}</h3><div class="method-metrics">
+        <div><small>${bi('Lãi suất phi rủi ro','Risk-free rate')}</small><strong>${num(val.riskFree,4)}</strong><span>${esc(tx(val.riskFreeSource||''))}</span></div>
+        <div><small>${bi('Đường cong','Yield curve')}</small><strong>HNX · spot_continuous</strong><span>${hnxText}</span></div>
+        <div><small>${bi('Được định giá','Valued')}</small><strong>${num(val.priced,0)}</strong><span>${bi('có giá khớp và điều khoản hợp lệ','with traded price and valid terms')}</span></div>
+        <div><small>${bi('Loại khỏi định giá','Excluded')}</small><strong>${num(excludedCount,0)}</strong><span>${trulyExcluded.map(([k,v])=>`${esc(tx(k))}: ${num(v)}`).join(' · ')||bi('Không có','None')}</span></div>
+      </div>${driftCount?`<p class="method-footnote">ⓘ ${bi(`${num(driftCount)} mã có chênh lệch S nguồn > 7% nhưng điều khoản đã được quy đổi và vẫn được định giá; đây là cảnh báo chẩn đoán, không phải mã bị loại.`,` ${num(driftCount)} warrants show >7% drift in source S, but adjusted terms allow valuation; this is diagnostic, not an exclusion.`)}</p>`:''}</section>
+      <section class="iv-callout"><div class="callout-title"><span class="info-icon">i</span><h3>IV − HV</h3></div><p>${bi('Chênh lệch giữa biến động hàm ý của CW và biến động lịch sử của cổ phiếu cơ sở, tính theo điểm phần trăm. Mô tả mức bù rủi ro thị trường đang định giá; không phải tín hiệu giao dịch.','The difference between warrant implied volatility and underlying historical volatility, in percentage points. It describes the market-priced risk premium; it is not a trading signal.')}</p><div class="metric-badges"><span><small>${bi('Trung vị','Median')}</small><b class="${ivhv.medianIvMinusHv>=0?'negative':'positive'}">${ivhv.medianIvMinusHv>0?'+':''}${num(ivhv.medianIvMinusHv,1)} ${bi('điểm','pts')}</b></span><span><small>p25–p75</small><b>${num(ivhv.p25,1)} – ${num(ivhv.p75,1)}</b></span><span><small>${bi('Mẫu','Sample')}</small><b>${num(ivhv.count,0)} ${bi('mã','CW')}</b></span></div></section></div>
+    </details>
+    <div class="valuation-summary"><span>IV ${bi('trung vị','median')} <b>${fmtPct(sum.medianIv,1)}</b></span><span>ITM <b>${num((sum.moneyness||{}).ITM,0)}</b></span><span>ATM <b>${num((sum.moneyness||{}).ATM,0)}</b></span><span>OTM <b>${num((sum.moneyness||{}).OTM,0)}</b></span><span>Δ ${bi('trung vị','median')} <b>${num(sum.medianDelta,3)}</b></span></div>
+    <div class="quant-section-head"><div><h2>${bi('Mã rẻ nhất so với nhóm cùng cơ sở','Lowest implied volatility vs. underlying peers')}</h2><p class="caption">${bi('Chênh lệch IV âm = IV thấp hơn trung vị nhóm cùng cổ phiếu cơ sở. Chọn tiêu đề để sắp xếp; bấm mã để mở chi tiết.','Negative IV residual = below the same-underlying peer median. Select a heading to sort; click a ticker for details.')}</p></div></div><div id="valuation-table"></div>`;
+  renderValuationTable(rows);
 }
 
 // ── Xếp hạng: điểm 0–100 từ các trục ĐO ĐƯỢC, kèm lý do không có Black–Scholes ──
@@ -1399,10 +1440,11 @@ function setView(name) {
   currentView = name;
   // Chọn theo [data-view], không theo .tab: hai nút phụ (Lịch sử, Thuật ngữ) cố ý không
   // mang class .tab — chúng là nút viền, không phải tab — nhưng vẫn phải sáng lên khi mở.
-  document.querySelectorAll('#tabs [data-view]').forEach(tab => {
+  document.querySelectorAll('#tabs [data-view], .controls [data-view]').forEach(tab => {
     const on = tab.dataset.view === name;
     tab.classList.toggle('active', on);
-    tab.setAttribute('aria-selected', String(on));
+    if (tab.classList.contains('top-action')) tab.setAttribute('aria-pressed', String(on));
+    else tab.setAttribute('aria-selected', String(on));
   });
   for (const view of ['board', 'scoring', 'valuation', 'liquidity', 'underlyings', 'stale', 'intraday', 'band', 'history', 'glossary']) {
     const node = document.querySelector(`#view-${view}`);
@@ -1411,6 +1453,35 @@ function setView(name) {
   // Trang thuật ngữ dựng bằng JS nên chỉ sinh khi mở tới — không tốn công lúc tải trang.
   if (name === 'glossary') renderGlossary();
 }
+
+// Delegated controls keep search, sorting, pagination and the detail drawer working after
+// each local table repaint.
+document.addEventListener('input', event => {
+  if (event.target.id !== 'valuation-search') return;
+  const input = event.target, start = input.selectionStart;
+  valuationTableState.query = input.value;
+  valuationTableState.page = 0;
+  renderValuationTable(valuationRowsCache);
+  const next = document.querySelector('#valuation-search');
+  next?.focus();
+  if (start !== null) next?.setSelectionRange(start, start);
+});
+document.addEventListener('click', event => {
+  const sort = event.target.closest('[data-val-sort]');
+  if (sort) {
+    const key = sort.dataset.valSort;
+    valuationTableState.dir = valuationTableState.sort === key && valuationTableState.dir === 'asc' ? 'desc' : 'asc';
+    valuationTableState.sort = key;
+    valuationTableState.page = 0;
+    renderValuationTable(valuationRowsCache);
+    return;
+  }
+  const page = event.target.closest('[data-val-page]');
+  if (page) {
+    valuationTableState.page += page.dataset.valPage === 'next' ? 1 : -1;
+    renderValuationTable(valuationRowsCache);
+  }
+});
 
 async function loadOptional(key, url) {
   try {
@@ -1496,7 +1567,7 @@ renderBand();
 renderHistory();
 // Gắn cho MỌI mục có data-view trong thanh điều hướng — hai nút phụ (Lịch sử, Thuật ngữ)
 // cố ý không mang class .tab nhưng vẫn phải bấm được.
-document.querySelectorAll('#tabs [data-view]').forEach(tab => {
+document.querySelectorAll('#tabs [data-view], .controls [data-view]').forEach(tab => {
   tab.addEventListener('click', () => setView(tab.dataset.view));
 });
 setView('board');
