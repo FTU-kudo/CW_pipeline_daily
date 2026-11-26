@@ -712,6 +712,7 @@ export const STRINGS = {
   "trong toàn vũ trụ": "across the universe",
   "hợp đồng": "contracts",
   "CW đang giao dịch": "Warrants trading",
+  "Trong phiên": "Intraday",
 
 };
 
