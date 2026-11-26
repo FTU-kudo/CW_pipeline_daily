@@ -1,3 +1,5 @@
+import { STRINGS as SHARED_STRINGS, TEMPLATES as SHARED_TEMPLATES } from './i18n.js';
+
 /* ============================================================
    Giao diện: sáng/tối · Việt/Anh · đồng hồ · chi tiết chứng quyền
    ------------------------------------------------------------
@@ -159,6 +161,128 @@ export const STRINGS = {
   'Tỷ lệ giá trên sàn': 'Distance to floor',
   'Đang ở trần': 'At ceiling',
   'Đang ở sàn': 'At floor',
+
+  // Snapshot shell, filters and board
+  'Bảng giá chứng quyền (CW) — được cập nhật lúc —.': 'Covered warrants (CW) — updated at —.',
+  'Bảng giá chứng quyền (CW) — đang đọc snapshot…': 'Covered warrants (CW) — reading snapshot…',
+  'Bảng giá chứng quyền (CW) — cập nhật lúc —.': 'Covered warrants (CW) — updated at —.',
+  'Toàn cảnh thị trường chứng quyền': 'Covered-warrant market overview',
+  'Điều hướng chế độ xem': 'View navigation',
+  'Chế độ xem': 'Views',
+  'Giao diện sáng hoặc tối': 'Light or dark theme',
+  'Xem': 'Views',
+  'Tuỳ chọn': 'Options',
+  'Giải thích thuật ngữ': 'Glossary',
+  'Bấm một mã ở cột đầu để xem toàn bộ thông tin của mã đó.': 'Click a ticker in the first column to see its full details.',
+  'Chứng khoán cơ sở': 'Underlying',
+  'Trạng thái tiền': 'Moneyness',
+  'Tháng đáo hạn': 'Maturity month',
+  'Công ty phát hành': 'Issuer',
+  'Xoá lọc': 'Clear filters',
+  'Mã CW': 'Warrant',
+  'Giá tham chiếu': 'Reference price',
+  '% trong ngày': '% change',
+  'Tổng KL': 'Total volume',
+  'Tổng giá trị': 'Total value',
+  'Chênh lệch mua–bán': 'Bid–ask spread',
+  'Room ngoại': 'Foreign room',
+  'Dữ liệu gốc': 'Raw data',
+  'Xem tab': 'See the',
+  'để tra cách gọi từng cột, nguồn gốc số liệu và những gì dự án không làm. Mọi con số trên trang đều là mô tả phiên đã xảy ra — không phải khuyến nghị mua/bán.': 'tab for column definitions, data sources and project limitations. All figures describe a completed session; they are not buy or sell recommendations.',
+
+  // Overview and analytics views
+  'Mã CW niêm yết': 'Listed warrants',
+  'không': 'not traded',
+  'nhóm cổ phiếu có mã CW': 'underlying stocks with warrants',
+  'Tăng / giảm / đứng': 'Gainers / losers / unchanged',
+  'Tăng': 'Up',
+  'Giảm': 'Down',
+  'Đứng': 'Unchanged',
+  'Phân bố trạng thái tiền': 'Moneyness distribution',
+  'trên {n} mã định giá được': 'of {n} valued warrants',
+  'IV trung vị': 'Median IV',
+  'Dữ liệu cập nhật': 'Data updated',
+  'Điểm CW theo ngày': 'Daily warrant score',
+  'Xem chi tiết cách tính điểm': 'Scoring methodology',
+  'Thu gọn cách tính điểm': 'Hide scoring methodology',
+  'Cách tính': 'Methodology',
+  'mã có khớp lệnh được chấm': 'traded tickers scored',
+  'mã có khớp lệnh được chấm ·': 'traded tickers scored ·',
+  'mã không giao dịch không chấm': 'untraded tickers not scored',
+  'mã không giao dịch không chấm ·': 'untraded tickers not scored ·',
+  'mã có khớp lệnh ·': 'tickers traded ·',
+  'trung vị': 'median',
+  'định giá đã bật cho': 'valuation available for',
+  'định giá chưa bật': 'valuation unavailable',
+  'Điểm tổng': 'Total score',
+  'Cảnh báo': 'Warnings',
+  'Chi phí': 'Cost',
+  'Chất lượng giá': 'Price quality',
+  'chưa chấm': 'not scored',
+  'định giá': 'valuation',
+  'chưa đủ dữ liệu để chấm': 'not enough data to score',
+  'Chưa có dữ liệu': 'No data available',
+  'Không có dữ liệu': 'No data available',
+  'Không tải được snapshot': 'Could not load snapshot',
+  'Workflow cần lấy thành công trước khi Pages có dữ liệu.': 'The workflow must fetch successfully before Pages has data.',
+  'Không có mã nào không giao dịch': 'No untraded tickers',
+  'Chưa có mã nào hồi phục thanh khoản': 'No tickers have recovered liquidity yet',
+  'Chạm trần': 'At ceiling',
+  'chạm trần': 'at ceiling',
+  'chạm sàn': 'at floor',
+  'Dải': 'Range',
+  'Còn tới trần': 'To ceiling',
+  'Còn tới sàn': 'To floor',
+  'Bước giá': 'Ticks',
+  'Vị trí khớp cuối': 'Last-trade position',
+  'Khớp cuối': 'Last trade',
+  'Mở cửa': 'Open',
+  'Biên độ': 'Range',
+  'Tỷ trọng': 'Share',
+  'Số mã': 'Tickers',
+  'Nhóm': 'Group',
+  'Top 10 chiếm': 'Top 10 account for',
+  'giá trị toàn bảng; HHI =': 'of total board value; HHI =',
+  'Mã không khớp lệnh không được xếp hạng.': 'Untraded tickers are not ranked.',
+  'Giá trị (VND)': 'Value (VND)',
+  'Giá trị nhóm': 'Group value',
+  'Trung vị nhóm': 'Group median',
+  'Mã điểm cao nhất': 'Top-scoring ticker',
+  'Số CW': 'Warrants',
+  'Có khớp': 'Traded',
+  'Tốt nhất': 'Best',
+  'Xấu nhất': 'Worst',
+  'Lịch sử giá (mẫu)': 'Price history (sample)',
+  'Chuỗi giá (mẫu)': 'Price series (sample)',
+  'Độ phủ lịch sử': 'History coverage',
+  'Phiên': 'Session',
+  'KL': 'Volume',
+  'Tăng/Giảm/Đứng': 'Up/Down/Unchanged',
+  'Không có phiên nào bị thiếu trong khoảng dữ liệu đã có.': 'No sessions are missing from the available data range.',
+  'Không nội suy — các phiên này không có bar.': 'No interpolation; these sessions have no bar.',
+  'Kiểm tra liên tục bằng giá tham chiếu': 'Reference-price continuity check',
+  'Nguồn S': 'Source for S',
+  'Loại khỏi định giá': 'Excluded from valuation',
+  'Mã rẻ nhất so với nhóm cùng cơ sở': 'Lowest implied volatility vs underlying peers',
+  'ITM/OTM': 'ITM/OTM',
+  'Đáo hạn (ngày)': 'Days to maturity',
+  'Trung vị': 'Median',
+  'Phân bố thanh khoản theo phiên': 'Liquidity distribution by session',
+  'Xếp hạng theo giá trị giao dịch': 'Ranked by traded value',
+  'Nhóm theo cổ phiếu cơ sở': 'Groups by underlying stock',
+  'Vừa giao dịch lại sau chuỗi im lặng': 'Resumed trading after an idle streak',
+  'Biên độ trong phiên': 'Intraday range',
+  'Chất lượng lệnh khớp cuối': 'Last-trade quality',
+  'Khoảng cách tới trần / sàn': 'Distance to ceiling / floor',
+  'Giá trần và giá sàn': 'Ceiling and floor prices',
+  'Bản chất và giới hạn': 'Scope and limitations',
+  'Phạm vi và giới hạn': 'Scope and limitations',
+  'Không có dữ liệu phân tích trong phiên.': 'No intraday analysis data available.',
+  'Chưa có dữ liệu dải trần–sàn.': 'No ceiling/floor range data available.',
+  'Chưa có phiên trước trong kho để đối chiếu giá tham chiếu.': 'No previous session is available in the archive for reference-price comparison.',
+  'Chưa đủ phiên để so sánh.': 'Not enough sessions to compare.',
+  'Chưa có chuỗi lịch sử. Workflow sẽ tích luỹ mỗi ngày sau giờ đóng cửa; endpoint không có dữ liệu quá khứ nên không thể backfill.': 'No history series yet. The workflow will accumulate data after each market close; the endpoint has no historical data, so backfilling is unavailable.',
+  'Toàn bộ thuật ngữ dùng trong dự án, gom về một chỗ. Các tab khác chỉ hiển thị số liệu của phiên.': 'Project terminology in one place. Other tabs show session data only.',
 };
 
 /* Câu có số liệu do engine sinh: [regex, hàm ghép tiếng Anh]. Chỉ những mẫu thường gặp —
@@ -171,6 +295,25 @@ export const TEMPLATES = [
   [/^Phiên (.+)$/, (d) => `Session ${d}`],
   [/^(\d+) phiên$/, (n) => `${n} sessions`],
   [/^IV trung vị ([\d.,]+)%$/, (v) => `Median IV ${v}%`],
+  [/^(\d[\d.,]*) \/ (\d[\d.,]*) mã$/, (shown, total) => `${shown} / ${total} tickers`],
+  [/^(\d[\d.,]*) mã$/, (n) => `${n} tickers`],
+  [/^trên (\d[\d.,]*) mã định giá được$/, (n) => `of ${n} valued warrants`],
+  [/^p25–p75: ([\d.,]+)% – ([\d.,]+)%$/, (a, b) => `p25–p75: ${a}% – ${b}%`],
+  [/^p25–p75 = ([\d.,]+)–([\d.,]+)%$/, (a, b) => `p25–p75 = ${a}–${b}%`],
+  [/^mã IV trên HV$/, () => 'tickers with IV above HV'],
+  [/^ngược lại$/, () => 'the reverse'],
+  [/^([\d.,]+) điểm$/, (n) => `${n} points`],
+  [/^([\d.,]+) mã có khớp lệnh được chấm$/, (n) => `${n} traded tickers scored`],
+  [/^([\d.,]+) mã không giao dịch không chấm$/, (n) => `${n} untraded tickers not scored`],
+  [/^Hiện (\d+) mã điểm cao nhất\. Bấm tiêu đề cột để sắp xếp theo tiêu chí đó\.$/,
+    (n) => `Showing the top ${n} tickers by score. Click a column heading to sort.`],
+  [/^Top (\d+) chiếm ([\d.,]+)% giá trị toàn bảng; HHI = ([\d.,]+)\. Mã không khớp lệnh không được xếp hạng\.$/,
+    (n, p, hhi) => `Top ${n} account for ${p}% of total board value; HHI = ${hhi}. Untraded tickers are not ranked.`],
+  [/^Không có khối (.+) trong file phân tích\.(?: Dữ liệu phân tích đang có: phiên (.+)\.)?$/,
+    (what, date) => `No ${what} block in the analytics file.${date ? ` Available analytics: session ${date}.` : ''}`],
+  [/^Không tải được snapshot: (.+)\. Workflow cần lấy thành công trước khi Pages có dữ liệu\.$/,
+    (error) => `Could not load the snapshot: ${error}. The workflow must complete successfully before Pages has data.`],
+  [/^\d+ mã không giao dịch không chấm$/, () => 'untraded tickers not scored'],
 ];
 
 let lang = 'vi';
@@ -182,10 +325,18 @@ export function bi(vi, en) { return lang === 'en' ? en : vi; }
 
 export function translate(text) {
   if (!text) return null;
-  const key = text.trim();
+  const key = text.trim().replace(/\s+/g, ' ');
   if (!key) return null;
   if (Object.prototype.hasOwnProperty.call(STRINGS, key)) return STRINGS[key];
   for (const [re, fn] of TEMPLATES) {
+    const m = key.match(re);
+    if (m) { try { return fn(...m.slice(1)); } catch { return null; } }
+  }
+  // The snapshot and SPA have separate renderers, but share the broader curated
+  // exact-string and narrative catalogue. Reuse those translations without the
+  // SPA's heuristic phrase fallback, which can produce mixed-language fragments.
+  if (Object.prototype.hasOwnProperty.call(SHARED_STRINGS, key)) return SHARED_STRINGS[key];
+  for (const [re, fn] of SHARED_TEMPLATES) {
     const m = key.match(re);
     if (m) { try { return fn(...m.slice(1)); } catch { return null; } }
   }

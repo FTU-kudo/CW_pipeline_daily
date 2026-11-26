@@ -387,7 +387,7 @@ def test_ui_module_behaviour_in_node(tmp_path):
     site.mkdir()
     assets = site / "assets"
     assets.mkdir()
-    for name in ("ui.js", "detail.js", "ui.css"):
+    for name in ("ui.js", "i18n.js", "detail.js", "ui.css"):
         shutil.copy(DOCS / "assets" / name, assets / name)
 
     script = tmp_path / "run.mjs"

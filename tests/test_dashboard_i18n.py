@@ -99,6 +99,12 @@ def test_theme_cycle_is_three_state() -> None:
     assert "prefers-color-scheme" in core
 
 
+def test_intraday_label_is_not_degraded_by_generic_phrase_fallback() -> None:
+    """Exact UI labels must win over word-level substitutions (e.g. 'Trong sessions')."""
+    src = I18N.read_text(encoding="utf-8")
+    assert '"Trong phiên": "Intraday"' in src
+
+
 def test_i18n_templates_cover_engine_narrative() -> None:
     """Các câu do engine sinh ra phải có mẫu dịch, nếu không EN mode sẽ lẫn tiếng Việt."""
     src = I18N.read_text(encoding="utf-8")
