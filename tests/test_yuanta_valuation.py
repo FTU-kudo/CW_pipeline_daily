@@ -160,6 +160,7 @@ def test_price_warrants_produces_iv_and_greeks():
     assert row["deltaOption"] == pytest.approx(row["delta"] * 2.0, abs=1e-3)
     assert row["moneyness"] == "OTM"           # S=23,601 < K=31,800
     assert row["premiumPct"] == pytest.approx((31800 + 150 * 2 - 23601) / 23601 * 100, abs=0.01)
+    assert row["breakeven"] == pytest.approx(31800 + 150 * 2)
 
 
 def test_price_warrants_excludes_when_underlying_crosscheck_fails():
