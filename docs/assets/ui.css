@@ -493,7 +493,7 @@ h1 {
 .clock[data-session="closed"] .dot,
 .clock[data-session="pre"] .dot { background: var(--muted); }
 
-/* ── KPI: đúng 2 hàng × 4 thẻ ───────────────────────────────── */
+/* ── KPI overview: five cards share one row on wide screens ─── */
 .overview { margin: 16px 0 4px; }
 .ov-title {
   display: flex;
@@ -508,7 +508,7 @@ h1 {
 }
 .ov-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 .ov-card {
@@ -793,7 +793,7 @@ tbody tr:hover td:first-child { background: var(--row-hover); }
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1180px) {
-  .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ov-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .toolbar.filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .toolbar.filters .search-wrap { grid-column: 1 / -1; }
   .toolbar-right { grid-column: 1 / -1; justify-self: stretch; justify-content: flex-end; }
