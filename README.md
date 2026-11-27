@@ -1,518 +1,203 @@
 # CW Board — Quant Analysis
 
-Bảng giá chứng quyền dạng **snapshot**, kèm lớp phân tích định lượng. Mã ứng dụng chỉ gọi
-endpoint bảng giá `stock_type=EW`, giữ nguyên tên trường và giá trị gốc từ API, rồi xuất JSON
-hiện tại cho GitHub Pages. Chi tiết xem [tại đây](https://cw-analytics.vercel.app/).
+> **VI:** Bảng giá chứng quyền tĩnh kèm phân tích định lượng, được cập nhật bằng GitHub Actions và xuất bản qua GitHub Pages.
+>
+> **EN:** A static covered-warrant board with quantitative analytics, refreshed by GitHub Actions and published through GitHub Pages.
+>
+> **Bản chạy / Live site:** [cw-analytics.vercel.app](https://cw-analytics.vercel.app/)
 
-> **Ghi công nguồn.** Endpoint bảng giá: `ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW`
-> — do chủ dự án cung cấp và tuyên bố được phép sử dụng, công bố. Điều khoản hợp đồng từ repo
-> [`Vietstock_CW_bot`](https://github.com/FTU-kudo/Vietstock_CW_bot); lợi suất TPCP từ repo
-> [`VN_Bond_Yield_pipeline`](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline).
+[English](#english) · [Tiếng Việt](#tiếng-việt)
 
-> **Nhãn hiển thị.** Quyết định sản phẩm: trang mang tên **"Covered Warrants — Quant Analysis"**
-> và mọi chỗ nói về nguồn trên giao diện đều dùng từ trung tính ("nguồn bảng giá"). Tên nhà
-> cung cấp **vẫn được ghi** ở tầng kỹ thuật — metadata `source` trong JSON, mục này, và URL
-> endpoint — vì đó là nghĩa vụ khi dùng API. Đường dẫn tệp (`docs/data/yuanta_*.json`) cũng
-> giữ nguyên tên để không làm hỏng đường tải dữ liệu.
+---
 
-## Phạm vi dữ liệu
+## Tiếng Việt
 
-- **Có:** bảng giá 22 cột, xếp hạng thanh khoản, nhóm theo cổ phiếu cơ sở, độ phủ lịch sử,
-  trần–sàn, biến động trong phiên, định giá Black–Scholes với IV và Greeks cho **350/353 mã
-  khớp lệnh**, lãi suất phi rủi ro nội suy từ đường cong TPCP HNX.
-- **Không có, và lý do:** giá CW theo phút/giây (nguồn không có); định giá cho **54 mã không
-  khớp lệnh** (không có giá thị trường thì không có IV); khuyến nghị mua/bán.
-- **Cách lịch sử được tạo:** OHLCV theo ngày **tích luỹ dần** từ mỗi lần workflow chạy sau giờ
-  đóng cửa — không backfill quá khứ, ngày thiếu được liệt kê thay vì nội suy. Mã không khớp
-  lệnh không có giá đóng cửa; `RefP` không được dùng thay.
+### Giới thiệu
 
-## Giao diện (`docs/`)
+CW Board thu thập snapshot bảng giá chứng quyền, kiểm tra và phân tích dữ liệu, sau đó cung cấp một giao diện tĩnh để tra cứu. Trình duyệt **chỉ đọc các tệp JSON đã xuất bản trong repo**, không gọi API nhà cung cấp.
 
-Trang là một ứng dụng tĩnh, **không gọi API nhà cung cấp từ trình duyệt** — chỉ đọc các file
-JSON đã publish cùng repo. Ba module độc lập trong `docs/assets/`:
+Ứng dụng hiển thị tám thẻ KPI cho **phiên hiện đang được tải**: số CW, giá trị giao dịch, số cổ phiếu cơ sở, tăng/giảm/đứng giá, phân bố ITM/ATM/OTM, IV trung vị, IV − HV và spread trung vị. Các chỉ số được tính từ dữ liệu phiên hiện tại và những đầu vào hợp lệ hiện có. Nếu IV/HV hoặc dữ liệu spread không có, giao diện để trống/hiện `—`; **không suy đoán hay dựng dữ liệu lịch sử để lấp chỗ thiếu**. Không dùng các thẻ này để đại diện cho lịch sử nhiều phiên.
 
-| File | Việc |
+### Tính năng
+
+- Bảng giá CW, bộ lọc, sắp xếp, phân tích theo thanh khoản và cổ phiếu cơ sở.
+- KPI toàn cảnh gồm tám thẻ; tự xử lý giá trị thiếu, mẫu số bằng 0 và dữ liệu không khả dụng.
+- Trang tiếng Việt/English, giao diện sáng/tối và đồng hồ theo múi giờ Việt Nam.
+- Ngăn kéo chi tiết từng mã: giá, thanh khoản, bid/ask, dữ liệu định giá, lịch sử, cổ phiếu cơ sở và trường nguồn khi có.
+- Lưu chuỗi OHLCV từ các lần chạy pipeline. Lịch sử bắt đầu từ lần chạy đầu tiên; hệ thống không backfill các phiên trước đó.
+- Báo cáo phân tích hằng ngày có thể tải dưới dạng artifact của GitHub Actions.
+
+### Phạm vi và giới hạn dữ liệu
+
+- Snapshot lấy từ bảng giá CW (`stock_type=EW`). Dữ liệu gốc được giữ nguyên trước khi làm sạch/phân tích; các đơn vị và kiểm tra chất lượng được ghi trong JSON phân tích.
+- OHLCV được tích lũy từ snapshot theo phiên. Một bar chỉ hoàn chỉnh khi snapshot được chụp sau giờ đóng cửa; lần chạy giữa phiên được đánh dấu tạm thời. Phiên bị thiếu được ghi nhận, **không nội suy và không lặp lại giá**.
+- Mã không khớp lệnh không có giá đóng cửa trong phiên (`close = null`). Không dùng `RefP` để thay giá đóng cửa.
+- IV, HV, định giá, Greeks và spread chỉ được trình bày khi dữ liệu đầu vào đáp ứng yêu cầu. Giá trị không có/không tính được được giữ là `null` hoặc hiển thị `—`, không đổi thành số 0 và không được suy ra từ số liệu lịch sử thiếu.
+- Điểm số và chỉ số mô tả dữ liệu; chúng **không phải** dự báo, khuyến nghị đầu tư hay cam kết kết quả.
+
+### Nguồn dữ liệu và ghi công
+
+- Bảng giá: `ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW`.
+- Điều khoản CW: repo [Vietstock_CW_bot](https://github.com/FTU-kudo/Vietstock_CW_bot), khi có thể đồng bộ.
+- Lợi suất trái phiếu Chính phủ: repo [VN_Bond_Yield_pipeline](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline), khi có thể đồng bộ.
+
+Tên nguồn/endpoint và đường dẫn dữ liệu được ghi nhận ở tầng kỹ thuật để truy xuất và ghi công. Tên nhà cung cấp không được dùng làm nhãn hiển thị trên giao diện. Tệp dữ liệu hiện có tên `docs/data/yuanta_*.json`; đổi tên cần cập nhật đồng bộ các tham chiếu trong ứng dụng và workflow.
+
+### Các tệp dữ liệu đã xuất bản
+
+| Tệp | Nội dung |
 |---|---|
-| `ui.js` | Từ điển VI→EN, sáng/tối, đồng hồ thị trường, định dạng số |
-| `detail.js` | Ngăn kéo chi tiết một chứng quyền |
-| `ui.css` | Bảng màu hai chế độ + bố cục ngăn kéo |
+| `docs/data/yuanta_snapshot.json` | Snapshot bảng giá gốc và thời điểm lấy dữ liệu |
+| `docs/data/yuanta_board_analysis.json` | Phân tích bảng giá, biến động, thanh khoản, spread và kiểm tra chất lượng |
+| `docs/data/yuanta_analytics.json` | Phân tích phiên, định giá/chấm điểm khi có đủ dữ liệu và các chỉ số tổng hợp |
+| `docs/data/yuanta_sessions.json` | Độ phủ và chuỗi OHLCV theo mã/phiên |
+| `docs/data/yuanta_details.json` | Dữ liệu chi tiết cho ngăn kéo từng mã |
 
-### Sáng / Tối
+Kho dữ liệu lịch sử và dữ liệu hỗ trợ được lưu trong `data/` (ví dụ `data/cw_history/`, `data/cw_terms/`, `data/underlying_history/`, `data/bond_yield/`).
 
-`html[data-theme]` quyết định toàn bộ hệ màu; `ui.css` khai báo hai bộ biến. Chế độ chọn được
-lưu vào `localStorage`; lần đầu truy cập thì theo `prefers-color-scheme` của hệ điều hành.
-Phần bảng giá cũ dùng tên biến riêng (`--bg`, `--panel`, `--line`…) nên hai bộ dùng chung tên
-đó để không phải sửa từng rule.
+### Chạy cục bộ
 
-### Tiếng Việt (mặc định) / English
-
-Khoá của từ điển là **chuỗi tiếng Việt hiển thị**, giá trị là tiếng Anh — nhờ vậy không phải
-đặt `data-i18n` cho hàng trăm nhãn. Nội dung do JS sinh được dịch lại nhờ `MutationObserver`;
-đổi ngôn ngữ thì trang vẽ lại toàn bộ nhưng **giữ nguyên tab đang mở**.
-
-Chuỗi chưa có trong từ điển thì `translate()` trả `null` và **giữ nguyên tiếng Việt**. Không
-bao giờ tự dịch bừa — một bản dịch sai khó phát hiện hơn một câu chưa dịch.
-
-### Dữ liệu cập nhật lúc mấy giờ
-
-Dòng ngay dưới tiêu đề: `Dữ liệu cập nhật lúc HH:MM:SS ICT · cách đây N phút · phiên …`.
-Độ trễ tính từ `freshestAt` của chính dữ liệu (không phải lúc tải trang) và tự nhích mỗi phút,
-nên mở tab cũ để đó vẫn thấy đúng. Quá 24 giờ thì con số chuyển màu cảnh báo.
-
-### Đồng hồ
-
-Hiển thị giờ Việt Nam bất kể máy người xem ở múi giờ nào (`Intl.DateTimeFormat` với
-`timeZone: 'Asia/Ho_Chi_Minh'`), kèm trạng thái phiên HOSE/HNX (ATO · khớp liên tục · nghỉ
-trưa · ATC · sau giờ · đóng cửa · cuối tuần · nghỉ lễ).
-
-Mỗi nhịp **đọc lại `Date.now()`** thay vì cộng dồn biến đếm — cộng dồn sẽ trôi khi tab bị treo
-hoặc máy sleep. Quay lại tab thì đồng hồ nhảy đúng ngay (`visibilitychange`/`pageshow`/`focus`).
-
-### Chi tiết từng mã
-
-Bấm mã ở cột đầu (hoặc mở `?t=CACB2515`) để mở ngăn kéo chia 10 khối: giá & thanh khoản ·
-bid/ask · khối ngoại · định giá Black–Scholes · điểm số · dải trần–sàn · trong phiên · lịch sử
-theo phiên · cổ phiếu cơ sở · trường gốc API.
-
-Dữ liệu được ghép **ở Python** (`cwintel/yuanta_detail.py` → `docs/data/yuanta_details.json`),
-không ghép ở trình duyệt, vì hai lý do: lý do vắng mặt là lý do engine trả về chứ không phải
-trang tự đoán, và trang chỉ phải tải thêm một file khi bấm mã.
-
-Nguyên tắc hiển thị: **thiếu dữ liệu là "—" kèm lý do, không phải 0.** Mã không khớp lệnh thì
-giá để trống và ghi rõ "không giao dịch trong phiên" (không dùng RefP thay giá); mã không có
-khối định giá thì nêu lý do; kho lịch sử mới 1 phiên thì nói "chưa tích luỹ đủ" thay vì vẽ một
-đường phẳng.
-
-Ngăn kéo là **tuỳ chọn**: thiếu `yuanta_details.json` thì bảng giá vẫn chạy đầy đủ.
-
-## Nguồn
-
-```text
-https://ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW
-```
-
-Đây là endpoint trong ảnh/tài liệu do chủ dự án cung cấp. Adapter chỉ xác nhận `success`, danh sách `response`, mã, sàn và `SymbolType=EW`; dữ liệu khác được giữ nguyên, không tự quy đổi đơn vị. `fetchedAt` là thời điểm lấy dữ liệu, không phải timestamp phiên do Yuanta xác nhận.
-
-Chủ dự án tuyên bố endpoint được phép sử dụng và công bố. Agent không thể xác minh điều khoản hoặc gọi endpoint này từ sandbox do giới hạn mạng; lần kiểm tra thực tế đầu tiên sẽ là khi chạy workflow trên GitHub Actions.
-
-## Triển khai
-
-Workflow **CW Yuanta EW snapshot — publish**:
-
-- chạy thủ công bằng `workflow_dispatch` hoặc tự chạy ngày làm việc lúc 17:30 ICT;
-- lấy snapshot mới, kiểm tra schema rồi ghi `docs/data/yuanta_snapshot.json`;
-- làm sạch snapshot đó thành DataFrame, xuất `yuanta_covered_warrants.csv` và
-  `docs/data/yuanta_board_analysis.json` (tổng hợp, top biến động, nhóm theo cổ phiếu
-  cơ sở, spread, báo cáo chất lượng) — dùng lại chính snapshot vừa lấy nên workflow chỉ
-  gọi API **một lần**;
-- chỉ commit khi nội dung thay đổi; GitHub Pages cần được cấu hình phục vụ `main:/docs` để cập nhật site;
-- nếu lần gọi API thất bại hoặc schema đổi, job fail và snapshot cũ không bị ghi đè.
-
-Không có credentials trong workflow hoặc repo. Workflow kiểm thử offline chỉ chạy unit tests, không gọi API.
-
-## Chạy / kiểm thử cục bộ
+Yêu cầu Python 3.11 trở lên. Cài dependency dùng chung cho pipeline và test:
 
 ```bash
 python -m pip install -r requirements-core.txt
-python scripts/fetch_yuanta_snapshot.py                 # 1 request, ghi snapshot
-python scripts/analyze_yuanta_warrants.py               # làm sạch + CSV + JSON phân tích
-python scripts/backfill_yuanta_history.py --offline     # ghi bar phiên + chuỗi + phân tích
-python scripts/check_cw_analytics_bridge.py             # báo cáo nối dashboard cũ
+```
+
+Mở giao diện tĩnh từ snapshot/JSON đang có:
+
+```bash
 python -m http.server 8000 --directory docs
 ```
 
-Không muốn gọi mạng? Dùng lại payload đã lưu (API gốc hoặc snapshot đã publish):
+Truy cập `http://127.0.0.1:8000`.
+
+Chạy các bước xử lý thường dùng:
 
 ```bash
-python scripts/analyze_yuanta_warrants.py --offline tests/fixtures/yuanta_ew_sample.json \
-  --csv /tmp/yuanta_covered_warrants.csv --json /tmp/board.json
+# Lấy snapshot mới; thao tác này gọi endpoint bên ngoài
+python scripts/fetch_yuanta_snapshot.py
+
+# Dùng snapshot đã lưu để tạo CSV và JSON phân tích bảng giá, không gọi lại API
+python scripts/analyze_yuanta_warrants.py --offline docs/data/yuanta_snapshot.json
+
+# Cập nhật chuỗi phiên và các JSON phân tích từ snapshot hiện có
+python scripts/backfill_yuanta_history.py --offline
+
+# Tạo báo cáo Markdown từ dữ liệu đã publish; không lấy dữ liệu mới
+python scripts/daily_analysis_report.py --summary
 ```
 
-Script in ra bảng Markdown (10 dòng đầu + top 5 giá trị), tổng hợp phiên và các cảnh báo
-chất lượng. Mã thoát: `0` ổn, `1` lỗi mạng/schema, `3` kiểm tra chất lượng mức fail — và khi
-đó **không ghi đè** file CSV/JSON đã publish, để Pages không phục vụ một bảng sai và bản tốt
-gần nhất không bị mất.
-
-Endpoint nằm sau WAF: ngoài `User-Agent`/`Referer`, client còn ghé trang chủ lấy cookie và
-tự đi theo JS interstitial (`jsKey`). Nếu đã cài `curl_cffi` (có trong
-`requirements-core.txt`), request dùng TLS fingerprint của Chrome — sát trình duyệt thật
-hơn `python-requests`. Chọn thủ công bằng `--transport auto|curl_cffi|requests`, bỏ warm-up
-bằng `--no-warmup`.
-
-Mở `http://127.0.0.1:8000`. Để chạy test:
+Chạy toàn bộ test (các bài kiểm thử dùng fixture/offline, không gọi API nhà cung cấp):
 
 ```bash
-python -m pip install -r requirements-core.txt
 pytest -q
 ```
 
-## Lớp phân tích bảng giá (`cwintel/yuanta_board.py`)
+### Tự động hóa và xuất bản
 
-Phân tích chỉ dùng những gì **một mặt cắt bảng giá** thực sự chứa được:
+Workflow `CW Yuanta EW snapshot — publish` (`.github/workflows/cw_pipeline.yml`) có thể chạy thủ công và được lên lịch các ngày trong tuần lúc **17:30 ICT**. Quy trình lấy snapshot, phân tích, cập nhật lịch sử/JSON và chỉ xuất bản thay đổi. Một số nguồn hỗ trợ định giá là tùy chọn; khi không đồng bộ được, pipeline giữ giới hạn dữ liệu và ghi rõ khả năng không có thay vì tạo giá trị giả.
 
-| Nhóm | Chỉ số | Cách tính / kiểm chứng |
-|---|---|---|
-| Quy mô | `TradingValueVND`, `TotalVol`, `ValueSharePct`, `ValueRank` | `TotalVol × AvgP`, **đối chiếu** với `TotalVal` của nguồn |
-| Biến động | `LastPrice`, `PriceChangePct`, `OpenChangePct` | so `RefP`; chỉ tính khi mã có khớp lệnh |
-| Chi phí khớp lệnh | `SpreadAbs`, `SpreadPct`, `SpreadTicks`, `MidQuote` | `(S1P − B1P)` / giá giữa, chia bước giá 10 VND |
-| Nhóm | `Underlying` | suy ra từ quy ước mã CW (không phải trường của API) |
-| Chất lượng | 10 phép kiểm tra | high/low, giá trong dải trần–sàn, đồng nhất thức giá trị, độ sâu sổ lệnh… |
+Workflow `CW Yuanta — daily analysis` (`.github/workflows/daily_analysis.yml`) chạy sau đó, lúc **18:10 ICT** các ngày trong tuần. Workflow này chỉ đọc dữ liệu đã publish, không gọi API mới, và tạo báo cáo/artifact. Có thể chạy thủ công từ tab **Actions**.
 
-Đơn vị được **xác nhận bằng bằng chứng trong chính payload**: trên dữ liệu mẫu
-`2.775.000 / 17.700 = 156,78` khớp `AvgP`, nên `TotalVal` là VND và giá là VND/CW. Dòng
-nào lệch quá 0,5% bị gắn cảnh báo, không bị tự sửa.
+Để phục vụ website, cấu hình GitHub Pages dùng nhánh `main` và thư mục `/docs`.
 
-## OHLCV theo ngày (`cwintel/yuanta_history.py`)
+### Ghi chú đầu tư
 
-Mỗi lần workflow chạy **sau khi phiên đóng** (≥ 15:10 ICT; cron là 17:30), payload chứa
-đúng bar của phiên đó: `OpenP` (giá khớp đầu), `HighestP`/`LowestP`, `LastMP` (khớp cuối),
-`TotalVol`, `TotalVal`. Các bar được nối thành chuỗi ngày trong `data/cw_history/`.
+Nội dung chỉ phục vụ thông tin và mục đích giáo dục, không phải tư vấn đầu tư hay đề nghị mua/bán chứng khoán. CW có đòn bẩy, biến động cao và có thể hết hạn vô giá trị. Hãy tự xác minh dữ liệu và cân nhắc rủi ro trước mọi quyết định.
 
-Ba giới hạn được giữ chặt, không "làm đầy" cho đẹp:
+---
 
-| Tình huống | Xử lý |
+## English
+
+### Overview
+
+CW Board collects covered-warrant market snapshots, validates and analyses the data, and serves a static interface for exploration. The browser **reads only JSON files published in this repository**; it does not call the data provider's API.
+
+The overview displays eight KPI cards for **the session currently loaded**: warrant count, trading value, underlying-stock count, advances/declines/unchanged, ITM/ATM/OTM distribution, median IV, IV − HV, and median spread. Metrics are derived from the current session and valid inputs available for it. If IV/HV or spread data is unavailable, the interface leaves the value unavailable or shows `—`; **it does not guess or fabricate historical values to fill gaps**. These cards are not a multi-session history view.
+
+### Features
+
+- Covered-warrant board with filters, sorting, liquidity analysis, and underlying-stock grouping.
+- Eight overview KPI cards with safe handling for missing values, zero denominators, and unavailable inputs.
+- Vietnamese/English labels, light/dark themes, and a Vietnam-time market clock.
+- Per-warrant detail drawer for prices, liquidity, bid/ask, valuation data, history, underlying stocks, and available source fields.
+- OHLCV history accumulated from pipeline runs. The series starts with the first run; earlier sessions are not backfilled.
+- Daily analysis report available as a GitHub Actions artifact.
+
+### Data scope and limitations
+
+- The snapshot is sourced from the covered-warrant board (`stock_type=EW`). Source values are retained before cleaning/analysis; units and integrity checks are recorded in the analysis JSON.
+- Daily OHLCV is accumulated from session snapshots. A bar is complete only when captured after market close; an intraday run is marked provisional. Missing sessions are recorded, **not interpolated or filled by repeating prices**.
+- A warrant with no matched trade has no closing price for that session (`close = null`). `RefP` is never substituted for the close.
+- IV, HV, valuation, Greeks, and spread are shown only when their required inputs are available. Missing or uncomputable values remain `null` or render as `—`; they are not converted to zero or inferred from unavailable historical data.
+- Scores and metrics describe observed data; they are **not** forecasts, investment recommendations, or guarantees of results.
+
+### Data sources and attribution
+
+- Market board: `ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW`.
+- Covered-warrant contract terms: [Vietstock_CW_bot](https://github.com/FTU-kudo/Vietstock_CW_bot), when synchronization is available.
+- Vietnam government-bond yields: [VN_Bond_Yield_pipeline](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline), when synchronization is available.
+
+Source names/endpoints are recorded in the technical layer for traceability and attribution. The provider name is not used as a user-facing brand. Published data files currently use the `docs/data/yuanta_*.json` naming convention; renaming them requires updating the application and workflow references together.
+
+### Published data files
+
+| File | Contents |
 |---|---|
-| Ngày workflow không chạy / thất bại | Ghi vào `coverage.missingSessions`; **không** nội suy, không lặp giá |
-| Mã không khớp lệnh | `close = null`, `traded = false`; `RefP` (giá tham chiếu = giá phiên trước) giữ ở cột riêng, **không** dùng làm close |
-| Chạy tay giữa phiên | Bar đánh dấu `provisional`; **không** ghi đè bar đã đóng của cùng phiên (nhưng bar đã đóng thì nâng cấp được bar dở dang) |
-| Chạy lại trong cùng phiên | Idempotent: upsert theo `(ticker, session)`, không nhân đôi dòng |
+| `docs/data/yuanta_snapshot.json` | Raw market-board snapshot and fetch timestamp |
+| `docs/data/yuanta_board_analysis.json` | Board analysis, movers, liquidity, spreads, and integrity checks |
+| `docs/data/yuanta_analytics.json` | Session analytics, valuation/scoring when inputs are sufficient, and aggregate metrics |
+| `docs/data/yuanta_sessions.json` | OHLCV session series and coverage information |
+| `docs/data/yuanta_details.json` | Per-warrant data used by the detail drawer |
 
-Vì endpoint không có dữ liệu quá khứ, lịch sử **bắt đầu từ lần chạy đầu tiên** và dày lên
-mỗi ngày — đây là lý do duy nhất có thể có chuỗi OHLCV đúng nghĩa từ nguồn này.
+Historical and supporting stores live under `data/` (for example `data/cw_history/`, `data/cw_terms/`, `data/underlying_history/`, and `data/bond_yield/`).
 
-## Xếp hạng và chấm điểm CW (`cwintel/yuanta_scoring.py`)
+### Run locally
 
-Mỗi phiên, mọi CW **có khớp lệnh** được chấm điểm 0–100 trên bốn trục đo được từ bảng giá:
-
-| Trục | Trọng số | Đo cái gì | Vì sao |
-|---|---|---|---|
-| Thanh khoản | 45% | giá trị giao dịch (80%) + khối lượng (20%) | thước đo trực tiếp khả năng vào/ra; khối lượng một mình dễ đánh lừa (CW giá 100 VND khớp 1 triệu đơn vị chỉ là 100 triệu đồng) |
-| Chi phí | 30% | spread quanh giá giữa: ≤1% → 100, ≥10% → 0 | 1 bước giá trên CW 100 VND là 10%, chi phí vòng 20% |
-| Chất lượng giá | 15% | `LastMVol/TotalVol` | đóng cửa bằng đúng một lệnh thì giá kém đại diện |
-| Độ ổn định | 10% | tỷ lệ phiên có khớp lệnh (cần ≥ 5 phiên) | mã im lặng nhiều phiên thì không thoát được |
-
-Mã không giao dịch **không được chấm** — không có giá thì không có gì để chấm. Trục nào
-thiếu dữ liệu thì **bỏ khỏi phép chia** (tính lại trọng số) chứ không cộng 0, và mỗi dòng
-ghi `coveragePct` để biết điểm dựa trên bao nhiêu phần trăm trọng số.
-
-Điểm này **không phải khuyến nghị mua/bán**. Nó trả lời một câu hẹp: mã này có giao dịch
-được ở quy mô vừa phải mà không bị trượt giá quá nhiều không?
-
-### Định giá Black–Scholes: mở khoá bằng điều khoản từ repo Vietstock
-
-Bảng giá Yuanta **không** có bốn biến Black–Scholes cần (`S`, `K`, `T`, `n`). Repo thứ hai
-[`Vietstock_CW_bot`](https://github.com/FTU-kudo/Vietstock_CW_bot) có:
-
-| Biến | Nguồn Vietstock |
-|---|---|
-| `K` strike | `gia_thuc_hien` |
-| `n` tỷ lệ chuyển đổi | `ty_le_chuyen_doi` (`"2 : 1"`) |
-| `T` ngày đáo hạn | `ngay_gd_cuoi_cung` |
-| `S` giá cổ phiếu cơ sở | **không có trực tiếp** — suy ra, xem dưới |
+Python 3.11 or newer is recommended. Install the shared pipeline and test dependencies:
 
 ```bash
-git clone --depth 1 https://github.com/FTU-kudo/Vietstock_CW_bot.git ../Vietstock_CW_bot
-python scripts/import_vietstock_terms.py --source ../Vietstock_CW_bot
-# → data/cw_terms/vietstock_terms.csv  (22.372 dòng, 526 mã, 68 phiên)
-python scripts/backfill_yuanta_history.py --offline   # tự dùng bảng điều khoản
+python -m pip install -r requirements-core.txt
 ```
 
-**`S` được suy ra và kiểm chứng chéo, không phải phỏng đoán.** Repo Vietstock đã tính sẵn
-`premium` và `don_bay`, và hai công thức đó độc lập với nhau:
-
-```
-don_bay  = (S / CW) / n              →  S = don_bay × CW × n
-premium  = (K + CW×n − S) / S × 100  →  S = (K + CW×n) / (1 + premium/100)
-```
-
-Trên 400/400 mã kiểm tra được, hai cách cho cùng một `S` (lệch < 1%). Bản ghi nào lệch quá
-1% bị **loại** khỏi định giá và đếm vào `excluded`, không lấy trung bình hai giá trị.
-
-Kết quả phiên 13/11: **350/353 mã có giao dịch được định giá**, IV trung vị **48,5%**
-(p25–p75 = 38,0–67,7%), ITM 59 / ATM 13 / OTM 278, delta trung vị 0,090.
-
-### Đọc kết quả định giá cho đúng
-
-**IV không phải dự báo.** Nó là biến động ẩn suy ngược từ giá thị trường — "thị trường đang
-định giá rủi ro bao nhiêu". IV cao hơn HV là **chi phí** của người mua, không phải cơ hội.
-
-**Không dùng `cwPrice/bsPrice` để xếp hạng.** Khi IV suy ngược từ chính giá đó, hai đại
-lượng luôn bằng nhau và tỷ lệ luôn ≈ 0 — vô dụng. Thay vào đó dùng **`ivResidualPct`**: IV của
-mã so với trung vị IV các CW **cùng cổ phiếu cơ sở**. Cùng rủi ro nền, khác mức bù rủi ro →
-so sánh được. Nhóm dưới 5 mã thì không chấm (trung vị 2 quan sát không đáng tin).
-
-**Đọc `termsBasis` trước khi tin Greeks.** Mỗi dòng có `termsBasis` cho biết điều khoản đã được
-quy về hệ giá thật bằng cách nào, và `correctionFactor` là hệ số `f` đã dùng:
-
-| `termsBasis` | Nghĩa | Tin được gì |
-|---|---|---|
-| `điều chỉnh từ nguồn` | Nguồn trả `gia_th_dieu_chinh` + `tlcd_dieu_chinh` | Tất cả — chuẩn nhất |
-| `dựng lại từ chênh lệch giá` | Suy `f` từ `S_nguồn / S_thật` | IV, giá, Greeks (sai số <0,2%) |
-| `gốc, chưa điều chỉnh` | Không có `f` đáng tin | Chỉ khi `f ≈ 1`, tức mã không bị điều chỉnh |
-
-`f` quá lớn (ngoài 0,5–4,0) bị coi là nguồn dùng giá cũ quá xa chứ không phải điều chỉnh thật;
-những mã đó giữ nhãn `gốc, chưa điều chỉnh` và nếu vẫn lệch >±7% thì bị loại chứ không định giá
-liều.
-
-**Giới hạn mô hình.** BS giả định quyền chọn châu Âu, không cổ tức. CW Việt Nam có điều khoản
-đặc thù (chốt giá, điều chỉnh khi chia cổ tức) mà mô hình không mô tả, nên `bsPrice` chỉ dùng
-để xếp hạng tương đối, không phải giá mục tiêu.
-
-### Lãi suất phi rủi ro — từ hằng số sang đường cong TPCP
-
-Trước đây `r` là hằng số cấu hình `config.DEFAULT_RISK_FREE = 0,0444`, và payload phải tự thú
-đó là "tham số phần mềm, không phải số liệu thị trường". Nay `r` lấy từ **đường cong lợi suất
-trái phiếu chính phủ HNX**, đồng bộ hằng ngày từ repo
-[`FTU-kudo/VN_Bond_Yield_pipeline`](https://github.com/FTU-kudo/VN_Bond_Yield_pipeline):
+Serve the static UI using the checked-in snapshot/JSON files:
 
 ```bash
-python scripts/sync_bond_yield.py --clone    # workflow tự chạy bước này
+python -m http.server 8000 --directory docs
 ```
 
-**Ba cột lợi suất của HNX, chỉ một cột dùng được.** HNX trả `par_yield`, `spot_annual` và
-`spot_continuous` cho cùng một kỳ hạn. Black–Scholes chiết khấu bằng `exp(-rT)` — đúng cơ sở
-**liên tục**, nên chỉ `spot_continuous` được dùng. Quan hệ đã kiểm chứng trên dữ liệu thật:
-`spot_continuous = ln(1 + spot_annual)` (1Y ngày 2026-11-13: 3,787896% so với
-ln(1 + 3,860552%) = 3,7879%).
+Open `http://127.0.0.1:8000`.
 
-**Nội suy theo đúng kỳ hạn từng mã, không dùng một lãi suất chung.** CW có kỳ hạn còn lại từ 13
-đến 293 ngày — không trùng kỳ hạn chuẩn nào của HNX. Dùng một số cho cả bảng là lặp lại lỗi
-"một tham số cho mọi mã" ở mức nhỏ hơn: 3M hôm 2026-11-13 là 3,6876% còn 1Y là 3,7879%, lệch
-10 điểm cơ bản. Nay `r` được nội suy **tuyến tính theo T** giữa hai kỳ hạn kẹp hai bên, và
-**ngoại suy phẳng** ngoài dải (ngoại suy tuyến tính có thể cho lãi suất âm).
-
-Chọn nội suy thay vì đường cong Nelson–Siegel đã fit sẵn trong repo nguồn là có chủ ý: đường
-cong NS là **mô hình** (RMSE 0,03 ở ngày gần nhất), còn lợi suất quan sát là **số liệu**. Khi
-chọn giữa số liệu và mô hình cho một tham số đầu vào, chọn số liệu.
-
-**Ảnh hưởng lên kết quả:** `r` giảm từ 4,44% xuống 3,69–3,76% tuỳ kỳ hạn (thấp hơn hằng số cũ
-khoảng 75 điểm cơ bản). IV trung vị của 350 mã dịch từ 48,5% lên 48,92% — đúng chiều: lãi suất
-thấp hơn thì cùng một giá CW ngụ ý biến động ẩn cao hơn.
-
-Mỗi dòng kết quả mang `riskFree` và `riskFreeSource` **riêng**, vì mỗi mã có kỳ hạn khác nhau
-nên `r` khác nhau. Không có đường cong cho phiên thì lùi về hằng số và ghi rõ là hằng số —
-`riskFreeByTenor` trong payload cho biết đang ở nhánh nào.
-
-### Lịch sử giá cổ phiếu cơ sở — và HV thật để so với IV
-
-`ysradarapi.yuanta.com.vn/api/v3/market_data/market_watch/price_history/{MÃ}` trả OHLCV từng
-phiên từ 2010 kèm `ForeignVolumeBuy`/`ForeignVolumeSell`/`PutThroughVolume`. Tải bằng:
+Common processing commands:
 
 ```bash
-python scripts/fetch_underlying_history.py                 # toàn bộ cơ sở có trong snapshot
-python scripts/fetch_underlying_history.py --symbol ACB     # một mã
-python scripts/fetch_underlying_history.py --limit 0        # không giới hạn số mã
+# Fetch a fresh snapshot; this makes an external API request
+python scripts/fetch_yuanta_snapshot.py
+
+# Build a CSV and board-analysis JSON from a saved snapshot, without fetching again
+python scripts/analyze_yuanta_warrants.py --offline docs/data/yuanta_snapshot.json
+
+# Update session history and analytics from the existing snapshot
+python scripts/backfill_yuanta_history.py --offline
+
+# Build a Markdown report from published data; does not fetch new data
+python scripts/daily_analysis_report.py --summary
 ```
 
-Kho: `data/underlying_history/{MÃ}.parquet`, **resume được** — chạy lại gộp dữ liệu mới vào
-lịch sử cũ (`merge_history`), không nhân đôi phiên, không ghi đè quá khứ. Mã lỗi được liệt kê
-riêng và không làm hỏng phần còn lại; job CI để `continue-on-error` nên mất mạng chỉ làm mất
-phần HV, không làm đỏ pipeline.
-
-Điều này thay đổi hai thứ:
-
-1. **S trực tiếp thay vì suy luận.** Trước đây `S` chỉ suy được từ premium/đòn bẩy Vietstock.
-   Có lịch sử thì `S` là giá đóng cửa thật; mã chưa tải được lịch sử vẫn dùng cách suy cũ và
-   payload ghi rõ từng mã (`underlyingSource`).
-2. **IV − HV thành số đo, không còn là câu nói.** HV = độ lệch chuẩn log-return 21 và 63 phiên,
-   quy năm theo 252 phiên.
-
-### Đối chiếu S suy ra với S thật — và một lỗi của nguồn Vietstock
-
-Có lịch sử thật thì phải đối chiếu, và kết quả không đồng đều: **11/20 cổ phiếu cơ sở khớp
-<0,1%** (VHM lệch 0,07%, ACB 0,009%), chứng minh **phương pháp** suy S từ premium/đòn bẩy là
-đúng. Nhưng 9 cổ phiếu cơ sở lệch 1,5–33%, và độ lệch không phải nhiễu:
-
-| Cơ sở | S suy / S thật | Tỉ lệ | Hệ số điều chỉnh khớp |
-|---|---|---|---|
-| TCB | 1,499 | thưởng 3:2 |
-| MBB | 1,199 | thưởng 6:5 |
-| FPT | 1,100 | thưởng 10% |
-| VPB | 1,261 | thưởng 5:4 |
-
-Các tỉ lệ này gần đúng hệ số điều chỉnh cổ tức/thưởng → Vietstock dùng cặp **(S, strike) trước
-điều chỉnh** cho một phần hợp đồng, trộn với hợp đồng đã điều chỉnh trong cùng một phiên. Ví
-dụ rõ nhất ở ACB: 6 mã có S suy ra ≈23.600 với strike 24.800–31.800 (phát hành trước chia),
-16 mã có S suy ra ≈20.350 khớp giá thật.
-
-Hệ quả trước đây: **không thể định giá nhóm chưa điều chỉnh** — strike quá cao so với giá thật
-thì IV bị đẩy lên vô lý (HDB: 49,4% → 90,1%; TCB: 39,1% → 52,4%). Cách xử lý cũ là **loại** mã
-nào có S suy ra lệch S thật quá ±7%, khiến ngày 2026-11-13 chỉ còn **250/353 mã định giá được**.
-
-### Quy điều khoản về cùng hệ quy chiếu — sửa gốc, không loại mã
-
-Cách xử lý cũ sai ở chỗ coi đây là *dữ liệu hỏng*. Không phải: nó là **CW đã được điều chỉnh**
-trong khi nguồn vẫn trả cặp gốc. Trang chi tiết của nguồn xác nhận điều này cho CACB2515:
-
-| Trường trên trang Vietstock | Giá trị |
-|---|---|
-| Giá thực hiện (gốc) | 31.800 |
-| **Giá TH điều chỉnh** | **27.420** |
-| Tỷ lệ chuyển đổi (gốc) | 2 : 1 |
-| **TLCĐ điều chỉnh** | **1,7245 : 1** |
-
-Nên `resolve_terms()` quy điều khoản về **cùng hệ với giá cổ phiếu đang dùng**, theo ba mức
-ưu tiên:
-
-1. **`điều chỉnh từ nguồn`** — dùng `gia_th_dieu_chinh` + `tlcd_dieu_chinh` nếu kho có.
-2. **`dựng lại từ chênh lệch giá`** — nhân nghịch đảo hệ số `f = S_nguồn / S_thật`. Kiểm chứng:
-   CACB2515 cho K = 27.419,6 và n = 1,7245, **khớp chính xác** trang nguồn (27.420 · 1,7245).
-3. **`gốc, chưa điều chỉnh`** — không có `f` đáng tin; giữ nguyên và **loại** nếu vẫn lệch
-   quá ±7%, vì lúc đó hai hệ không ghép được với nhau.
-
-**Vì sao dựng lại an toàn cho IV:** IV và giá CW **bất biến** theo hệ quy chiếu (kiểm chứng:
-40,0868% so với 40,0866% — lệch 0,0002 điểm). Nhưng **Greeks thì không**: delta lệch đúng hệ số
-`f` (16% với CACB2515), gamma lệch `f²`. Nên dựng lại không làm sai IV, nó *bắt buộc* để Greeks
-đúng hệ.
-
-Kết quả ngày 2026-11-13: **350/353 mã định giá được** (trước: 250), IV trung vị 48,5%, không mã
-nào vượt 300%. Mỗi dòng kết quả mang thêm `termsBasis` và `correctionFactor` để người đọc biết
-con số đến từ đâu — không có phép quy đổi nào là im lặng.
-
-**Ngày đáo hạn không phải ngày giao dịch cuối cùng.** Hai ngày lệch nhau vài ngày (CACB2515:
-GD cuối 04/03/2027, đáo hạn 08/03/2027). Dùng sai làm `T` lệch theo, kéo theta/vega lệch trên
-toàn bộ mã. Cột `maturityAdjusted` chỉ được điền khi nguồn thật sự có `ngay_dao_han`; nếu thiếu
-thì để trống chứ **không** chép đè bằng ngày giao dịch cuối cùng.
-
-Còn một việc nằm ngoài repo này: kho Vietstock hiện **chưa có** cả ba trường trên, vì
-`src/export_json.py` của `Vietstock_CW_bot` parse chúng trong scraper nhưng bỏ rơi ở bước export.
-Đã sửa ở repo đó; khi workflow bên đó chạy lại, kho sẽ có dữ liệu điều chỉnh và bước 1 sẽ thay
-thế bước 2.
-
-**Không nội suy phiên thiếu.** Phiên nguồn không trả về thì để trống và ghi vào `missing` —
-nội suy sẽ làm HV thấp giả tạo, đúng loại lỗi khó phát hiện nhất. Phiên `Volume = 0` vẫn được
-lưu nhưng bị loại khỏi phép tính lợi suất, không bị coi là "giá đứng".
-
-**Ngày lễ không phải lỗ hổng — và cách phân biệt.** Lịch lễ Việt Nam 2010–2020 không có trong
-`config.MARKET_HOLIDAYS` (chỉ khai báo từ 2021), nên đối chiếu bằng lịch cứng sẽ biến mỗi dịp
-Tết thành "thiếu dữ liệu" và che mất lỗ hổng thật. Vì vậy `market_calendar()` suy lịch thị
-trường **từ chính dữ liệu**: ngày được coi là phiên nếu ≥60% số mã đã lưu có giao dịch. Ngày
-lễ toàn thị trường tự rơi ra ngoài; mã bị đình chỉ riêng lẻ vẫn lộ ra thành lỗ hổng vì các mã
-khác vẫn giao dịch ngày đó.
-
-Kết quả trên 20 cổ phiếu cơ sở (62.162 dòng, 2010-01-04 → 2026-11-13): **16/20 mã liền mạch
-tuyệt đối**; 26 phiên thiếu còn lại đều là đình chỉ giao dịch thật — ACB 6 phiên (12/2020),
-LPB 10 phiên (10–11/2020), VIB 7 phiên (10–11/2020), SHB 3 phiên (10/2021). Kiểm chứng: giá
-phiên cuối trước gap và phiên đầu sau gap chênh nhau trong biên độ bình thường của chính mã đó,
-tức không có phiên giao dịch nào bị bỏ khỏi dữ liệu.
-
-**Khối ngoại là khối lượng, không phải tiền.** Payload cho `ForeignVolumeBuy`/`Sell`; muốn ra
-tiền phải nhân với giá khớp của riêng phần khối ngoại — dữ liệu đó không có, và nhân với
-`Average` của cả phiên sẽ tạo ra con số trông chính xác nhưng sai. Vì vậy `unit` trong payload
-ghi thẳng "cổ phiếu".
-
-### Trọng số điểm khi đã có định giá
-
-| Trục | Trọng số |
-|---|---|
-| Thanh khoản | 34% |
-| Chi phí (spread) | 26% |
-| **Định giá (IV so với nhóm)** | **20%** |
-| Chất lượng giá | 12% |
-| Độ ổn định | 8% |
-
-### Ngữ nghĩa từng trường — dùng đúng, không suy diễn
-
-| Trường | Nghĩa | Cách dùng trong dự án |
-|---|---|---|
-| `RefP` | Giá tham chiếu = **giá đóng cửa phiên trước** | Mốc tính `%Ngày`, `%gap mở cửa`, và là **chốt kiểm tra liên tục** (xem dưới) |
-| `OpenP` | Giá khớp đầu phiên | Bar `open`; `%gap` so với `RefP` |
-| `HighestP`/`LowestP` | Giá cao nhất/thấp nhất phiên | Bar `high`/`low`; biên độ trong phiên |
-| `LastMP` | **Giá đóng cửa hôm nay** (giá khớp cuối) | Bar `close`; `null` khi mã không khớp lệnh |
-| `LastMVol` | Khối lượng **của riêng lệnh khớp cuối** | Đo chất lượng giá đóng cửa (`LastMVol/TotalVol`) |
-| `AvgP` | Giá khớp bình quân | Đồng nhất thức `TotalVal ≈ TotalVol × AvgP` |
-| `TotalVol`/`TotalVal` | Khối lượng / giá trị giao dịch phiên | Xếp hạng thanh khoản |
-| `CeilingP`/`FloorP` | Giá trần / sàn của phiên | Khoảng cách tới biên, phát hiện chạm trần/sàn |
-
-Vì `RefP` là giá đóng cửa hôm qua, **% thay đổi có ngay từ phiên đầu tiên** — không cần chờ
-phiên thứ hai trong kho.
-
-Ba phân tích mới dựa trực tiếp vào đó (`cwintel/yuanta_intraday.py`):
-
-- **Biên độ trong phiên**: `(HighestP − LowestP) / RefP`, và vị trí giá đóng cửa trong khoảng
-  `[LowestP, HighestP]` (0 = đóng đáy, 1 = đóng đỉnh). Ngày 13/11: trung vị 7,3% ≈ 3 bước
-  giá, 63 mã đứng giá cả phiên, 188 mã đóng nửa trên / 102 mã đóng nửa dưới.
-- **Trần–sàn**: đọc thẳng `CeilingP`/`FloorP`. Tỷ lệ dải **không cố định** — trung vị 3.800%,
-  trải 32,8%–25.800% — vì giá CW có thể xuống sát bước giá tối thiểu (`FloorP` = 10 VND).
-  Nên không bao giờ dùng công thức ±7%. Ngày 13/11: 2 mã chạm trần, 6 mã chạm sàn.
-- **Chất lượng lệnh khớp cuối**: `LastMVol/TotalVol`. 36/353 mã (10,2%) đóng cửa bằng đúng
-  một lệnh → giá đóng cửa của các mã này kém đại diện cho cả phiên.
-
-### RefP là chốt kiểm tra tính liên tục
-
-Vì `RefP` hôm nay chính là `close` hôm qua, mỗi phiên có sẵn một phép đối chiếu độc lập với
-kho dữ liệu. `backfill_yuanta_history.py` in ra kết quả, và trang hiển thị ở tab **Trần–sàn**:
-
-```
-Liên tục RefP vs close 2026-11-12: 353/407 khớp (86.7%) · lệch>25%: 0 · thiếu phiên: 0 → Liền mạch
-```
-
-Ba trạng thái, khác nhau về bản chất:
-
-- `linked` — phiên gần nhất trong kho đúng là phiên liền trước **và** `RefP` khớp `close`.
-- `missingSession` — phiên liền trước **không có** trong kho. Đây là chẩn đoán đáng tin nhất,
-  vì nó không phụ thuộc việc so giá: giá có tình cờ khớp cũng vẫn bị báo đứt.
-- `mismatch` — có phiên liền trước nhưng `RefP` lệch `close` quá 25% → nghi bar phiên trước
-  không phải giá đóng cửa thật (hoặc nguồn đã điều chỉnh).
-
-Nhờ vậy khoảng trống dữ liệu được phát hiện **ngay phiên sau khi nó xảy ra**, thay vì phải
-suy đoán từ một chuỗi giá trông vẫn liền.
-
-### Nối vào bộ máy CW Analytics cũ
-
-`cwintel.yuanta_history.to_cwintel_ohlcv()` chuyển kho lịch sử sang đúng schema
-`cwintel.data` đọc (`Ticker/time/open/high/low/close/volume`, ngày `dd/mm/yyyy`, giá theo
-nghìn VND để `_price_to_vnd` nhân lại thành VND). Ghi cache bằng
-`write_cwintel_cache()`, hoặc `scripts/backfill_yuanta_history.py --cwintel-cache PATH`.
-
-Dashboard cũ (`docs/legacy.html`) **chưa** build được, và đây là lý do cụ thể — kiểm tra
-bằng `python scripts/check_cw_analytics_bridge.py`:
-
-| Dashboard cũ cần | Yuanta EW có? |
-|---|---|
-| OHLCV theo ngày | **có** (tích luỹ như trên) |
-| Strike, tỷ lệ chuyển đổi, ngày đáo hạn | **không** — payload chỉ có trường bảng giá |
-| Giá cổ phiếu cơ sở | **không** |
-| Chuỗi lợi suất phi rủi ro | **không** |
-| Quyền công bố dữ liệu dẫn xuất | xem `docs/DATA_RIGHTS.md` |
-
-Thiếu strike/maturity nghĩa là không thể tính intrinsic, premium, moneyness, Greeks, IV,
-điểm hay khuyến nghị — những thứ dashboard cũ hiển thị. Không có giá cổ phiếu cơ sở thì
-không có HV/IV. Vì vậy phần nối dừng đúng ở OHLCV và dữ liệu thanh khoản, thay vì bịa điều
-khoản để lấp chỗ trống.
-
-Những gì **không** làm, vì nguồn không có dữ liệu: giá lý thuyết, Greeks, IV,
-định giá, khuyến nghị, backtest. Payload cũng không có ngày đáo hạn, strike, tỷ lệ chuyển
-đổi hay tổ chức phát hành. Mã không khớp lệnh trong phiên để trống giá thay vì dùng lại
-`LastMP` của phiên trước (tránh biến động ảo).
-
-## Ba workflow và báo cáo hằng ngày
-
-| Workflow | File | Việc |
-|---|---|---|
-| `CW Yuanta EW snapshot — publish` | `cw_pipeline.yml` | 17:30 ICT T2–T6: lấy snapshot (1 request), làm sạch, ghi bar vào lịch sử, publish Pages |
-| `CW Pipeline — offline tests` | `cw_tests.yml` | Chạy test khi push/PR — không gọi mạng |
-| `CW Yuanta — daily analysis` | `daily_analysis.yml` | 18:10 ICT T2–T6, hoặc gọi từ cronjob.org: sinh báo cáo Markdown/JSON từ dữ liệu đã publish |
-
-`pages-build-deployment` trong danh sách Actions là workflow **GitHub tự sinh** cho Pages,
-không nằm trong repo — nên cộng lại thành 4 mục, không phải "chỉ có 3".
-
-Báo cáo hằng ngày chạy độc lập với việc lấy dữ liệu:
+Run the full test suite (tests use fixtures/offline data and do not call the provider API):
 
 ```bash
-python scripts/daily_analysis_report.py --summary        # gọn, cho log
-python scripts/daily_analysis_report.py --out report/x.md # đầy đủ, ghi file
-python scripts/daily_analysis_report.py --format json     # cho hệ thống khác
+pytest -q
 ```
 
-Mã thoát: `0` bình thường, `1` chưa có snapshot, `3` **dữ liệu cũ hơn ngưỡng** (36 giờ mặc
-định) — dùng để cronjob.org cảnh báo khi workflow publish thất bại. Cách dựng cronjob.org,
-token và lịch: `docs/CRONJOB.md`.
+### Automation and publishing
 
-Vì sao workflow phân tích **không** tự gọi API: chỉ có một nơi chạm mạng (`publish`), nên một
-lần WAF chặn không thể vừa làm hỏng việc lấy dữ liệu vừa ghi snapshot rỗng vào lịch sử. Lần
-chạy phân tích hoặc phản ánh dữ liệu thật, hoặc báo "dữ liệu cũ" — cả hai đều đúng.
+The `CW Yuanta EW snapshot — publish` workflow (`.github/workflows/cw_pipeline.yml`) can be run manually and is scheduled on weekdays at **17:30 ICT**. It fetches a snapshot, analyses it, refreshes session history/JSON, and publishes only changed files. Some valuation inputs are optional; if synchronization is unavailable, the pipeline preserves the data limitation and reports unavailable metrics rather than fabricating values.
 
-## Mã cũ
+The `CW Yuanta — daily analysis` workflow (`.github/workflows/daily_analysis.yml`) runs afterward, on weekdays at **18:10 ICT**. It reads published data only, makes no new API request, and creates a report/artifact. It can also be run manually from the **Actions** tab.
 
-`pipeline.py`, `vnstock_config.py` và `cwintel/` được giữ lại để tham khảo/tái sử dụng offline, nhưng không còn là nguồn dữ liệu hay đường phát hành mặc định. Workflow Yuanta không cài hoặc gọi Vnstock, Vietstock, HNX hay VBMA.
+To publish the website, configure GitHub Pages to use the `main` branch and `/docs` directory.
+
+### Investment disclaimer
+
+This project is for informational and educational purposes only. It is not investment advice or an offer to buy or sell securities. Covered warrants are leveraged, can be highly volatile, and may expire worthless. Verify the data and consider your risk tolerance before making any investment decision.
