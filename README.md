@@ -3,6 +3,8 @@
 > **VI:** Bảng giá chứng quyền tĩnh kèm phân tích định lượng, được cập nhật bằng GitHub Actions và xuất bản qua GitHub Pages.
 >
 > **EN:** A static covered-warrant board with quantitative analytics, refreshed by GitHub Actions and published through GitHub Pages.
+>
+> **Bản chạy / Live site:** [cw-analytics.vercel.app](https://cw-analytics.vercel.app/)
 
 [English](#english) · [Tiếng Việt](#tiếng-việt)
 
