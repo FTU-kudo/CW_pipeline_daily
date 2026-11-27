@@ -302,6 +302,14 @@ const kpiVnd = value => {
   const amount = kpiValue(value);
   return amount === null ? '—' : kpiNum(amount);
 };
+// The headline traded-value KPI uses a compact, two-decimal scale; footer values stay exact.
+const kpiCompactVnd = value => {
+  const amount = kpiValue(value);
+  if (amount === null) return '—';
+  if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`;
+  if (amount >= 1e6) return `${(amount / 1e6).toFixed(2)} ${bi('tr', 'm')}`;
+  return kpiNum(amount);
+};
 
 // Stacked distributions always use their stated denominator; unavailable segments are 0 wide.
 function miniBars(items, total, options = {}){
@@ -395,7 +403,7 @@ function renderOverview(){
     },
     {
       id: 'value', tier: 'primary', k: 'Giá trị giao dịch',
-      v: kpiVnd(totalValue), icon: 'coins', iconTone: 'emerald',
+      v: kpiCompactVnd(totalValue), icon: 'coins', iconTone: 'emerald',
       badge: `VND · ${tx('Phiên hiện tại')}`,
       footer: `<div class="ov-value-footer"><span>${esc(tx('Bình quân / mã khớp lệnh'))}</span><b>${esc(kpiVnd(avgValuePerActiveCW))}</b></div>`,
     },

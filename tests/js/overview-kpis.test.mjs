@@ -45,6 +45,8 @@ test('overview always builds the full eight-card, current-session KPI deck', () 
   assert.match(html, /class="ov-tier ov-tier-secondary"/);
   assert.match(html, /const kpiNum = \(value, digits = 0\) => metricNumber\(value, digits, getLang\(\) === 'en' \? 'en-US' : 'vi-VN'\)/);
   assert.match(html, /const kpiVnd = value =>[\s\S]*?kpiNum\(amount\)/);
+  assert.match(html, /const kpiCompactVnd = value =>[\s\S]*?toFixed\(2\)[\s\S]*?bi\('tỷ', 'bn'\)[\s\S]*?toFixed\(2\)/);
+  assert.match(block, /v: kpiCompactVnd\(totalValue\)/);
   assert.match(html, /numericCell\(r,'TotalVal'\)/);
   assert.match(html, /compactSplit: true/);
   assert.match(html, /splitLabelsOnly: true/);
