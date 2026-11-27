@@ -24,7 +24,7 @@
     .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 6px}
     .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
     .stat .k{color:var(--muted);font-size:12px}.stat .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
-    .stat .n{color:var(--muted);font-size:11px;margin-top:2px}
+    .stat .n{color:var(--muted);font-size:12px;margin-top:2px}
     td.num{font-variant-numeric:tabular-nums}.idle{color:var(--warn)}
     .negative{color:#ff8a7a}.positive{color:var(--accent)}
     .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
@@ -117,7 +117,7 @@
        đẩy sang phải. Trước đây cả mười mục cùng kích thước nên người dùng không phân biệt
        được đâu là chuyển trang, đâu là tuỳ chọn. -->
   <nav class="nav-block" id="tabs" aria-label="Điều hướng chế độ xem">
-    <div class="nav-group" role="tablist" aria-label="Chế độ xem">
+    <div class="nav-group view-group" role="tablist" aria-label="Chế độ xem">
       <span class="nav-group-label">Xem</span>
       <button type="button" class="tab active" data-view="board" role="tab" aria-selected="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><span class="t-txt">Bảng giá</span></button>
       <button type="button" class="tab" data-view="scoring" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg><span class="t-txt">Xếp hạng</span></button>
@@ -128,7 +128,7 @@
 
     <span class="nav-divider" aria-hidden="true"></span>
 
-    <div class="nav-group" role="group" aria-label="Tuỳ chọn hiển thị">
+    <div class="nav-group nav-options" role="group" aria-label="Tuỳ chọn hiển thị">
       <span class="nav-group-label">Tuỳ chọn</span>
       <button type="button" class="tab chip" data-view="stale" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg><span class="t-txt">Mã không giao dịch</span></button>
       <button type="button" class="tab chip" data-view="intraday" role="tab" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="t-txt">Trong phiên</span></button>
