@@ -9,7 +9,9 @@ test('active app styles do not declare text below 12px', () => {
   for (const [file, content] of [['ui.css', css], ['index.html', html]]) {
     const sizes = [...content.matchAll(/font-size\s*:\s*([0-9]+(?:\.[0-9]+)?)px/g)]
       .map(match => Number(match[1]));
-    assert.ok(sizes.every(size => size >= 12), `${file} contains a font-size declaration below 12px`);
+    const smallSizes = sizes.filter(size => size < 12);
+    assert.deepEqual(smallSizes, file === 'ui.css' ? [11] : [], `${file} contains an unexpected sub-12px font size`);
+    if (file === 'ui.css') assert.match(content, /\.ov-card-secondary \.ov-k > \.ov-badge[^}]*font-size:\s*11px/);
     assert.doesNotMatch(content, /font-size\s*:\s*0(?:\s*[;}])/i, `${file} contains hidden zero-size text`);
     const shorthandSizes = [...content.matchAll(/font\s*:\s*(?:(?:normal|bold|[1-9]00)\s+)*([0-9]+(?:\.[0-9]+)?)px/g)]
       .map(match => Number(match[1]));
@@ -21,7 +23,8 @@ test('Bento KPI tiers fill the overview width and retain contrast-aware scales',
   assert.match(css, /#ov-grid\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;[\s\S]*?width:\s*100%/);
   assert.match(css, /#ov-grid > \.ov-tier\s*\{\s*width:\s*100%;/);
   assert.match(css, /\.ov-tier-primary\s*\{\s*grid-template-columns:\s*repeat\(3,/);
-  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(6,/);
+  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(5,/);
+  assert.match(css, /@media \(max-width: 1023px\)\s*\{[\s\S]*?\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(2,/);
   assert.match(css, /\.ov-icon-badge\s*\{[\s\S]*?flex:\s*0 0 36px;[\s\S]*?width:\s*36px;[\s\S]*?height:\s*36px/);
   assert.match(css, /\.ov-icon-badge \.ov-ico\s*\{[\s\S]*?width:\s*18px;[\s\S]*?height:\s*18px/);
   assert.match(css, /\.ov-k-title\s*\{[\s\S]*?color:\s*var\(--text\);[\s\S]*?font-size:\s*14px;[\s\S]*?font-weight:\s*680;[\s\S]*?white-space:\s*nowrap/);

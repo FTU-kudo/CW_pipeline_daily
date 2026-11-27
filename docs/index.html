@@ -417,6 +417,8 @@ function renderOverview(){
     {
       id: 'moneyness', tier: 'secondary', k: 'Phân bố trạng thái tiền', icon: 'target', iconTone: 'amber',
       badge: `${tx('Đã định giá')}: ${kpiNum(pricedCount)}/${kpiNum(totalCW)}`,
+      compactSplit: true,
+      splitLabelsOnly: true,
       split: [
         ['itm', kpiNum(moneynessDataAvailable ? counts.ITM : null), 'ITM', itmPct],
         ['atm', kpiNum(moneynessDataAvailable ? counts.ATM : null), 'ATM', atmPct],
@@ -426,7 +428,7 @@ function renderOverview(){
         ['ITM', moneynessDataAvailable ? counts.ITM : null, 'itm', itmPct],
         ['ATM', moneynessDataAvailable ? counts.ATM : null, 'atm', atmPct],
         ['OTM', moneynessDataAvailable ? counts.OTM : null, 'otm', otmPct],
-      ], pricedCount),
+      ], pricedCount, {percentOnly: true}),
     },
     {
       id: 'iv', tier: 'secondary', k: 'IV trung vị', v: kpiPct(medianIv),
@@ -462,7 +464,9 @@ function renderOverview(){
       ? `<div class="ov-split${card.compactSplit ? ' ov-split-counts' : ''}"${card.compactSplit ? ` role="group" aria-label="${esc(tx(card.k))}"` : ''}>${card.split.map(([tone, count, label, pct]) => {
         const percentLabel = pct === '—' ? '—' : `${pct}%`;
         const splitLabel = card.compactSplit
-          ? `<span class="sr-only">${esc(tx(label))}</span>`
+          ? card.splitLabelsOnly
+            ? `<span class="ov-split-label">${esc(tx(label))}</span>`
+            : `<span class="sr-only">${esc(tx(label))}</span>`
           : `<span class="ov-split-label">${esc(tx(label))}<b>${esc(percentLabel)}</b></span>`;
         return `<div class="ov-split-item ${tone}"><span class="ov-split-value">${esc(count)}</span>${splitLabel}</div>`;
       }).join('')}</div>`

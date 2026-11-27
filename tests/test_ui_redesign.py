@@ -221,6 +221,7 @@ def test_10_overview_has_three_primary_and_five_secondary_cards():
     assert 'class="ov-tier ov-tier-primary"' in block
     assert 'class="ov-tier ov-tier-secondary"' in block
     assert 'compactSplit: true' in block
+    assert 'splitLabelsOnly: true' in block
     assert '{percentOnly: true}' in block
     assert 'class="ov-k-main"' in block
 
