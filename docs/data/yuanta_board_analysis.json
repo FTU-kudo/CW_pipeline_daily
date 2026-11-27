@@ -5,7 +5,7 @@
     "name": "Yuanta YS Radar — price board",
     "endpoint": "https://ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW",
     "stockType": "EW",
-    "fetchedAt": "2026-11-27T06:30:22+00:00",
+    "fetchedAt": "2026-11-27T07:10:38+00:00",
     "rowsInSnapshot": 482
   },
   "units": {
@@ -24,24 +24,24 @@
   ],
   "summary": {
     "rows": 482,
-    "traded": 415,
-    "untraded": 67,
-    "tradedSharePct": 86.1,
+    "traded": 425,
+    "untraded": 57,
+    "tradedSharePct": 88.17,
     "underlyings": 20,
-    "totalVolume": 53619900.0,
-    "totalValueVND": 21704440260.0,
-    "medianValueVND": 6160035.0,
-    "p90ValueVND": 167685860.0,
-    "top10ValueSharePct": 31.03,
-    "gainers": 196,
-    "losers": 138,
-    "unchanged": 81,
+    "totalVolume": 64249000.0,
+    "totalValueVND": 24851900971.0,
+    "medianValueVND": 6960059.0,
+    "p90ValueVND": 175237373.0,
+    "top10ValueSharePct": 32.62,
+    "gainers": 171,
+    "losers": 171,
+    "unchanged": 83,
     "medianChangePct": 0.0,
-    "medianLastPriceVND": 420.0,
+    "medianLastPriceVND": 410.0,
     "medianSpreadAbsVND": 10.0,
     "medianSpreadPct": 2.67,
     "medianSpreadTicks": 1.0,
-    "rowsWithDepth": 472
+    "rowsWithDepth": 473
   },
   "movers": {
     "gainers": [
@@ -86,16 +86,6 @@
         "SpreadPct": 120.0
       },
       {
-        "StockCode": "CHPG2603",
-        "Underlying": "HPG",
-        "LastPrice": 20.0,
-        "RefP": 10.0,
-        "PriceChangePct": 100.0,
-        "TradingValueVND": 2000.0,
-        "TotalVol": 100.0,
-        "SpreadPct": 66.67
-      },
-      {
         "StockCode": "CVNM2619",
         "Underlying": "VNM",
         "LastPrice": 370.0,
@@ -131,8 +121,18 @@
         "LastPrice": 30.0,
         "RefP": 20.0,
         "PriceChangePct": 50.0,
-        "TradingValueVND": 4215527.0,
-        "TotalVol": 176900.0,
+        "TradingValueVND": 4302614.0,
+        "TotalVol": 179800.0,
+        "SpreadPct": 40.0
+      },
+      {
+        "StockCode": "CVNM2601",
+        "Underlying": "VNM",
+        "LastPrice": 30.0,
+        "RefP": 20.0,
+        "PriceChangePct": 50.0,
+        "TradingValueVND": 3750600.0,
+        "TotalVol": 140000.0,
         "SpreadPct": 40.0
       },
       {
@@ -141,21 +141,21 @@
         "LastPrice": 30.0,
         "RefP": 20.0,
         "PriceChangePct": 50.0,
-        "TradingValueVND": 1221276.0,
-        "TotalVol": 58800.0,
-        "SpreadPct": 100.0
+        "TradingValueVND": 1301955.0,
+        "TotalVol": 61500.0,
+        "SpreadPct": 40.0
       }
     ],
     "losers": [
       {
         "StockCode": "CVPB2603",
         "Underlying": "VPB",
-        "LastPrice": 30.0,
+        "LastPrice": 20.0,
         "RefP": 80.0,
-        "PriceChangePct": -62.5,
-        "TradingValueVND": 101000.0,
-        "TotalVol": 5000.0,
-        "SpreadPct": 100.0
+        "PriceChangePct": -75.0,
+        "TradingValueVND": 103020.0,
+        "TotalVol": 5100.0,
+        "SpreadPct": 66.67
       },
       {
         "StockCode": "CACB2614",
@@ -163,9 +163,9 @@
         "LastPrice": 20.0,
         "RefP": 50.0,
         "PriceChangePct": -60.0,
-        "TradingValueVND": 1760000.0,
-        "TotalVol": 88000.0,
-        "SpreadPct": 66.67
+        "TradingValueVND": 3088000.0,
+        "TotalVol": 154400.0,
+        "SpreadPct": 40.0
       },
       {
         "StockCode": "CACB2604",
@@ -178,24 +178,44 @@
         "SpreadPct": 40.0
       },
       {
+        "StockCode": "CSSB2604",
+        "Underlying": "SSB",
+        "LastPrice": 50.0,
+        "RefP": 110.0,
+        "PriceChangePct": -54.55,
+        "TradingValueVND": 26963208.0,
+        "TotalVol": 413800.0,
+        "SpreadPct": 22.22
+      },
+      {
         "StockCode": "CVPB2528",
         "Underlying": "VPB",
         "LastPrice": 10.0,
         "RefP": 20.0,
         "PriceChangePct": -50.0,
-        "TradingValueVND": 21433000.0,
-        "TotalVol": 2143300.0,
+        "TradingValueVND": 21517000.0,
+        "TotalVol": 2151700.0,
         "SpreadPct": null
       },
       {
-        "StockCode": "CHPG2631",
-        "Underlying": "HPG",
+        "StockCode": "CVPB2626",
+        "Underlying": "VPB",
+        "LastPrice": 20.0,
+        "RefP": 40.0,
+        "PriceChangePct": -50.0,
+        "TradingValueVND": 20621320.0,
+        "TotalVol": 841000.0,
+        "SpreadPct": 40.0
+      },
+      {
+        "StockCode": "CLPB2608",
+        "Underlying": "LPB",
         "LastPrice": 10.0,
         "RefP": 20.0,
         "PriceChangePct": -50.0,
-        "TradingValueVND": 2612000.0,
-        "TotalVol": 261200.0,
-        "SpreadPct": null
+        "TradingValueVND": 1125000.0,
+        "TotalVol": 112500.0,
+        "SpreadPct": 66.67
       },
       {
         "StockCode": "CHPG2618",
@@ -206,16 +226,6 @@
         "TradingValueVND": 16000.0,
         "TotalVol": 100.0,
         "SpreadPct": 6.06
-      },
-      {
-        "StockCode": "CLPB2608",
-        "Underlying": "LPB",
-        "LastPrice": 10.0,
-        "RefP": 20.0,
-        "PriceChangePct": -50.0,
-        "TradingValueVND": 2000.0,
-        "TotalVol": 200.0,
-        "SpreadPct": null
       },
       {
         "StockCode": "CSHB2612",
@@ -236,16 +246,6 @@
         "TradingValueVND": 13000.0,
         "TotalVol": 100.0,
         "SpreadPct": 8.0
-      },
-      {
-        "StockCode": "CMSN2615",
-        "Underlying": "MSN",
-        "LastPrice": 110.0,
-        "RefP": 210.0,
-        "PriceChangePct": -47.62,
-        "TradingValueVND": 11000.0,
-        "TotalVol": 100.0,
-        "SpreadPct": 8.7
       }
     ],
     "all": [
@@ -256,8 +256,8 @@
         "lastPrice": 80.0,
         "refPrice": 80.0,
         "priceChangePct": 0.0,
-        "volume": 73000.0,
-        "valueVND": 5840000.0,
+        "volume": 85000.0,
+        "valueVND": 6800000.0,
         "spreadTicks": 1.0,
         "spreadPct": 13.33,
         "valueSharePct": 0.03
@@ -266,11 +266,11 @@
         "t": "CACB2517",
         "u": "ACB",
         "traded": true,
-        "lastPrice": 30.0,
+        "lastPrice": 20.0,
         "refPrice": 30.0,
-        "priceChangePct": 0.0,
-        "volume": 249200.0,
-        "valueVND": 4986492.0,
+        "priceChangePct": -33.33,
+        "volume": 298600.0,
+        "valueVND": 5974986.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.02
@@ -308,11 +308,11 @@
         "lastPrice": 110.0,
         "refPrice": 120.0,
         "priceChangePct": -8.33,
-        "volume": 5300.0,
-        "valueVND": 597999.0,
+        "volume": 43600.0,
+        "valueVND": 4810824.0,
         "spreadTicks": 1.0,
-        "spreadPct": 8.7,
-        "valueSharePct": 0.0
+        "spreadPct": 9.52,
+        "valueSharePct": 0.02
       },
       {
         "t": "CACB2607",
@@ -321,10 +321,10 @@
         "lastPrice": 320.0,
         "refPrice": 320.0,
         "priceChangePct": 0.0,
-        "volume": 1800.0,
-        "valueVND": 563994.0,
+        "volume": 2000.0,
+        "valueVND": 626000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
+        "spreadPct": 3.39,
         "valueSharePct": 0.0
       },
       {
@@ -347,10 +347,10 @@
         "lastPrice": 20.0,
         "refPrice": 50.0,
         "priceChangePct": -60.0,
-        "volume": 88000.0,
-        "valueVND": 1760000.0,
+        "volume": 154400.0,
+        "valueVND": 3088000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 66.67,
+        "spreadPct": 40.0,
         "valueSharePct": 0.01
       },
       {
@@ -363,8 +363,8 @@
         "volume": 163000.0,
         "valueVND": 73499960.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.2,
-        "valueSharePct": 0.34
+        "spreadPct": 2.25,
+        "valueSharePct": 0.3
       },
       {
         "t": "CACB2616",
@@ -402,7 +402,7 @@
         "volume": 100.0,
         "valueVND": 19000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 5.13,
+        "spreadPct": 5.41,
         "valueSharePct": 0.0
       },
       {
@@ -412,11 +412,11 @@
         "lastPrice": 250.0,
         "refPrice": 250.0,
         "priceChangePct": 0.0,
-        "volume": 56400.0,
-        "valueVND": 14318832.0,
+        "volume": 61400.0,
+        "valueVND": 15569198.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.92,
-        "valueSharePct": 0.07
+        "spreadPct": 4.08,
+        "valueSharePct": 0.06
       },
       {
         "t": "CACB2620",
@@ -438,8 +438,8 @@
         "lastPrice": 30.0,
         "refPrice": 40.0,
         "priceChangePct": -25.0,
-        "volume": 311900.0,
-        "valueVND": 9709447.0,
+        "volume": 314600.0,
+        "valueVND": 9790352.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.04
@@ -448,14 +448,14 @@
         "t": "CACB2622",
         "u": "ACB",
         "traded": true,
-        "lastPrice": 230.0,
+        "lastPrice": 220.0,
         "refPrice": 220.0,
-        "priceChangePct": 4.55,
-        "volume": 154200.0,
-        "valueVND": 35123676.0,
+        "priceChangePct": 0.0,
+        "volume": 154700.0,
+        "valueVND": 35236019.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.26,
-        "valueSharePct": 0.16
+        "spreadPct": 4.65,
+        "valueSharePct": 0.14
       },
       {
         "t": "CACB2623",
@@ -464,21 +464,21 @@
         "lastPrice": 210.0,
         "refPrice": 200.0,
         "priceChangePct": 5.0,
-        "volume": 33900.0,
-        "valueVND": 7119000.0,
+        "volume": 34000.0,
+        "valueVND": 7140000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.65,
+        "spreadPct": 4.88,
         "valueSharePct": 0.03
       },
       {
         "t": "CACB2624",
         "u": "ACB",
         "traded": true,
-        "lastPrice": 290.0,
+        "lastPrice": 280.0,
         "refPrice": 300.0,
-        "priceChangePct": -3.33,
-        "volume": 7000.0,
-        "valueVND": 2005010.0,
+        "priceChangePct": -6.67,
+        "volume": 7500.0,
+        "valueVND": 2145000.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.51,
         "valueSharePct": 0.01
@@ -493,7 +493,7 @@
         "volume": 100.0,
         "valueVND": 204000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.48,
+        "spreadPct": 2.49,
         "valueSharePct": 0.0
       },
       {
@@ -506,20 +506,20 @@
         "volume": 10100.0,
         "valueVND": 3434000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.47,
-        "valueSharePct": 0.02
+        "spreadPct": 2.53,
+        "valueSharePct": 0.01
       },
       {
         "t": "CACB2627",
         "u": "ACB",
         "traded": true,
-        "lastPrice": 420.0,
+        "lastPrice": 410.0,
         "refPrice": 440.0,
-        "priceChangePct": -4.55,
-        "volume": 14100.0,
-        "valueVND": 5216013.0,
+        "priceChangePct": -6.82,
+        "volume": 14200.0,
+        "valueVND": 5256982.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.35,
+        "spreadPct": 2.41,
         "valueSharePct": 0.02
       },
       {
@@ -532,7 +532,7 @@
         "volume": 11100.0,
         "valueVND": 4449990.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.11,
+        "spreadPct": 2.15,
         "valueSharePct": 0.02
       },
       {
@@ -542,8 +542,8 @@
         "lastPrice": 680.0,
         "refPrice": 660.0,
         "priceChangePct": 3.03,
-        "volume": 1500.0,
-        "valueVND": 1008000.0,
+        "volume": 1700.0,
+        "valueVND": 1143998.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.5,
         "valueSharePct": 0.0
@@ -557,9 +557,9 @@
         "priceChangePct": -14.44,
         "volume": 48000.0,
         "valueVND": 36960000.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.31,
-        "valueSharePct": 0.17
+        "spreadTicks": null,
+        "spreadPct": null,
+        "valueSharePct": 0.15
       },
       {
         "t": "CACB2631",
@@ -568,11 +568,11 @@
         "lastPrice": 780.0,
         "refPrice": 760.0,
         "priceChangePct": 2.63,
-        "volume": 252700.0,
-        "valueVND": 197907059.0,
+        "volume": 254700.0,
+        "valueVND": 199465758.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.27,
-        "valueSharePct": 0.91
+        "spreadPct": 1.31,
+        "valueSharePct": 0.8
       },
       {
         "t": "CACB2632",
@@ -581,11 +581,11 @@
         "lastPrice": 740.0,
         "refPrice": 940.0,
         "priceChangePct": -21.28,
-        "volume": 265000.0,
-        "valueVND": 227619100.0,
+        "volume": 280000.0,
+        "valueVND": 238719600.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.36,
-        "valueSharePct": 1.05
+        "spreadPct": 1.38,
+        "valueSharePct": 0.96
       },
       {
         "t": "CACB2633",
@@ -597,7 +597,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 2.06,
+        "spreadPct": 2.15,
         "valueSharePct": null
       },
       {
@@ -610,7 +610,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.4,
+        "spreadPct": 1.44,
         "valueSharePct": null
       },
       {
@@ -622,8 +622,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 3.0,
-        "spreadPct": 2.25,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.77,
         "valueSharePct": null
       },
       {
@@ -635,8 +635,8 @@
         "priceChangePct": -23.86,
         "volume": 200.0,
         "valueVND": 268000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.48,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.76,
         "valueSharePct": 0.0
       },
       {
@@ -648,8 +648,8 @@
         "priceChangePct": 25.0,
         "volume": 40700.0,
         "valueVND": 1732192.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 50.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 22.22,
         "valueSharePct": 0.01
       },
       {
@@ -659,8 +659,8 @@
         "lastPrice": 20.0,
         "refPrice": 20.0,
         "priceChangePct": 0.0,
-        "volume": 23100.0,
-        "valueVND": 462000.0,
+        "volume": 33200.0,
+        "valueVND": 564068.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
         "valueSharePct": 0.0
@@ -711,21 +711,21 @@
         "lastPrice": 40.0,
         "refPrice": 30.0,
         "priceChangePct": 33.33,
-        "volume": 493500.0,
-        "valueVND": 19740000.0,
+        "volume": 616500.0,
+        "valueVND": 24660000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 28.57,
-        "valueSharePct": 0.09
+        "spreadPct": 22.22,
+        "valueSharePct": 0.1
       },
       {
         "t": "CFPT2611",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 70.0,
+        "lastPrice": 60.0,
         "refPrice": 100.0,
-        "priceChangePct": -30.0,
-        "volume": 6700.0,
-        "valueVND": 469000.0,
+        "priceChangePct": -40.0,
+        "volume": 7600.0,
+        "valueVND": 523032.0,
         "spreadTicks": 1.0,
         "spreadPct": 15.38,
         "valueSharePct": 0.0
@@ -737,11 +737,11 @@
         "lastPrice": 40.0,
         "refPrice": 50.0,
         "priceChangePct": -20.0,
-        "volume": 114100.0,
-        "valueVND": 4764816.0,
+        "volume": 214200.0,
+        "valueVND": 8769348.0,
         "spreadTicks": 1.0,
         "spreadPct": 22.22,
-        "valueSharePct": 0.02
+        "valueSharePct": 0.04
       },
       {
         "t": "CFPT2614",
@@ -760,11 +760,11 @@
         "t": "CFPT2615",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 70.0,
+        "lastPrice": 80.0,
         "refPrice": 80.0,
-        "priceChangePct": -12.5,
-        "volume": 15200.0,
-        "valueVND": 1210072.0,
+        "priceChangePct": 0.0,
+        "volume": 15700.0,
+        "valueVND": 1250034.0,
         "spreadTicks": 1.0,
         "spreadPct": 13.33,
         "valueSharePct": 0.01
@@ -799,14 +799,14 @@
         "t": "CFPT2622",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 80.0,
+        "lastPrice": 90.0,
         "refPrice": 120.0,
-        "priceChangePct": -33.33,
-        "volume": 73000.0,
-        "valueVND": 5867740.0,
+        "priceChangePct": -25.0,
+        "volume": 75400.0,
+        "valueVND": 6084026.0,
         "spreadTicks": 3.0,
         "spreadPct": 28.57,
-        "valueSharePct": 0.03
+        "valueSharePct": 0.02
       },
       {
         "t": "CFPT2623",
@@ -828,11 +828,11 @@
         "lastPrice": 80.0,
         "refPrice": 80.0,
         "priceChangePct": 0.0,
-        "volume": 592300.0,
-        "valueVND": 50120426.0,
+        "volume": 865600.0,
+        "valueVND": 72000608.0,
         "spreadTicks": 1.0,
         "spreadPct": 11.76,
-        "valueSharePct": 0.23
+        "valueSharePct": 0.29
       },
       {
         "t": "CFPT2625",
@@ -856,8 +856,8 @@
         "priceChangePct": -27.27,
         "volume": 300.0,
         "valueVND": 26001.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 35.29,
+        "spreadTicks": 2.0,
+        "spreadPct": 22.22,
         "valueSharePct": 0.0
       },
       {
@@ -867,11 +867,11 @@
         "lastPrice": 310.0,
         "refPrice": 270.0,
         "priceChangePct": 14.81,
-        "volume": 62900.0,
-        "valueVND": 16849023.0,
+        "volume": 63100.0,
+        "valueVND": 16910800.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
-        "valueSharePct": 0.08
+        "spreadPct": 3.28,
+        "valueSharePct": 0.07
       },
       {
         "t": "CFPT2628",
@@ -884,7 +884,7 @@
         "valueVND": 1096015.0,
         "spreadTicks": 1.0,
         "spreadPct": 6.06,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.0
       },
       {
         "t": "CFPT2629",
@@ -923,7 +923,7 @@
         "valueVND": 30028108.0,
         "spreadTicks": 1.0,
         "spreadPct": 8.0,
-        "valueSharePct": 0.14
+        "valueSharePct": 0.12
       },
       {
         "t": "CFPT2632",
@@ -932,23 +932,23 @@
         "lastPrice": 30.0,
         "refPrice": 20.0,
         "priceChangePct": 50.0,
-        "volume": 58800.0,
-        "valueVND": 1221276.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 100.0,
+        "volume": 61500.0,
+        "valueVND": 1301955.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 40.0,
         "valueSharePct": 0.01
       },
       {
         "t": "CFPT2633",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 140.0,
+        "lastPrice": 130.0,
         "refPrice": 130.0,
-        "priceChangePct": 7.69,
-        "volume": 40500.0,
-        "valueVND": 5384880.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 15.38,
+        "priceChangePct": 0.0,
+        "volume": 45200.0,
+        "valueVND": 6017024.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 8.0,
         "valueSharePct": 0.02
       },
       {
@@ -958,10 +958,10 @@
         "lastPrice": 120.0,
         "refPrice": 110.0,
         "priceChangePct": 9.09,
-        "volume": 59100.0,
-        "valueVND": 6590832.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 18.18,
+        "volume": 61900.0,
+        "valueVND": 6925991.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 9.52,
         "valueSharePct": 0.03
       },
       {
@@ -997,8 +997,8 @@
         "lastPrice": 20.0,
         "refPrice": 30.0,
         "priceChangePct": -33.33,
-        "volume": 95300.0,
-        "valueVND": 2417761.0,
+        "volume": 111200.0,
+        "valueVND": 2747752.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.01
@@ -1026,7 +1026,7 @@
         "volume": 600.0,
         "valueVND": 645000.0,
         "spreadTicks": 3.0,
-        "spreadPct": 2.69,
+        "spreadPct": 2.71,
         "valueSharePct": 0.0
       },
       {
@@ -1039,7 +1039,7 @@
         "volume": 100.0,
         "valueVND": 147000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 3.48,
+        "spreadPct": 3.51,
         "valueSharePct": 0.0
       },
       {
@@ -1053,33 +1053,33 @@
         "valueVND": 3568980.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.9,
-        "valueSharePct": 0.02
+        "valueSharePct": 0.01
       },
       {
         "t": "CFPT2642",
         "u": "FPT",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 360.0,
         "refPrice": 340.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": 5.88,
+        "volume": 2500.0,
+        "valueVND": 852000.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.74,
-        "valueSharePct": null
+        "valueSharePct": 0.0
       },
       {
         "t": "CFPT2643",
         "u": "FPT",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 330.0,
         "refPrice": 350.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": -5.71,
+        "volume": 10000.0,
+        "valueVND": 3300000.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.6,
-        "valueSharePct": null
+        "valueSharePct": 0.01
       },
       {
         "t": "CFPT2644",
@@ -1091,7 +1091,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 2.2,
+        "spreadPct": 2.25,
         "valueSharePct": null
       },
       {
@@ -1103,48 +1103,48 @@
         "priceChangePct": -1.72,
         "volume": 1100.0,
         "valueVND": 629002.0,
-        "spreadTicks": 8.0,
-        "spreadPct": 14.55,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.71,
         "valueSharePct": 0.0
       },
       {
         "t": "CFPT2646",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 330.0,
+        "lastPrice": 320.0,
         "refPrice": 310.0,
-        "priceChangePct": 6.45,
-        "volume": 485300.0,
-        "valueVND": 153442154.0,
+        "priceChangePct": 3.23,
+        "volume": 521000.0,
+        "valueVND": 165125740.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.08,
-        "valueSharePct": 0.71
+        "valueSharePct": 0.66
       },
       {
         "t": "CFPT2647",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 620.0,
+        "lastPrice": 580.0,
         "refPrice": 590.0,
-        "priceChangePct": 5.08,
-        "volume": 419600.0,
-        "valueVND": 242843500.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 3.33,
-        "valueSharePct": 1.12
+        "priceChangePct": -1.69,
+        "volume": 447800.0,
+        "valueVND": 259567270.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.68,
+        "valueSharePct": 1.04
       },
       {
         "t": "CFPT2648",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 630.0,
+        "lastPrice": 450.0,
         "refPrice": 740.0,
-        "priceChangePct": -14.86,
-        "volume": 1100.0,
-        "valueVND": 502997.0,
+        "priceChangePct": -39.19,
+        "volume": 5100.0,
+        "valueVND": 2303007.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.53,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.01
       },
       {
         "t": "CFPT2649",
@@ -1156,47 +1156,47 @@
         "volume": 1100.0,
         "valueVND": 938003.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.1,
+        "spreadPct": 1.12,
         "valueSharePct": 0.0
       },
       {
         "t": "CFPT2650",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 950.0,
+        "lastPrice": 900.0,
         "refPrice": 1030.0,
-        "priceChangePct": -7.77,
-        "volume": 85600.0,
-        "valueVND": 80717376.0,
+        "priceChangePct": -12.62,
+        "volume": 94800.0,
+        "valueVND": 89123376.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.08,
-        "valueSharePct": 0.37
+        "spreadPct": 1.09,
+        "valueSharePct": 0.36
       },
       {
         "t": "CFPT2651",
         "u": "FPT",
         "traded": true,
-        "lastPrice": 710.0,
+        "lastPrice": 750.0,
         "refPrice": 790.0,
-        "priceChangePct": -10.13,
-        "volume": 23100.0,
-        "valueVND": 16529898.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.67,
-        "valueSharePct": 0.08
+        "priceChangePct": -5.06,
+        "volume": 37700.0,
+        "valueVND": 27496118.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.36,
+        "valueSharePct": 0.11
       },
       {
         "t": "CHDB2509",
         "u": "HDB",
         "traded": true,
-        "lastPrice": 1130.0,
+        "lastPrice": 1120.0,
         "refPrice": 1050.0,
-        "priceChangePct": 7.62,
-        "volume": 82400.0,
-        "valueVND": 91086608.0,
+        "priceChangePct": 6.67,
+        "volume": 82500.0,
+        "valueVND": 91198800.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.89,
-        "valueSharePct": 0.42
+        "spreadPct": 0.9,
+        "valueSharePct": 0.37
       },
       {
         "t": "CHDB2603",
@@ -1208,7 +1208,7 @@
         "volume": 200.0,
         "valueVND": 172000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 2.33,
+        "spreadPct": 2.35,
         "valueSharePct": 0.0
       },
       {
@@ -1247,8 +1247,8 @@
         "volume": 81900.0,
         "valueVND": 87651837.0,
         "spreadTicks": 4.0,
-        "spreadPct": 3.7,
-        "valueSharePct": 0.4
+        "spreadPct": 3.74,
+        "valueSharePct": 0.35
       },
       {
         "t": "CHDB2609",
@@ -1260,8 +1260,8 @@
         "volume": 106000.0,
         "valueVND": 138799580.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.76,
-        "valueSharePct": 0.64
+        "spreadPct": 0.77,
+        "valueSharePct": 0.56
       },
       {
         "t": "CHDB2610",
@@ -1270,8 +1270,8 @@
         "lastPrice": 690.0,
         "refPrice": 660.0,
         "priceChangePct": 4.55,
-        "volume": 2300.0,
-        "valueVND": 1597994.0,
+        "volume": 3000.0,
+        "valueVND": 2081010.0,
         "spreadTicks": 6.0,
         "spreadPct": 8.7,
         "valueSharePct": 0.01
@@ -1286,21 +1286,21 @@
         "volume": 200.0,
         "valueVND": 128000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 3.12,
+        "spreadPct": 3.17,
         "valueSharePct": 0.0
       },
       {
         "t": "CHDB2612",
         "u": "HDB",
         "traded": true,
-        "lastPrice": 1590.0,
+        "lastPrice": 1580.0,
         "refPrice": 1540.0,
-        "priceChangePct": 3.25,
-        "volume": 52000.0,
-        "valueVND": 82490200.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 1.92,
-        "valueSharePct": 0.38
+        "priceChangePct": 2.6,
+        "volume": 111000.0,
+        "valueVND": 176210280.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.27,
+        "valueSharePct": 0.71
       },
       {
         "t": "CHDB2613",
@@ -1311,22 +1311,22 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 5.0,
-        "spreadPct": 4.29,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.75,
         "valueSharePct": null
       },
       {
         "t": "CHDB2614",
         "u": "HDB",
         "traded": true,
-        "lastPrice": 1030.0,
+        "lastPrice": 1020.0,
         "refPrice": 960.0,
-        "priceChangePct": 7.29,
-        "volume": 43300.0,
-        "valueVND": 44599000.0,
-        "spreadTicks": null,
-        "spreadPct": null,
-        "valueSharePct": 0.21
+        "priceChangePct": 6.25,
+        "volume": 73300.0,
+        "valueVND": 75199203.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.98,
+        "valueSharePct": 0.3
       },
       {
         "t": "CHDB2615",
@@ -1335,11 +1335,11 @@
         "lastPrice": 1390.0,
         "refPrice": 1300.0,
         "priceChangePct": 6.92,
-        "volume": 1258300.0,
-        "valueVND": 1766967775.0,
-        "spreadTicks": 5.0,
-        "spreadPct": 3.58,
-        "valueSharePct": 8.14
+        "volume": 1319400.0,
+        "valueVND": 1853084106.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.45,
+        "valueSharePct": 7.46
       },
       {
         "t": "CHDB2616",
@@ -1351,7 +1351,7 @@
         "volume": 100.0,
         "valueVND": 230000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.15,
+        "spreadPct": 2.19,
         "valueSharePct": 0.0
       },
       {
@@ -1361,11 +1361,11 @@
         "lastPrice": 400.0,
         "refPrice": 370.0,
         "priceChangePct": 8.11,
-        "volume": 1100.0,
-        "valueVND": 379995.0,
+        "volume": 31700.0,
+        "valueVND": 12620087.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.47,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.05
       },
       {
         "t": "CHDB2618",
@@ -1374,11 +1374,11 @@
         "lastPrice": 420.0,
         "refPrice": 400.0,
         "priceChangePct": 5.0,
-        "volume": 6000.0,
-        "valueVND": 2359980.0,
+        "volume": 16700.0,
+        "valueVND": 6960059.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.35,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.03
       },
       {
         "t": "CHDB2619",
@@ -1390,8 +1390,8 @@
         "volume": 27200.0,
         "valueVND": 13178128.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.02,
-        "valueSharePct": 0.06
+        "spreadPct": 2.06,
+        "valueSharePct": 0.05
       },
       {
         "t": "CHDB2620",
@@ -1403,7 +1403,7 @@
         "volume": 300.0,
         "valueVND": 240999.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.12,
+        "spreadPct": 1.13,
         "valueSharePct": 0.0
       },
       {
@@ -1417,7 +1417,7 @@
         "valueVND": 45470040.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.15,
-        "valueSharePct": 0.21
+        "valueSharePct": 0.18
       },
       {
         "t": "CHDB2622",
@@ -1429,8 +1429,8 @@
         "volume": 100000.0,
         "valueVND": 101657000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.98,
-        "valueSharePct": 0.47
+        "spreadPct": 0.99,
+        "valueSharePct": 0.41
       },
       {
         "t": "CHDB2623",
@@ -1442,7 +1442,7 @@
         "volume": 100.0,
         "valueVND": 68000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.44,
+        "spreadPct": 1.5,
         "valueSharePct": 0.0
       },
       {
@@ -1452,11 +1452,11 @@
         "lastPrice": 60.0,
         "refPrice": 60.0,
         "priceChangePct": 0.0,
-        "volume": 2100.0,
-        "valueVND": 126000.0,
+        "volume": 81000.0,
+        "valueVND": 4860000.0,
         "spreadTicks": 1.0,
         "spreadPct": 18.18,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.02
       },
       {
         "t": "CHPG2541",
@@ -1469,19 +1469,19 @@
         "valueVND": 1152000.0,
         "spreadTicks": 8.0,
         "spreadPct": 160.0,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.0
       },
       {
         "t": "CHPG2603",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 20.0,
+        "lastPrice": 10.0,
         "refPrice": 10.0,
-        "priceChangePct": 100.0,
-        "volume": 100.0,
-        "valueVND": 2000.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 66.67,
+        "priceChangePct": 0.0,
+        "volume": 200.0,
+        "valueVND": 3000.0,
+        "spreadTicks": null,
+        "spreadPct": null,
         "valueSharePct": 0.0
       },
       {
@@ -1491,8 +1491,8 @@
         "lastPrice": 20.0,
         "refPrice": 20.0,
         "priceChangePct": 0.0,
-        "volume": 78000.0,
-        "valueVND": 1560000.0,
+        "volume": 86000.0,
+        "valueVND": 1720000.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.01
@@ -1504,24 +1504,24 @@
         "lastPrice": 40.0,
         "refPrice": 40.0,
         "priceChangePct": 0.0,
-        "volume": 258900.0,
-        "valueVND": 12455679.0,
+        "volume": 262800.0,
+        "valueVND": 12611772.0,
         "spreadTicks": 1.0,
         "spreadPct": 22.22,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.05
       },
       {
         "t": "CHPG2609",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 70.0,
+        "lastPrice": 60.0,
         "refPrice": 70.0,
-        "priceChangePct": 0.0,
-        "volume": 80700.0,
-        "valueVND": 4843614.0,
+        "priceChangePct": -14.29,
+        "volume": 161500.0,
+        "valueVND": 8885730.0,
         "spreadTicks": 1.0,
         "spreadPct": 18.18,
-        "valueSharePct": 0.02
+        "valueSharePct": 0.04
       },
       {
         "t": "CHPG2610",
@@ -1539,28 +1539,28 @@
       {
         "t": "CHPG2613",
         "u": "HPG",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 90.0,
         "refPrice": 100.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": -10.0,
+        "volume": 2000.0,
+        "valueVND": 180000.0,
         "spreadTicks": 1.0,
         "spreadPct": 10.53,
-        "valueSharePct": null
+        "valueSharePct": 0.0
       },
       {
         "t": "CHPG2615",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 90.0,
+        "lastPrice": 50.0,
         "refPrice": 90.0,
-        "priceChangePct": 0.0,
-        "volume": 9800.0,
-        "valueVND": 760970.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 25.0,
-        "valueSharePct": 0.0
+        "priceChangePct": -44.44,
+        "volume": 133900.0,
+        "valueVND": 6993597.0,
+        "spreadTicks": 4.0,
+        "spreadPct": 57.14,
+        "valueSharePct": 0.03
       },
       {
         "t": "CHPG2616",
@@ -1569,8 +1569,8 @@
         "lastPrice": 30.0,
         "refPrice": 20.0,
         "priceChangePct": 50.0,
-        "volume": 176900.0,
-        "valueVND": 4215527.0,
+        "volume": 179800.0,
+        "valueVND": 4302614.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.02
@@ -1586,7 +1586,7 @@
         "valueVND": 30121280.0,
         "spreadTicks": 1.0,
         "spreadPct": 8.7,
-        "valueSharePct": 0.14
+        "valueSharePct": 0.12
       },
       {
         "t": "CHPG2618",
@@ -1612,7 +1612,7 @@
         "valueVND": 24319680.0,
         "spreadTicks": 1.0,
         "spreadPct": 13.33,
-        "valueSharePct": 0.11
+        "valueSharePct": 0.1
       },
       {
         "t": "CHPG2626",
@@ -1634,8 +1634,8 @@
         "lastPrice": 440.0,
         "refPrice": 460.0,
         "priceChangePct": -4.35,
-        "volume": 5100.0,
-        "valueVND": 2308005.0,
+        "volume": 5800.0,
+        "valueVND": 2617018.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.25,
         "valueSharePct": 0.01
@@ -1644,14 +1644,14 @@
         "t": "CHPG2628",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 530.0,
+        "lastPrice": 510.0,
         "refPrice": 530.0,
-        "priceChangePct": 0.0,
-        "volume": 1298300.0,
-        "valueVND": 698822958.0,
+        "priceChangePct": -3.77,
+        "volume": 1328300.0,
+        "valueVND": 714120646.0,
         "spreadTicks": 2.0,
         "spreadPct": 3.85,
-        "valueSharePct": 3.22
+        "valueSharePct": 2.87
       },
       {
         "t": "CHPG2629",
@@ -1663,8 +1663,8 @@
         "volume": 7700.0,
         "valueVND": 1209978.0,
         "spreadTicks": 1.0,
-        "spreadPct": 5.71,
-        "valueSharePct": 0.01
+        "spreadPct": 6.06,
+        "valueSharePct": 0.0
       },
       {
         "t": "CHPG2630",
@@ -1683,27 +1683,27 @@
         "t": "CHPG2631",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 10.0,
+        "lastPrice": 20.0,
         "refPrice": 20.0,
-        "priceChangePct": -50.0,
-        "volume": 261200.0,
-        "valueVND": 2612000.0,
-        "spreadTicks": null,
-        "spreadPct": null,
+        "priceChangePct": 0.0,
+        "volume": 322500.0,
+        "valueVND": 3231450.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 66.67,
         "valueSharePct": 0.01
       },
       {
         "t": "CHPG2632",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 110.0,
+        "lastPrice": 100.0,
         "refPrice": 130.0,
-        "priceChangePct": -15.38,
-        "volume": 96800.0,
-        "valueVND": 9895864.0,
+        "priceChangePct": -23.08,
+        "volume": 495900.0,
+        "valueVND": 45816201.0,
         "spreadTicks": 1.0,
         "spreadPct": 10.53,
-        "valueSharePct": 0.05
+        "valueSharePct": 0.18
       },
       {
         "t": "CHPG2633",
@@ -1722,14 +1722,14 @@
         "t": "CHPG2634",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 220.0,
+        "lastPrice": 230.0,
         "refPrice": 220.0,
-        "priceChangePct": 0.0,
-        "volume": 287500.0,
-        "valueVND": 64264875.0,
+        "priceChangePct": 4.55,
+        "volume": 303800.0,
+        "valueVND": 67878034.0,
         "spreadTicks": 1.0,
         "spreadPct": 4.44,
-        "valueSharePct": 0.3
+        "valueSharePct": 0.27
       },
       {
         "t": "CHPG2635",
@@ -1738,11 +1738,11 @@
         "lastPrice": 70.0,
         "refPrice": 70.0,
         "priceChangePct": 0.0,
-        "volume": 48100.0,
-        "valueVND": 3045211.0,
+        "volume": 61800.0,
+        "valueVND": 3894018.0,
         "spreadTicks": 1.0,
         "spreadPct": 15.38,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.02
       },
       {
         "t": "CHPG2636",
@@ -1751,8 +1751,8 @@
         "lastPrice": 30.0,
         "refPrice": 30.0,
         "priceChangePct": 0.0,
-        "volume": 87600.0,
-        "valueVND": 2376588.0,
+        "volume": 90900.0,
+        "valueVND": 2469753.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
         "valueSharePct": 0.01
@@ -1761,13 +1761,13 @@
         "t": "CHPG2637",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 110.0,
+        "lastPrice": 100.0,
         "refPrice": 110.0,
-        "priceChangePct": 0.0,
-        "volume": 743000.0,
-        "valueVND": 67709590.0,
+        "priceChangePct": -9.09,
+        "volume": 855600.0,
+        "valueVND": 78176172.0,
         "spreadTicks": 1.0,
-        "spreadPct": 9.52,
+        "spreadPct": 10.53,
         "valueSharePct": 0.31
       },
       {
@@ -1777,37 +1777,37 @@
         "lastPrice": 310.0,
         "refPrice": 290.0,
         "priceChangePct": 6.9,
-        "volume": 210400.0,
-        "valueVND": 62871728.0,
+        "volume": 223800.0,
+        "valueVND": 67050480.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
-        "valueSharePct": 0.29
+        "spreadPct": 3.28,
+        "valueSharePct": 0.27
       },
       {
         "t": "CHPG2639",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 370.0,
+        "lastPrice": 360.0,
         "refPrice": 360.0,
-        "priceChangePct": 2.78,
-        "volume": 56400.0,
-        "valueVND": 20786784.0,
+        "priceChangePct": 0.0,
+        "volume": 56500.0,
+        "valueVND": 20823075.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.74,
-        "valueSharePct": 0.1
+        "valueSharePct": 0.08
       },
       {
         "t": "CHPG2640",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 540.0,
+        "lastPrice": 530.0,
         "refPrice": 510.0,
-        "priceChangePct": 5.88,
-        "volume": 636600.0,
-        "valueVND": 340912032.0,
+        "priceChangePct": 3.92,
+        "volume": 1134100.0,
+        "valueVND": 605280511.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.83,
-        "valueSharePct": 1.57
+        "valueSharePct": 2.44
       },
       {
         "t": "CHPG2641",
@@ -1816,8 +1816,8 @@
         "lastPrice": 370.0,
         "refPrice": 300.0,
         "priceChangePct": 23.33,
-        "volume": 23500.0,
-        "valueVND": 7050000.0,
+        "volume": 24000.0,
+        "valueVND": 7235040.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.67,
         "valueSharePct": 0.03
@@ -1845,7 +1845,7 @@
         "volume": 200.0,
         "valueVND": 84000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.41,
+        "spreadPct": 2.47,
         "valueSharePct": 0.0
       },
       {
@@ -1858,8 +1858,8 @@
         "volume": 48200.0,
         "valueVND": 62662892.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.76,
-        "valueSharePct": 0.29
+        "spreadPct": 0.77,
+        "valueSharePct": 0.25
       },
       {
         "t": "CHPG2645",
@@ -1894,8 +1894,8 @@
         "lastPrice": 290.0,
         "refPrice": 260.0,
         "priceChangePct": 11.54,
-        "volume": 7000.0,
-        "valueVND": 1990030.0,
+        "volume": 7100.0,
+        "valueVND": 2019027.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.39,
         "valueSharePct": 0.01
@@ -1929,41 +1929,41 @@
       {
         "t": "CHPG2650",
         "u": "HPG",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 330.0,
         "refPrice": 350.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": -5.71,
+        "volume": 1000.0,
+        "valueVND": 330000.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.6,
-        "valueSharePct": null
+        "valueSharePct": 0.0
       },
       {
         "t": "CHPG2651",
         "u": "HPG",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 500.0,
         "refPrice": 460.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": 8.7,
+        "volume": 10200.0,
+        "valueVND": 4515030.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.98,
-        "valueSharePct": null
+        "valueSharePct": 0.02
       },
       {
         "t": "CHPG2652",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 500.0,
+        "lastPrice": 510.0,
         "refPrice": 530.0,
-        "priceChangePct": -5.66,
-        "volume": 2000.0,
-        "valueVND": 990000.0,
+        "priceChangePct": -3.77,
+        "volume": 3000.0,
+        "valueVND": 1500000.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.74,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.01
       },
       {
         "t": "CHPG2653",
@@ -1975,7 +1975,7 @@
         "volume": 4000.0,
         "valueVND": 2434000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.65,
+        "spreadPct": 1.63,
         "valueSharePct": 0.01
       },
       {
@@ -1987,35 +1987,35 @@
         "priceChangePct": 0.0,
         "volume": 10000.0,
         "valueVND": 9050000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.22,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.1,
         "valueSharePct": 0.04
       },
       {
         "t": "CHPG2655",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 690.0,
+        "lastPrice": 680.0,
         "refPrice": 700.0,
-        "priceChangePct": -1.43,
-        "volume": 331600.0,
-        "valueVND": 225491316.0,
+        "priceChangePct": -2.86,
+        "volume": 331700.0,
+        "valueVND": 225559317.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.48,
-        "valueSharePct": 1.04
+        "valueSharePct": 0.91
       },
       {
         "t": "CHPG2656",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 1280.0,
+        "lastPrice": 1270.0,
         "refPrice": 1310.0,
-        "priceChangePct": -2.29,
-        "volume": 325100.0,
-        "valueVND": 416355570.0,
+        "priceChangePct": -3.05,
+        "volume": 327100.0,
+        "valueVND": 418897344.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.78,
-        "valueSharePct": 1.92
+        "valueSharePct": 1.69
       },
       {
         "t": "CHPG2657",
@@ -2034,11 +2034,11 @@
         "t": "CHPG2658",
         "u": "HPG",
         "traded": true,
-        "lastPrice": 870.0,
+        "lastPrice": 710.0,
         "refPrice": 1040.0,
-        "priceChangePct": -16.35,
-        "volume": 1300.0,
-        "valueVND": 958997.0,
+        "priceChangePct": -31.73,
+        "volume": 1400.0,
+        "valueVND": 1029994.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.13,
         "valueSharePct": 0.0
@@ -2046,28 +2046,28 @@
       {
         "t": "CHPG2659",
         "u": "HPG",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 1330.0,
         "refPrice": 1970.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.49,
-        "valueSharePct": null
+        "priceChangePct": -32.49,
+        "volume": 100.0,
+        "valueVND": 133000.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.75,
+        "valueSharePct": 0.0
       },
       {
         "t": "CHPG2660",
         "u": "HPG",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 1380.0,
         "refPrice": 1970.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
-        "spreadTicks": 3.0,
-        "spreadPct": 2.15,
-        "valueSharePct": null
+        "priceChangePct": -29.95,
+        "volume": 100.0,
+        "valueVND": 138000.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.72,
+        "valueSharePct": 0.0
       },
       {
         "t": "CLPB2603",
@@ -2091,21 +2091,21 @@
         "priceChangePct": 14.29,
         "volume": 120100.0,
         "valueVND": 10407866.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 13.33,
-        "valueSharePct": 0.05
+        "spreadTicks": 4.0,
+        "spreadPct": 66.67,
+        "valueSharePct": 0.04
       },
       {
         "t": "CLPB2606",
         "u": "LPB",
         "traded": true,
-        "lastPrice": 90.0,
+        "lastPrice": 50.0,
         "refPrice": 90.0,
-        "priceChangePct": 0.0,
-        "volume": 129100.0,
-        "valueVND": 8724578.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 46.15,
+        "priceChangePct": -44.44,
+        "volume": 132800.0,
+        "valueVND": 8909552.0,
+        "spreadTicks": 4.0,
+        "spreadPct": 57.14,
         "valueSharePct": 0.04
       },
       {
@@ -2128,10 +2128,10 @@
         "lastPrice": 10.0,
         "refPrice": 20.0,
         "priceChangePct": -50.0,
-        "volume": 200.0,
-        "valueVND": 2000.0,
-        "spreadTicks": null,
-        "spreadPct": null,
+        "volume": 112500.0,
+        "valueVND": 1125000.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 66.67,
         "valueSharePct": 0.0
       },
       {
@@ -2144,8 +2144,8 @@
         "volume": 419400.0,
         "valueVND": 180472014.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.47,
-        "valueSharePct": 0.83
+        "spreadPct": 2.41,
+        "valueSharePct": 0.73
       },
       {
         "t": "CLPB2610",
@@ -2180,11 +2180,11 @@
         "lastPrice": 370.0,
         "refPrice": 350.0,
         "priceChangePct": 5.71,
-        "volume": 10400.0,
-        "valueVND": 3549000.0,
+        "volume": 10500.0,
+        "valueVND": 3585960.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.67,
-        "valueSharePct": 0.02
+        "valueSharePct": 0.01
       },
       {
         "t": "CLPB2613",
@@ -2215,15 +2215,15 @@
       {
         "t": "CLPB2615",
         "u": "LPB",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 380.0,
         "refPrice": 380.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": 0.0,
+        "volume": 10000.0,
+        "valueVND": 3800000.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.2,
-        "valueSharePct": null
+        "valueSharePct": 0.02
       },
       {
         "t": "CLPB2616",
@@ -2236,7 +2236,7 @@
         "valueVND": 10072090.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.9,
-        "valueSharePct": 0.05
+        "valueSharePct": 0.04
       },
       {
         "t": "CLPB2617",
@@ -2255,14 +2255,14 @@
         "t": "CMBB2521",
         "u": "MBB",
         "traded": true,
-        "lastPrice": 140.0,
+        "lastPrice": 130.0,
         "refPrice": 130.0,
-        "priceChangePct": 7.69,
-        "volume": 1026700.0,
-        "valueVND": 136058284.0,
+        "priceChangePct": 0.0,
+        "volume": 1126700.0,
+        "valueVND": 149051143.0,
         "spreadTicks": 1.0,
         "spreadPct": 7.41,
-        "valueSharePct": 0.63
+        "valueSharePct": 0.6
       },
       {
         "t": "CMBB2523",
@@ -2273,9 +2273,9 @@
         "priceChangePct": 0.0,
         "volume": 140900.0,
         "valueVND": 8454000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 40.0,
-        "valueSharePct": 0.04
+        "spreadTicks": 1.0,
+        "spreadPct": 18.18,
+        "valueSharePct": 0.03
       },
       {
         "t": "CMBB2603",
@@ -2310,8 +2310,8 @@
         "lastPrice": 20.0,
         "refPrice": 20.0,
         "priceChangePct": 0.0,
-        "volume": 82800.0,
-        "valueVND": 1697400.0,
+        "volume": 85300.0,
+        "valueVND": 1746944.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
         "valueSharePct": 0.01
@@ -2336,24 +2336,24 @@
         "lastPrice": 230.0,
         "refPrice": 230.0,
         "priceChangePct": 0.0,
-        "volume": 221600.0,
-        "valueVND": 49164176.0,
+        "volume": 223000.0,
+        "valueVND": 49477010.0,
         "spreadTicks": 1.0,
         "spreadPct": 4.44,
-        "valueSharePct": 0.23
+        "valueSharePct": 0.2
       },
       {
         "t": "CMBB2615",
         "u": "MBB",
         "traded": true,
-        "lastPrice": 110.0,
+        "lastPrice": 100.0,
         "refPrice": 110.0,
-        "priceChangePct": 0.0,
-        "volume": 897900.0,
-        "valueVND": 94037067.0,
+        "priceChangePct": -9.09,
+        "volume": 898700.0,
+        "valueVND": 94111864.0,
         "spreadTicks": 1.0,
-        "spreadPct": 9.52,
-        "valueSharePct": 0.43
+        "spreadPct": 10.53,
+        "valueSharePct": 0.38
       },
       {
         "t": "CMBB2616",
@@ -2362,37 +2362,37 @@
         "lastPrice": 550.0,
         "refPrice": 510.0,
         "priceChangePct": 7.84,
-        "volume": 146700.0,
-        "valueVND": 79820937.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.87,
-        "valueSharePct": 0.37
+        "volume": 150700.0,
+        "valueVND": 82019982.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 3.85,
+        "valueSharePct": 0.33
       },
       {
         "t": "CMBB2617",
         "u": "MBB",
         "traded": true,
-        "lastPrice": 220.0,
+        "lastPrice": 210.0,
         "refPrice": 200.0,
-        "priceChangePct": 10.0,
-        "volume": 390500.0,
-        "valueVND": 81540305.0,
+        "priceChangePct": 5.0,
+        "volume": 390600.0,
+        "valueVND": 81561186.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.65,
-        "valueSharePct": 0.38
+        "spreadPct": 4.88,
+        "valueSharePct": 0.33
       },
       {
         "t": "CMBB2618",
         "u": "MBB",
         "traded": true,
-        "lastPrice": 810.0,
+        "lastPrice": 830.0,
         "refPrice": 810.0,
-        "priceChangePct": 0.0,
-        "volume": 206200.0,
-        "valueVND": 171364572.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.44,
-        "valueSharePct": 0.79
+        "priceChangePct": 2.47,
+        "volume": 207300.0,
+        "valueVND": 172278738.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 3.68,
+        "valueSharePct": 0.69
       },
       {
         "t": "CMBB2619",
@@ -2403,9 +2403,9 @@
         "priceChangePct": 1.2,
         "volume": 22700.0,
         "valueVND": 19100915.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 3.51,
-        "valueSharePct": 0.09
+        "spreadTicks": 2.0,
+        "spreadPct": 2.35,
+        "valueSharePct": 0.08
       },
       {
         "t": "CMBB2620",
@@ -2416,8 +2416,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 4.0,
-        "spreadPct": 9.52,
+        "spreadTicks": 2.0,
+        "spreadPct": 4.76,
         "valueSharePct": null
       },
       {
@@ -2430,8 +2430,8 @@
         "volume": 119300.0,
         "valueVND": 10746544.0,
         "spreadTicks": 1.0,
-        "spreadPct": 10.53,
-        "valueSharePct": 0.05
+        "spreadPct": 11.76,
+        "valueSharePct": 0.04
       },
       {
         "t": "CMBB2622",
@@ -2456,8 +2456,8 @@
         "volume": 5500.0,
         "valueVND": 1194985.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.39,
-        "valueSharePct": 0.01
+        "spreadPct": 3.51,
+        "valueSharePct": 0.0
       },
       {
         "t": "CMBB2624",
@@ -2470,7 +2470,7 @@
         "valueVND": 15000000.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.28,
-        "valueSharePct": 0.07
+        "valueSharePct": 0.06
       },
       {
         "t": "CMBB2625",
@@ -2479,11 +2479,11 @@
         "lastPrice": 650.0,
         "refPrice": 630.0,
         "priceChangePct": 3.17,
-        "volume": 425800.0,
-        "valueVND": 281228126.0,
+        "volume": 442700.0,
+        "valueVND": 292212989.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.53,
-        "valueSharePct": 1.3
+        "spreadPct": 1.55,
+        "valueSharePct": 1.18
       },
       {
         "t": "CMBB2626",
@@ -2495,8 +2495,8 @@
         "volume": 20000.0,
         "valueVND": 14800000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.34,
-        "valueSharePct": 0.07
+        "spreadPct": 1.36,
+        "valueSharePct": 0.06
       },
       {
         "t": "CMBB2627",
@@ -2508,20 +2508,20 @@
         "volume": 100.0,
         "valueVND": 86000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.16,
+        "spreadPct": 1.17,
         "valueSharePct": 0.0
       },
       {
         "t": "CMBB2628",
         "u": "MBB",
         "traded": true,
-        "lastPrice": 520.0,
+        "lastPrice": 440.0,
         "refPrice": 700.0,
-        "priceChangePct": -25.71,
-        "volume": 100.0,
-        "valueVND": 52000.0,
+        "priceChangePct": -37.14,
+        "volume": 200.0,
+        "valueVND": 96000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.9,
+        "spreadPct": 2.25,
         "valueSharePct": 0.0
       },
       {
@@ -2533,8 +2533,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.53,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.77,
         "valueSharePct": null
       },
       {
@@ -2546,8 +2546,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 3.0,
-        "spreadPct": 2.25,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.75,
         "valueSharePct": null
       },
       {
@@ -2557,11 +2557,11 @@
         "lastPrice": 10.0,
         "refPrice": 10.0,
         "priceChangePct": 0.0,
-        "volume": 54800.0,
-        "valueVND": 548000.0,
+        "volume": 147500.0,
+        "valueVND": 1475000.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.01
       },
       {
         "t": "CMSN2601",
@@ -2570,11 +2570,11 @@
         "lastPrice": 30.0,
         "refPrice": 30.0,
         "priceChangePct": 0.0,
-        "volume": 391200.0,
-        "valueVND": 12236736.0,
+        "volume": 641200.0,
+        "valueVND": 18235728.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.07
       },
       {
         "t": "CMSN2609",
@@ -2586,8 +2586,8 @@
         "volume": 399300.0,
         "valueVND": 54859827.0,
         "spreadTicks": 1.0,
-        "spreadPct": 6.9,
-        "valueSharePct": 0.25
+        "spreadPct": 7.41,
+        "valueSharePct": 0.22
       },
       {
         "t": "CMSN2611",
@@ -2596,11 +2596,11 @@
         "lastPrice": 360.0,
         "refPrice": 360.0,
         "priceChangePct": 0.0,
-        "volume": 28000.0,
-        "valueVND": 10078880.0,
+        "volume": 51000.0,
+        "valueVND": 18358980.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.74,
-        "valueSharePct": 0.05
+        "spreadPct": 2.82,
+        "valueSharePct": 0.07
       },
       {
         "t": "CMSN2612",
@@ -2612,7 +2612,7 @@
         "volume": 100.0,
         "valueVND": 11000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 8.7,
+        "spreadPct": 9.52,
         "valueSharePct": 0.0
       },
       {
@@ -2632,14 +2632,14 @@
         "t": "CMSN2619",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 1120.0,
+        "lastPrice": 1090.0,
         "refPrice": 1190.0,
-        "priceChangePct": -5.88,
-        "volume": 124700.0,
-        "valueVND": 140791288.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.8,
-        "valueSharePct": 0.65
+        "priceChangePct": -8.4,
+        "volume": 220100.0,
+        "valueVND": 244777612.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 2.76,
+        "valueSharePct": 0.98
       },
       {
         "t": "CMSN2620",
@@ -2651,8 +2651,8 @@
         "volume": 158000.0,
         "valueVND": 99710640.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.57,
-        "valueSharePct": 0.46
+        "spreadPct": 1.63,
+        "valueSharePct": 0.4
       },
       {
         "t": "CMSN2621",
@@ -2661,8 +2661,8 @@
         "lastPrice": 100.0,
         "refPrice": 130.0,
         "priceChangePct": -23.08,
-        "volume": 15200.0,
-        "valueVND": 1518024.0,
+        "volume": 30200.0,
+        "valueVND": 3017886.0,
         "spreadTicks": 1.0,
         "spreadPct": 9.52,
         "valueSharePct": 0.01
@@ -2689,8 +2689,8 @@
         "priceChangePct": 2.78,
         "volume": 100.0,
         "valueVND": 74000.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 4.08,
+        "spreadTicks": 2.0,
+        "spreadPct": 2.74,
         "valueSharePct": 0.0
       },
       {
@@ -2703,21 +2703,21 @@
         "volume": 5000.0,
         "valueVND": 1850000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.6,
+        "spreadPct": 2.67,
         "valueSharePct": 0.01
       },
       {
         "t": "CMSN2625",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 300.0,
+        "lastPrice": 310.0,
         "refPrice": 290.0,
-        "priceChangePct": 3.45,
-        "volume": 194900.0,
-        "valueVND": 59522460.0,
+        "priceChangePct": 6.9,
+        "volume": 299000.0,
+        "valueVND": 90952810.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
-        "valueSharePct": 0.27
+        "spreadPct": 3.28,
+        "valueSharePct": 0.37
       },
       {
         "t": "CMSN2626",
@@ -2726,50 +2726,50 @@
         "lastPrice": 610.0,
         "refPrice": 590.0,
         "priceChangePct": 3.39,
-        "volume": 289200.0,
-        "valueVND": 177528312.0,
+        "volume": 320000.0,
+        "valueVND": 196320000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.63,
-        "valueSharePct": 0.82
+        "spreadPct": 1.65,
+        "valueSharePct": 0.79
       },
       {
         "t": "CMSN2627",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 500.0,
+        "lastPrice": 480.0,
         "refPrice": 450.0,
-        "priceChangePct": 11.11,
-        "volume": 674800.0,
-        "valueVND": 325739456.0,
+        "priceChangePct": 6.67,
+        "volume": 676300.0,
+        "valueVND": 326470299.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.02,
-        "valueSharePct": 1.5
+        "spreadPct": 2.11,
+        "valueSharePct": 1.31
       },
       {
         "t": "CMSN2628",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 1310.0,
+        "lastPrice": 1280.0,
         "refPrice": 1380.0,
-        "priceChangePct": -5.07,
-        "volume": 149600.0,
-        "valueVND": 193871128.0,
+        "priceChangePct": -7.25,
+        "volume": 198000.0,
+        "valueVND": 257235660.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.76,
-        "valueSharePct": 0.89
+        "spreadPct": 0.78,
+        "valueSharePct": 1.04
       },
       {
         "t": "CMSN2629",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 990.0,
+        "lastPrice": 960.0,
         "refPrice": 940.0,
-        "priceChangePct": 5.32,
-        "volume": 51200.0,
-        "valueVND": 50449920.0,
+        "priceChangePct": 2.13,
+        "volume": 51900.0,
+        "valueVND": 51128247.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.02,
-        "valueSharePct": 0.23
+        "spreadPct": 1.05,
+        "valueSharePct": 0.21
       },
       {
         "t": "CMSN2630",
@@ -2780,34 +2780,34 @@
         "priceChangePct": -3.7,
         "volume": 9500.0,
         "valueVND": 4719980.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.87,
+        "spreadTicks": 2.0,
+        "spreadPct": 3.77,
         "valueSharePct": 0.02
       },
       {
         "t": "CMSN2631",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 400.0,
+        "lastPrice": 390.0,
         "refPrice": 370.0,
-        "priceChangePct": 8.11,
-        "volume": 247400.0,
-        "valueVND": 97369218.0,
+        "priceChangePct": 5.41,
+        "volume": 359900.0,
+        "valueVND": 141242755.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.53,
-        "valueSharePct": 0.45
+        "spreadPct": 2.6,
+        "valueSharePct": 0.57
       },
       {
         "t": "CMSN2632",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 640.0,
+        "lastPrice": 660.0,
         "refPrice": 630.0,
-        "priceChangePct": 1.59,
-        "volume": 200.0,
-        "valueVND": 130000.0,
+        "priceChangePct": 4.76,
+        "volume": 400.0,
+        "valueVND": 262000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.5,
+        "spreadPct": 1.53,
         "valueSharePct": 0.0
       },
       {
@@ -2820,7 +2820,7 @@
         "volume": 300.0,
         "valueVND": 558000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.53,
+        "spreadPct": 0.54,
         "valueSharePct": 0.0
       },
       {
@@ -2833,7 +2833,7 @@
         "volume": 100.0,
         "valueVND": 213000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.35,
+        "spreadPct": 2.38,
         "valueSharePct": 0.0
       },
       {
@@ -2859,7 +2859,7 @@
         "volume": 10100.0,
         "valueVND": 3131000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.6,
+        "spreadPct": 2.67,
         "valueSharePct": 0.01
       },
       {
@@ -2872,21 +2872,21 @@
         "volume": 10300.0,
         "valueVND": 4958008.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.77,
+        "spreadPct": 1.8,
         "valueSharePct": 0.02
       },
       {
         "t": "CMSN2638",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 710.0,
+        "lastPrice": 690.0,
         "refPrice": 710.0,
-        "priceChangePct": 0.0,
-        "volume": 10400.0,
-        "valueVND": 6569992.0,
+        "priceChangePct": -2.82,
+        "volume": 20500.0,
+        "valueVND": 13139065.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.42,
-        "valueSharePct": 0.03
+        "spreadPct": 1.44,
+        "valueSharePct": 0.05
       },
       {
         "t": "CMSN2639",
@@ -2910,22 +2910,22 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 3.0,
-        "spreadPct": 3.17,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.08,
         "valueSharePct": null
       },
       {
         "t": "CMSN2641",
         "u": "MSN",
         "traded": true,
-        "lastPrice": 790.0,
+        "lastPrice": 770.0,
         "refPrice": 780.0,
-        "priceChangePct": 1.28,
-        "volume": 221200.0,
-        "valueVND": 171673320.0,
+        "priceChangePct": -1.28,
+        "volume": 221400.0,
+        "valueVND": 171828540.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.27,
-        "valueSharePct": 0.79
+        "spreadPct": 1.31,
+        "valueSharePct": 0.69
       },
       {
         "t": "CMSN2642",
@@ -2937,8 +2937,8 @@
         "volume": 159000.0,
         "valueVND": 201810750.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.78,
-        "valueSharePct": 0.93
+        "spreadPct": 0.79,
+        "valueSharePct": 0.81
       },
       {
         "t": "CMSN2643",
@@ -2950,34 +2950,34 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.68,
+        "spreadPct": 1.71,
         "valueSharePct": null
       },
       {
         "t": "CMWG2525",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 630.0,
+        "lastPrice": 610.0,
         "refPrice": 620.0,
-        "priceChangePct": 1.61,
-        "volume": 264100.0,
-        "valueVND": 173286574.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 3.17,
-        "valueSharePct": 0.8
+        "priceChangePct": -1.61,
+        "volume": 269300.0,
+        "valueVND": 176507299.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.65,
+        "valueSharePct": 0.71
       },
       {
         "t": "CMWG2527",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 100.0,
+        "lastPrice": 90.0,
         "refPrice": 100.0,
-        "priceChangePct": 0.0,
-        "volume": 200100.0,
-        "valueVND": 20010000.0,
+        "priceChangePct": -10.0,
+        "volume": 250100.0,
+        "valueVND": 24509800.0,
         "spreadTicks": 1.0,
         "spreadPct": 10.53,
-        "valueSharePct": 0.09
+        "valueSharePct": 0.1
       },
       {
         "t": "CMWG2603",
@@ -2988,8 +2988,8 @@
         "priceChangePct": 0.0,
         "volume": 1900.0,
         "valueVND": 19000.0,
-        "spreadTicks": 17.0,
-        "spreadPct": 178.95,
+        "spreadTicks": 19.0,
+        "spreadPct": 180.95,
         "valueSharePct": 0.0
       },
       {
@@ -2999,8 +2999,8 @@
         "lastPrice": 10.0,
         "refPrice": 10.0,
         "priceChangePct": 0.0,
-        "volume": 40200.0,
-        "valueVND": 402000.0,
+        "volume": 70200.0,
+        "valueVND": 702000.0,
         "spreadTicks": null,
         "spreadPct": null,
         "valueSharePct": 0.0
@@ -3028,21 +3028,21 @@
         "volume": 100.0,
         "valueVND": 74000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.36,
+        "spreadPct": 1.4,
         "valueSharePct": 0.0
       },
       {
         "t": "CMWG2616",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 180.0,
+        "lastPrice": 170.0,
         "refPrice": 160.0,
-        "priceChangePct": 12.5,
-        "volume": 577300.0,
-        "valueVND": 93932483.0,
+        "priceChangePct": 6.25,
+        "volume": 762800.0,
+        "valueVND": 125465344.0,
         "spreadTicks": 1.0,
-        "spreadPct": 5.71,
-        "valueSharePct": 0.43
+        "spreadPct": 6.06,
+        "valueSharePct": 0.5
       },
       {
         "t": "CMWG2617",
@@ -3051,24 +3051,24 @@
         "lastPrice": 160.0,
         "refPrice": 150.0,
         "priceChangePct": 6.67,
-        "volume": 470900.0,
-        "valueVND": 69203464.0,
+        "volume": 471000.0,
+        "valueVND": 69218160.0,
         "spreadTicks": 1.0,
-        "spreadPct": 6.06,
-        "valueSharePct": 0.32
+        "spreadPct": 6.9,
+        "valueSharePct": 0.28
       },
       {
         "t": "CMWG2618",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 640.0,
+        "lastPrice": 650.0,
         "refPrice": 680.0,
-        "priceChangePct": -5.88,
-        "volume": 9600.0,
-        "valueVND": 6321024.0,
+        "priceChangePct": -4.41,
+        "volume": 14700.0,
+        "valueVND": 9635997.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.53,
-        "valueSharePct": 0.03
+        "spreadPct": 1.57,
+        "valueSharePct": 0.04
       },
       {
         "t": "CMWG2619",
@@ -3080,8 +3080,8 @@
         "volume": 9000.0,
         "valueVND": 3600000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.6,
-        "valueSharePct": 0.02
+        "spreadPct": 2.74,
+        "valueSharePct": 0.01
       },
       {
         "t": "CMWG2620",
@@ -3093,8 +3093,8 @@
         "volume": 174800.0,
         "valueVND": 210041428.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.84,
-        "valueSharePct": 0.97
+        "spreadPct": 0.86,
+        "valueSharePct": 0.85
       },
       {
         "t": "CMWG2621",
@@ -3106,7 +3106,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
+        "spreadPct": 3.28,
         "valueSharePct": null
       },
       {
@@ -3118,8 +3118,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 5.0,
-        "spreadPct": 5.24,
+        "spreadTicks": 3.0,
+        "spreadPct": 3.24,
         "valueSharePct": null
       },
       {
@@ -3131,8 +3131,8 @@
         "priceChangePct": -15.38,
         "volume": 200.0,
         "valueVND": 110000.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 5.61,
+        "spreadTicks": 2.0,
+        "spreadPct": 3.85,
         "valueSharePct": 0.0
       },
       {
@@ -3142,10 +3142,10 @@
         "lastPrice": 180.0,
         "refPrice": 170.0,
         "priceChangePct": 5.88,
-        "volume": 52000.0,
-        "valueVND": 10359960.0,
+        "volume": 57500.0,
+        "valueVND": 11349925.0,
         "spreadTicks": 1.0,
-        "spreadPct": 5.13,
+        "spreadPct": 5.71,
         "valueSharePct": 0.05
       },
       {
@@ -3158,46 +3158,46 @@
         "volume": 276000.0,
         "valueVND": 104882760.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.53,
-        "valueSharePct": 0.48
+        "spreadPct": 2.74,
+        "valueSharePct": 0.42
       },
       {
         "t": "CMWG2626",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 130.0,
+        "lastPrice": 120.0,
         "refPrice": 120.0,
-        "priceChangePct": 8.33,
-        "volume": 915700.0,
-        "valueVND": 117786491.0,
+        "priceChangePct": 0.0,
+        "volume": 968800.0,
+        "valueVND": 124384232.0,
         "spreadTicks": 1.0,
-        "spreadPct": 8.0,
-        "valueSharePct": 0.54
+        "spreadPct": 9.52,
+        "valueSharePct": 0.5
       },
       {
         "t": "CMWG2627",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 760.0,
+        "lastPrice": 720.0,
         "refPrice": 700.0,
-        "priceChangePct": 8.57,
-        "volume": 414800.0,
-        "valueVND": 315127708.0,
+        "priceChangePct": 2.86,
+        "volume": 479300.0,
+        "valueVND": 362585657.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.31,
-        "valueSharePct": 1.45
+        "spreadPct": 1.4,
+        "valueSharePct": 1.46
       },
       {
         "t": "CMWG2628",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 620.0,
+        "lastPrice": 590.0,
         "refPrice": 590.0,
-        "priceChangePct": 5.08,
-        "volume": 64500.0,
-        "valueVND": 40402800.0,
+        "priceChangePct": 0.0,
+        "volume": 74800.0,
+        "valueVND": 46497924.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.6,
+        "spreadPct": 1.71,
         "valueSharePct": 0.19
       },
       {
@@ -3210,21 +3210,21 @@
         "volume": 10500.0,
         "valueVND": 4350045.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.02,
+        "spreadPct": 2.11,
         "valueSharePct": 0.02
       },
       {
         "t": "CMWG2630",
         "u": "MWG",
         "traded": true,
-        "lastPrice": 310.0,
+        "lastPrice": 300.0,
         "refPrice": 290.0,
-        "priceChangePct": 6.9,
-        "volume": 1118500.0,
-        "valueVND": 354452650.0,
+        "priceChangePct": 3.45,
+        "volume": 1338500.0,
+        "valueVND": 420449620.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.28,
-        "valueSharePct": 1.63
+        "spreadPct": 3.39,
+        "valueSharePct": 1.69
       },
       {
         "t": "CMWG2631",
@@ -3236,7 +3236,7 @@
         "volume": 100.0,
         "valueVND": 77000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.29,
+        "spreadPct": 1.31,
         "valueSharePct": 0.0
       },
       {
@@ -3262,8 +3262,8 @@
         "volume": 123600.0,
         "valueVND": 95903712.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.32,
-        "valueSharePct": 0.44
+        "spreadPct": 1.36,
+        "valueSharePct": 0.39
       },
       {
         "t": "CMWG2634",
@@ -3275,8 +3275,8 @@
         "volume": 29100.0,
         "valueVND": 38379990.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.76,
-        "valueSharePct": 0.18
+        "spreadPct": 0.77,
+        "valueSharePct": 0.15
       },
       {
         "t": "CMWG2635",
@@ -3287,8 +3287,8 @@
         "priceChangePct": 0.85,
         "volume": 100.0,
         "valueVND": 118000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.67,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.86,
         "valueSharePct": 0.0
       },
       {
@@ -3300,8 +3300,8 @@
         "priceChangePct": -27.59,
         "volume": 100.0,
         "valueVND": 126000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.59,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.81,
         "valueSharePct": 0.0
       },
       {
@@ -3321,11 +3321,11 @@
         "t": "CSHB2607",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 70.0,
+        "lastPrice": 60.0,
         "refPrice": 60.0,
-        "priceChangePct": 16.67,
-        "volume": 300.0,
-        "valueVND": 17001.0,
+        "priceChangePct": 0.0,
+        "volume": 500.0,
+        "valueVND": 29000.0,
         "spreadTicks": 3.0,
         "spreadPct": 66.67,
         "valueSharePct": 0.0
@@ -3350,11 +3350,11 @@
         "lastPrice": 20.0,
         "refPrice": 20.0,
         "priceChangePct": 0.0,
-        "volume": 122400.0,
-        "valueVND": 2448000.0,
+        "volume": 239800.0,
+        "valueVND": 4796000.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.02
       },
       {
         "t": "CSHB2614",
@@ -3376,8 +3376,8 @@
         "lastPrice": 10.0,
         "refPrice": 10.0,
         "priceChangePct": 0.0,
-        "volume": 100.0,
-        "valueVND": 1000.0,
+        "volume": 700.0,
+        "valueVND": 7000.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
         "valueSharePct": 0.0
@@ -3415,11 +3415,11 @@
         "lastPrice": 100.0,
         "refPrice": 90.0,
         "priceChangePct": 11.11,
-        "volume": 400100.0,
-        "valueVND": 40010000.0,
+        "volume": 500100.0,
+        "valueVND": 50010000.0,
         "spreadTicks": 1.0,
         "spreadPct": 10.53,
-        "valueSharePct": 0.18
+        "valueSharePct": 0.2
       },
       {
         "t": "CSHB2619",
@@ -3432,7 +3432,7 @@
         "valueVND": 68560000.0,
         "spreadTicks": 1.0,
         "spreadPct": 11.76,
-        "valueSharePct": 0.32
+        "valueSharePct": 0.28
       },
       {
         "t": "CSHB2620",
@@ -3441,11 +3441,11 @@
         "lastPrice": 280.0,
         "refPrice": 270.0,
         "priceChangePct": 3.7,
-        "volume": 10600.0,
-        "valueVND": 2968000.0,
+        "volume": 97400.0,
+        "valueVND": 27272000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.51,
-        "valueSharePct": 0.01
+        "spreadPct": 3.64,
+        "valueSharePct": 0.11
       },
       {
         "t": "CSHB2621",
@@ -3457,8 +3457,8 @@
         "volume": 15000.0,
         "valueVND": 5470050.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.47,
-        "valueSharePct": 0.03
+        "spreadPct": 2.53,
+        "valueSharePct": 0.02
       },
       {
         "t": "CSHB2622",
@@ -3467,11 +3467,11 @@
         "lastPrice": 210.0,
         "refPrice": 190.0,
         "priceChangePct": 10.53,
-        "volume": 246500.0,
-        "valueVND": 51516035.0,
+        "volume": 251500.0,
+        "valueVND": 52566015.0,
         "spreadTicks": 1.0,
         "spreadPct": 4.88,
-        "valueSharePct": 0.24
+        "valueSharePct": 0.21
       },
       {
         "t": "CSHB2623",
@@ -3490,27 +3490,27 @@
         "t": "CSHB2624",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 420.0,
+        "lastPrice": 410.0,
         "refPrice": 380.0,
-        "priceChangePct": 10.53,
-        "volume": 30300.0,
-        "valueVND": 12225141.0,
+        "priceChangePct": 7.89,
+        "volume": 30400.0,
+        "valueVND": 12266096.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.41,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.05
       },
       {
         "t": "CSHB2625",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 440.0,
+        "lastPrice": 430.0,
         "refPrice": 370.0,
-        "priceChangePct": 18.92,
-        "volume": 30300.0,
-        "valueVND": 12731151.0,
+        "priceChangePct": 16.22,
+        "volume": 30400.0,
+        "valueVND": 12774080.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.3,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.05
       },
       {
         "t": "CSHB2626",
@@ -3536,20 +3536,20 @@
         "valueVND": 12186902.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.6,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.05
       },
       {
         "t": "CSHB2628",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 650.0,
+        "lastPrice": 640.0,
         "refPrice": 570.0,
-        "priceChangePct": 14.04,
-        "volume": 29300.0,
-        "valueVND": 18236906.0,
+        "priceChangePct": 12.28,
+        "volume": 29400.0,
+        "valueVND": 18300912.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.55,
-        "valueSharePct": 0.08
+        "valueSharePct": 0.07
       },
       {
         "t": "CSHB2629",
@@ -3574,59 +3574,59 @@
         "volume": 200.0,
         "valueVND": 112000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.83,
+        "spreadPct": 1.8,
         "valueSharePct": 0.0
       },
       {
         "t": "CSHB2631",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 870.0,
+        "lastPrice": 880.0,
         "refPrice": 870.0,
-        "priceChangePct": 0.0,
-        "volume": 173100.0,
-        "valueVND": 151526547.0,
+        "priceChangePct": 1.15,
+        "volume": 178100.0,
+        "valueVND": 155926550.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.14,
-        "valueSharePct": 0.7
+        "spreadPct": 1.16,
+        "valueSharePct": 0.63
       },
       {
         "t": "CSHB2632",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 890.0,
+        "lastPrice": 900.0,
         "refPrice": 890.0,
-        "priceChangePct": 0.0,
-        "volume": 134100.0,
-        "valueVND": 119939040.0,
+        "priceChangePct": 1.12,
+        "volume": 137100.0,
+        "valueVND": 122638692.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.12,
-        "valueSharePct": 0.55
+        "spreadPct": 1.13,
+        "valueSharePct": 0.49
       },
       {
         "t": "CSHB2633",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 760.0,
+        "lastPrice": 610.0,
         "refPrice": 960.0,
-        "priceChangePct": -20.83,
-        "volume": 1100.0,
-        "valueVND": 686004.0,
+        "priceChangePct": -36.46,
+        "volume": 1200.0,
+        "valueVND": 747000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.29,
+        "spreadPct": 1.31,
         "valueSharePct": 0.0
       },
       {
         "t": "CSHB2634",
         "u": "SHB",
         "traded": true,
-        "lastPrice": 1210.0,
+        "lastPrice": 1090.0,
         "refPrice": 1440.0,
-        "priceChangePct": -15.97,
-        "volume": 1100.0,
-        "valueVND": 1211001.0,
+        "priceChangePct": -24.31,
+        "volume": 1200.0,
+        "valueVND": 1320000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.81,
+        "spreadPct": 0.82,
         "valueSharePct": 0.01
       },
       {
@@ -3638,45 +3638,45 @@
         "priceChangePct": 12.68,
         "volume": 18700.0,
         "valueVND": 14671085.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.47,
-        "valueSharePct": 0.07
+        "spreadTicks": 1.0,
+        "spreadPct": 1.26,
+        "valueSharePct": 0.06
       },
       {
         "t": "CSSB2604",
         "u": "SSB",
         "traded": true,
-        "lastPrice": 80.0,
+        "lastPrice": 50.0,
         "refPrice": 110.0,
-        "priceChangePct": -27.27,
-        "volume": 55900.0,
-        "valueVND": 5260749.0,
+        "priceChangePct": -54.55,
+        "volume": 413800.0,
+        "valueVND": 26963208.0,
         "spreadTicks": 1.0,
-        "spreadPct": 13.33,
-        "valueSharePct": 0.02
+        "spreadPct": 22.22,
+        "valueSharePct": 0.11
       },
       {
         "t": "CSSB2608",
         "u": "SSB",
         "traded": true,
-        "lastPrice": 420.0,
+        "lastPrice": 410.0,
         "refPrice": 370.0,
-        "priceChangePct": 13.51,
-        "volume": 24200.0,
-        "valueVND": 9922968.0,
+        "priceChangePct": 10.81,
+        "volume": 24300.0,
+        "valueVND": 9963972.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.35,
-        "valueSharePct": 0.05
+        "spreadPct": 2.41,
+        "valueSharePct": 0.04
       },
       {
         "t": "CSSB2609",
         "u": "SSB",
         "traded": true,
-        "lastPrice": 440.0,
+        "lastPrice": 430.0,
         "refPrice": 400.0,
-        "priceChangePct": 10.0,
-        "volume": 20100.0,
-        "valueVND": 8844000.0,
+        "priceChangePct": 7.5,
+        "volume": 20200.0,
+        "valueVND": 8886990.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.25,
         "valueSharePct": 0.04
@@ -3685,14 +3685,14 @@
         "t": "CSSB2610",
         "u": "SSB",
         "traded": true,
-        "lastPrice": 450.0,
+        "lastPrice": 440.0,
         "refPrice": 410.0,
-        "priceChangePct": 9.76,
-        "volume": 13100.0,
-        "valueVND": 5734001.0,
+        "priceChangePct": 7.32,
+        "volume": 13200.0,
+        "valueVND": 5778036.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.2,
-        "valueSharePct": 0.03
+        "spreadPct": 2.25,
+        "valueSharePct": 0.02
       },
       {
         "t": "CSSB2611",
@@ -3717,8 +3717,8 @@
         "volume": 17200.0,
         "valueVND": 7823936.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.87,
-        "valueSharePct": 0.04
+        "spreadPct": 1.9,
+        "valueSharePct": 0.03
       },
       {
         "t": "CSSB2613",
@@ -3737,14 +3737,14 @@
         "t": "CSTB2533",
         "u": "STB",
         "traded": true,
-        "lastPrice": 2240.0,
+        "lastPrice": 2140.0,
         "refPrice": 2170.0,
-        "priceChangePct": 3.23,
-        "volume": 97500.0,
-        "valueVND": 211640325.0,
+        "priceChangePct": -1.38,
+        "volume": 98500.0,
+        "valueVND": 213780460.0,
         "spreadTicks": 2.0,
-        "spreadPct": 0.9,
-        "valueSharePct": 0.98
+        "spreadPct": 0.94,
+        "valueSharePct": 0.86
       },
       {
         "t": "CSTB2537",
@@ -3755,8 +3755,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 5.0,
-        "spreadPct": 3.77,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.77,
         "valueSharePct": null
       },
       {
@@ -3768,22 +3768,22 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 16.0,
-        "spreadPct": 3.42,
+        "spreadTicks": 17.0,
+        "spreadPct": 3.71,
         "valueSharePct": null
       },
       {
         "t": "CSTB2606",
         "u": "STB",
         "traded": true,
-        "lastPrice": 1250.0,
+        "lastPrice": 1190.0,
         "refPrice": 1230.0,
-        "priceChangePct": 1.63,
-        "volume": 3700.0,
-        "valueVND": 4544007.0,
-        "spreadTicks": 4.0,
-        "spreadPct": 3.25,
-        "valueSharePct": 0.02
+        "priceChangePct": -3.25,
+        "volume": 9400.0,
+        "valueVND": 11341006.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.71,
+        "valueSharePct": 0.05
       },
       {
         "t": "CSTB2608",
@@ -3795,7 +3795,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.0,
+        "spreadPct": 1.04,
         "valueSharePct": null
       },
       {
@@ -3808,7 +3808,7 @@
         "volume": 5800.0,
         "valueVND": 4466000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.26,
+        "spreadPct": 1.31,
         "valueSharePct": 0.02
       },
       {
@@ -3821,8 +3821,8 @@
         "volume": 18400.0,
         "valueVND": 8648000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.11,
-        "valueSharePct": 0.04
+        "spreadPct": 2.3,
+        "valueSharePct": 0.03
       },
       {
         "t": "CSTB2615",
@@ -3834,33 +3834,33 @@
         "volume": 100.0,
         "valueVND": 15000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 6.45,
+        "spreadPct": 6.9,
         "valueSharePct": 0.0
       },
       {
         "t": "CSTB2619",
         "u": "STB",
         "traded": true,
-        "lastPrice": 300.0,
+        "lastPrice": 280.0,
         "refPrice": 260.0,
-        "priceChangePct": 15.38,
-        "volume": 200200.0,
-        "valueVND": 57957900.0,
+        "priceChangePct": 7.69,
+        "volume": 301800.0,
+        "valueVND": 88418346.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.39,
-        "valueSharePct": 0.27
+        "spreadPct": 3.64,
+        "valueSharePct": 0.36
       },
       {
         "t": "CSTB2620",
         "u": "STB",
         "traded": true,
-        "lastPrice": 820.0,
+        "lastPrice": 790.0,
         "refPrice": 830.0,
-        "priceChangePct": -1.2,
-        "volume": 900.0,
-        "valueVND": 741996.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.38,
+        "priceChangePct": -4.82,
+        "volume": 1500.0,
+        "valueVND": 1225005.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.27,
         "valueSharePct": 0.0
       },
       {
@@ -3872,35 +3872,35 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 1.0,
-        "spreadPct": 0.78,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.64,
         "valueSharePct": null
       },
       {
         "t": "CSTB2622",
         "u": "STB",
         "traded": true,
-        "lastPrice": 590.0,
+        "lastPrice": 540.0,
         "refPrice": 560.0,
-        "priceChangePct": 5.36,
-        "volume": 171000.0,
-        "valueVND": 95710410.0,
+        "priceChangePct": -3.57,
+        "volume": 172500.0,
+        "valueVND": 96534450.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.74,
-        "valueSharePct": 0.44
+        "spreadPct": 1.87,
+        "valueSharePct": 0.39
       },
       {
         "t": "CSTB2623",
         "u": "STB",
         "traded": true,
-        "lastPrice": 1080.0,
+        "lastPrice": 1040.0,
         "refPrice": 1040.0,
-        "priceChangePct": 3.85,
-        "volume": 66700.0,
-        "valueVND": 70055677.0,
+        "priceChangePct": 0.0,
+        "volume": 67900.0,
+        "valueVND": 71307901.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.93,
-        "valueSharePct": 0.32
+        "spreadPct": 0.97,
+        "valueSharePct": 0.29
       },
       {
         "t": "CSTB2624",
@@ -3912,20 +3912,20 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 4.26,
+        "spreadPct": 4.65,
         "valueSharePct": null
       },
       {
         "t": "CSTB2625",
         "u": "STB",
         "traded": true,
-        "lastPrice": 210.0,
+        "lastPrice": 190.0,
         "refPrice": 230.0,
-        "priceChangePct": -8.7,
-        "volume": 70000.0,
-        "valueVND": 14371700.0,
+        "priceChangePct": -17.39,
+        "volume": 83500.0,
+        "valueVND": 16937140.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.88,
+        "spreadPct": 5.41,
         "valueSharePct": 0.07
       },
       {
@@ -3938,7 +3938,7 @@
         "volume": 1000.0,
         "valueVND": 1770000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 1.12,
+        "spreadPct": 1.16,
         "valueSharePct": 0.01
       },
       {
@@ -3951,60 +3951,60 @@
         "volume": 100.0,
         "valueVND": 116000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 1.71,
+        "spreadPct": 1.77,
         "valueSharePct": 0.0
       },
       {
         "t": "CSTB2628",
         "u": "STB",
         "traded": true,
-        "lastPrice": 590.0,
+        "lastPrice": 560.0,
         "refPrice": 560.0,
-        "priceChangePct": 5.36,
-        "volume": 2000.0,
-        "valueVND": 1180000.0,
+        "priceChangePct": 0.0,
+        "volume": 2500.0,
+        "valueVND": 1460000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.68,
+        "spreadPct": 1.77,
         "valueSharePct": 0.01
       },
       {
         "t": "CSTB2629",
         "u": "STB",
         "traded": true,
-        "lastPrice": 350.0,
+        "lastPrice": 320.0,
         "refPrice": 320.0,
-        "priceChangePct": 9.38,
-        "volume": 83000.0,
-        "valueVND": 29059130.0,
+        "priceChangePct": 0.0,
+        "volume": 234000.0,
+        "valueVND": 78198120.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.9,
-        "valueSharePct": 0.13
+        "spreadPct": 3.08,
+        "valueSharePct": 0.31
       },
       {
         "t": "CSTB2630",
         "u": "STB",
         "traded": true,
-        "lastPrice": 780.0,
+        "lastPrice": 740.0,
         "refPrice": 740.0,
-        "priceChangePct": 5.41,
-        "volume": 8500.0,
-        "valueVND": 6160035.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.6,
+        "priceChangePct": 0.0,
+        "volume": 10000.0,
+        "valueVND": 7280000.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.36,
         "valueSharePct": 0.03
       },
       {
         "t": "CSTB2631",
         "u": "STB",
         "traded": true,
-        "lastPrice": 340.0,
+        "lastPrice": 310.0,
         "refPrice": 300.0,
-        "priceChangePct": 13.33,
-        "volume": 804100.0,
-        "valueVND": 271713431.0,
+        "priceChangePct": 3.33,
+        "volume": 810500.0,
+        "valueVND": 273681535.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.99,
-        "valueSharePct": 1.25
+        "spreadPct": 3.28,
+        "valueSharePct": 1.1
       },
       {
         "t": "CSTB2632",
@@ -4016,60 +4016,60 @@
         "volume": 100.0,
         "valueVND": 308000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 1.63,
+        "spreadPct": 1.66,
         "valueSharePct": 0.0
       },
       {
         "t": "CSTB2633",
         "u": "STB",
         "traded": true,
-        "lastPrice": 850.0,
+        "lastPrice": 840.0,
         "refPrice": 750.0,
-        "priceChangePct": 13.33,
-        "volume": 10200.0,
-        "valueVND": 8569020.0,
+        "priceChangePct": 12.0,
+        "volume": 10300.0,
+        "valueVND": 8653030.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.17,
-        "valueSharePct": 0.04
+        "spreadPct": 1.23,
+        "valueSharePct": 0.03
       },
       {
         "t": "CSTB2634",
         "u": "STB",
         "traded": true,
-        "lastPrice": 980.0,
+        "lastPrice": 970.0,
         "refPrice": 870.0,
-        "priceChangePct": 12.64,
-        "volume": 10200.0,
-        "valueVND": 9895020.0,
+        "priceChangePct": 11.49,
+        "volume": 10300.0,
+        "valueVND": 9992030.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.02,
-        "valueSharePct": 0.05
+        "spreadPct": 1.06,
+        "valueSharePct": 0.04
       },
       {
         "t": "CSTB2635",
         "u": "STB",
         "traded": true,
-        "lastPrice": 1080.0,
+        "lastPrice": 1070.0,
         "refPrice": 950.0,
-        "priceChangePct": 13.68,
-        "volume": 10200.0,
-        "valueVND": 10915020.0,
+        "priceChangePct": 12.63,
+        "volume": 10300.0,
+        "valueVND": 11022030.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.92,
-        "valueSharePct": 0.05
+        "spreadPct": 0.96,
+        "valueSharePct": 0.04
       },
       {
         "t": "CSTB2636",
         "u": "STB",
         "traded": true,
-        "lastPrice": 1040.0,
+        "lastPrice": 1030.0,
         "refPrice": 920.0,
-        "priceChangePct": 13.04,
-        "volume": 10100.0,
-        "valueVND": 10404010.0,
+        "priceChangePct": 11.96,
+        "volume": 10200.0,
+        "valueVND": 10507020.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.96,
-        "valueSharePct": 0.05
+        "spreadPct": 0.99,
+        "valueSharePct": 0.04
       },
       {
         "t": "CSTB2637",
@@ -4081,7 +4081,7 @@
         "volume": 10400.0,
         "valueVND": 11215984.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.92,
+        "spreadPct": 0.95,
         "valueSharePct": 0.05
       },
       {
@@ -4107,21 +4107,21 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 2.0,
-        "spreadPct": 1.27,
+        "spreadPct": 1.3,
         "valueSharePct": null
       },
       {
         "t": "CSTB2640",
         "u": "STB",
         "traded": true,
-        "lastPrice": 1680.0,
+        "lastPrice": 1630.0,
         "refPrice": 1640.0,
-        "priceChangePct": 2.44,
-        "volume": 56000.0,
-        "valueVND": 92389920.0,
+        "priceChangePct": -0.61,
+        "volume": 59300.0,
+        "valueVND": 97769096.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.6,
-        "valueSharePct": 0.43
+        "spreadPct": 0.62,
+        "valueSharePct": 0.39
       },
       {
         "t": "CSTB2641",
@@ -4133,7 +4133,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 0.84,
+        "spreadPct": 0.87,
         "valueSharePct": null
       },
       {
@@ -4145,35 +4145,35 @@
         "priceChangePct": -4.71,
         "volume": 100.0,
         "valueVND": 162000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.23,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.63,
         "valueSharePct": 0.0
       },
       {
         "t": "CSTB2643",
         "u": "STB",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 1650.0,
         "refPrice": 1810.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": -8.84,
+        "volume": 100.0,
+        "valueVND": 165000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.6,
-        "valueSharePct": null
+        "spreadPct": 0.62,
+        "valueSharePct": 0.0
       },
       {
         "t": "CTCB2521",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 180.0,
+        "lastPrice": 170.0,
         "refPrice": 160.0,
-        "priceChangePct": 12.5,
-        "volume": 560800.0,
-        "valueVND": 84731272.0,
+        "priceChangePct": 6.25,
+        "volume": 610800.0,
+        "valueVND": 93226404.0,
         "spreadTicks": 1.0,
         "spreadPct": 6.06,
-        "valueSharePct": 0.39
+        "valueSharePct": 0.38
       },
       {
         "t": "CTCB2523",
@@ -4195,10 +4195,10 @@
         "lastPrice": 40.0,
         "refPrice": 40.0,
         "priceChangePct": 0.0,
-        "volume": 1500.0,
-        "valueVND": 60000.0,
+        "volume": 9600.0,
+        "valueVND": 424992.0,
         "spreadTicks": 2.0,
-        "spreadPct": 40.0,
+        "spreadPct": 50.0,
         "valueSharePct": 0.0
       },
       {
@@ -4211,47 +4211,47 @@
         "volume": 500.0,
         "valueVND": 270000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.83,
+        "spreadPct": 1.87,
         "valueSharePct": 0.0
       },
       {
         "t": "CTCB2611",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 350.0,
+        "lastPrice": 340.0,
         "refPrice": 330.0,
-        "priceChangePct": 6.06,
-        "volume": 474800.0,
-        "valueVND": 162243908.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 2.82,
-        "valueSharePct": 0.75
+        "priceChangePct": 3.03,
+        "volume": 478100.0,
+        "valueVND": 163366770.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 8.7,
+        "valueSharePct": 0.66
       },
       {
         "t": "CTCB2612",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 620.0,
+        "lastPrice": 630.0,
         "refPrice": 630.0,
-        "priceChangePct": -1.59,
-        "volume": 706600.0,
-        "valueVND": 440261262.0,
+        "priceChangePct": 0.0,
+        "volume": 707900.0,
+        "valueVND": 441092490.0,
         "spreadTicks": 2.0,
-        "spreadPct": 3.28,
-        "valueSharePct": 2.03
+        "spreadPct": 3.51,
+        "valueSharePct": 1.77
       },
       {
         "t": "CTCB2613",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 910.0,
+        "lastPrice": 890.0,
         "refPrice": 900.0,
-        "priceChangePct": 1.11,
-        "volume": 120300.0,
-        "valueVND": 104504610.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 3.39,
-        "valueSharePct": 0.48
+        "priceChangePct": -1.11,
+        "volume": 120500.0,
+        "valueVND": 104681965.0,
+        "spreadTicks": 5.0,
+        "spreadPct": 5.52,
+        "valueSharePct": 0.42
       },
       {
         "t": "CTCB2614",
@@ -4270,11 +4270,11 @@
         "t": "CTCB2615",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 110.0,
+        "lastPrice": 100.0,
         "refPrice": 140.0,
-        "priceChangePct": -21.43,
-        "volume": 2000.0,
-        "valueVND": 235000.0,
+        "priceChangePct": -28.57,
+        "volume": 3000.0,
+        "valueVND": 335010.0,
         "spreadTicks": 3.0,
         "spreadPct": 26.09,
         "valueSharePct": 0.0
@@ -4289,34 +4289,34 @@
         "volume": 6600.0,
         "valueVND": 6178986.0,
         "spreadTicks": 2.0,
-        "spreadPct": 2.13,
-        "valueSharePct": 0.03
+        "spreadPct": 2.11,
+        "valueSharePct": 0.02
       },
       {
         "t": "CTCB2617",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 620.0,
+        "lastPrice": 580.0,
         "refPrice": 580.0,
-        "priceChangePct": 6.9,
-        "volume": 300.0,
-        "valueVND": 180999.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 5.31,
+        "priceChangePct": 0.0,
+        "volume": 400.0,
+        "valueVND": 239000.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 3.51,
         "valueSharePct": 0.0
       },
       {
         "t": "CTCB2618",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 340.0,
+        "lastPrice": 320.0,
         "refPrice": 340.0,
-        "priceChangePct": 0.0,
-        "volume": 225300.0,
-        "valueVND": 69646989.0,
+        "priceChangePct": -5.88,
+        "volume": 334400.0,
+        "valueVND": 104556848.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.08,
-        "valueSharePct": 0.32
+        "spreadPct": 3.28,
+        "valueSharePct": 0.42
       },
       {
         "t": "CTCB2619",
@@ -4325,11 +4325,11 @@
         "lastPrice": 350.0,
         "refPrice": 340.0,
         "priceChangePct": 2.94,
-        "volume": 513100.0,
-        "valueVND": 171313828.0,
+        "volume": 520200.0,
+        "valueVND": 173778012.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.9,
-        "valueSharePct": 0.79
+        "spreadPct": 3.08,
+        "valueSharePct": 0.7
       },
       {
         "t": "CTCB2620",
@@ -4338,37 +4338,37 @@
         "lastPrice": 30.0,
         "refPrice": 30.0,
         "priceChangePct": 0.0,
-        "volume": 212300.0,
-        "valueVND": 5519800.0,
+        "volume": 415000.0,
+        "valueVND": 9598950.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
-        "valueSharePct": 0.03
+        "valueSharePct": 0.04
       },
       {
         "t": "CTCB2621",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 490.0,
+        "lastPrice": 460.0,
         "refPrice": 450.0,
-        "priceChangePct": 8.89,
-        "volume": 312100.0,
-        "valueVND": 136053753.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 2.15,
-        "valueSharePct": 0.63
+        "priceChangePct": 2.22,
+        "volume": 319300.0,
+        "valueVND": 139227572.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 7.06,
+        "valueSharePct": 0.56
       },
       {
         "t": "CTCB2622",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 430.0,
+        "lastPrice": 410.0,
         "refPrice": 420.0,
-        "priceChangePct": 2.38,
-        "volume": 82400.0,
-        "valueVND": 35956064.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 2.41,
-        "valueSharePct": 0.17
+        "priceChangePct": -2.38,
+        "volume": 82500.0,
+        "valueVND": 35997225.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 5.13,
+        "valueSharePct": 0.14
       },
       {
         "t": "CTCB2623",
@@ -4387,14 +4387,14 @@
         "t": "CTCB2624",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 280.0,
+        "lastPrice": 290.0,
         "refPrice": 280.0,
-        "priceChangePct": 0.0,
-        "volume": 1747000.0,
-        "valueVND": 499973930.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 3.64,
-        "valueSharePct": 2.3
+        "priceChangePct": 3.57,
+        "volume": 2980300.0,
+        "valueVND": 843544112.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 6.9,
+        "valueSharePct": 3.39
       },
       {
         "t": "CTCB2625",
@@ -4406,7 +4406,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.74,
+        "spreadPct": 1.77,
         "valueSharePct": null
       },
       {
@@ -4419,18 +4419,18 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.27,
+        "spreadPct": 1.31,
         "valueSharePct": null
       },
       {
         "t": "CTCB2627",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 850.0,
+        "lastPrice": 840.0,
         "refPrice": 870.0,
-        "priceChangePct": -2.3,
-        "volume": 25600.0,
-        "valueVND": 20509952.0,
+        "priceChangePct": -3.45,
+        "volume": 26600.0,
+        "valueVND": 21349958.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.21,
         "valueSharePct": 0.09
@@ -4439,14 +4439,14 @@
         "t": "CTCB2628",
         "u": "TCB",
         "traded": true,
-        "lastPrice": 1360.0,
+        "lastPrice": 1330.0,
         "refPrice": 1330.0,
-        "priceChangePct": 2.26,
-        "volume": 10000.0,
-        "valueVND": 13200000.0,
+        "priceChangePct": 0.0,
+        "volume": 10100.0,
+        "valueVND": 13333010.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.75,
-        "valueSharePct": 0.06
+        "valueSharePct": 0.05
       },
       {
         "t": "CTCB2629",
@@ -4457,8 +4457,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 3.0,
-        "spreadPct": 3.39,
+        "spreadTicks": 2.0,
+        "spreadPct": 2.22,
         "valueSharePct": null
       },
       {
@@ -4470,19 +4470,19 @@
         "priceChangePct": -34.13,
         "volume": 100.0,
         "valueVND": 83000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 2.38,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.07,
         "valueSharePct": 0.0
       },
       {
         "t": "CTPB2605",
         "u": "TPB",
         "traded": true,
-        "lastPrice": 180.0,
+        "lastPrice": 170.0,
         "refPrice": 180.0,
-        "priceChangePct": 0.0,
-        "volume": 19700.0,
-        "valueVND": 3547970.0,
+        "priceChangePct": -5.56,
+        "volume": 21400.0,
+        "valueVND": 3837020.0,
         "spreadTicks": 1.0,
         "spreadPct": 6.06,
         "valueSharePct": 0.02
@@ -4498,7 +4498,7 @@
         "valueVND": 32025416.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.92,
-        "valueSharePct": 0.15
+        "valueSharePct": 0.13
       },
       {
         "t": "CTPB2607",
@@ -4510,8 +4510,8 @@
         "volume": 217000.0,
         "valueVND": 23870000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 8.7,
-        "valueSharePct": 0.11
+        "spreadPct": 9.52,
+        "valueSharePct": 0.1
       },
       {
         "t": "CTPB2609",
@@ -4559,11 +4559,11 @@
         "lastPrice": 330.0,
         "refPrice": 330.0,
         "priceChangePct": 0.0,
-        "volume": 10200.0,
-        "valueVND": 3465960.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 5.88,
-        "valueSharePct": 0.02
+        "volume": 10300.0,
+        "valueVND": 3499013.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 2.99,
+        "valueSharePct": 0.01
       },
       {
         "t": "CVHM2524",
@@ -4575,47 +4575,47 @@
         "volume": 800.0,
         "valueVND": 938000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 1.71,
+        "spreadPct": 1.74,
         "valueSharePct": 0.0
       },
       {
         "t": "CVHM2603",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 3350.0,
+        "lastPrice": 2930.0,
         "refPrice": 3020.0,
-        "priceChangePct": 10.93,
-        "volume": 186900.0,
-        "valueVND": 543779943.0,
-        "spreadTicks": 60.0,
-        "spreadPct": 18.69,
-        "valueSharePct": 2.51
+        "priceChangePct": -2.98,
+        "volume": 187600.0,
+        "valueVND": 545848464.0,
+        "spreadTicks": 10.0,
+        "spreadPct": 3.36,
+        "valueSharePct": 2.2
       },
       {
         "t": "CVHM2604",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 2060.0,
+        "lastPrice": 2050.0,
         "refPrice": 1940.0,
-        "priceChangePct": 6.19,
-        "volume": 11800.0,
-        "valueVND": 24367000.0,
+        "priceChangePct": 5.67,
+        "volume": 12800.0,
+        "valueVND": 26417024.0,
         "spreadTicks": 6.0,
-        "spreadPct": 2.91,
+        "spreadPct": 2.97,
         "valueSharePct": 0.11
       },
       {
         "t": "CVHM2609",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 1070.0,
+        "lastPrice": 1030.0,
         "refPrice": 1010.0,
-        "priceChangePct": 5.94,
-        "volume": 32200.0,
-        "valueVND": 34889022.0,
+        "priceChangePct": 1.98,
+        "volume": 57500.0,
+        "valueVND": 61350775.0,
         "spreadTicks": 2.0,
-        "spreadPct": 1.89,
-        "valueSharePct": 0.16
+        "spreadPct": 1.94,
+        "valueSharePct": 0.25
       },
       {
         "t": "CVHM2610",
@@ -4627,8 +4627,8 @@
         "volume": 836600.0,
         "valueVND": 24913948.0,
         "spreadTicks": 1.0,
-        "spreadPct": 28.57,
-        "valueSharePct": 0.11
+        "spreadPct": 40.0,
+        "valueSharePct": 0.1
       },
       {
         "t": "CVHM2611",
@@ -4640,8 +4640,8 @@
         "volume": 136200.0,
         "valueVND": 64610556.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.98,
-        "valueSharePct": 0.3
+        "spreadPct": 2.02,
+        "valueSharePct": 0.26
       },
       {
         "t": "CVHM2614",
@@ -4654,7 +4654,7 @@
         "valueVND": 3309770.0,
         "spreadTicks": 3.0,
         "spreadPct": 66.67,
-        "valueSharePct": 0.02
+        "valueSharePct": 0.01
       },
       {
         "t": "CVHM2615",
@@ -4666,8 +4666,8 @@
         "volume": 127400.0,
         "valueVND": 55880188.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.35,
-        "valueSharePct": 0.26
+        "spreadPct": 2.41,
+        "valueSharePct": 0.22
       },
       {
         "t": "CVHM2616",
@@ -4679,8 +4679,8 @@
         "volume": 1000.0,
         "valueVND": 1140000.0,
         "spreadTicks": 3.0,
-        "spreadPct": 2.64,
-        "valueSharePct": 0.01
+        "spreadPct": 2.69,
+        "valueSharePct": 0.0
       },
       {
         "t": "CVHM2617",
@@ -4692,21 +4692,21 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 3.0,
-        "spreadPct": 3.43,
+        "spreadPct": 3.47,
         "valueSharePct": null
       },
       {
         "t": "CVHM2618",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 280.0,
+        "lastPrice": 270.0,
         "refPrice": 260.0,
-        "priceChangePct": 7.69,
-        "volume": 300.0,
-        "valueVND": 84999.0,
+        "priceChangePct": 3.85,
+        "volume": 6300.0,
+        "valueVND": 1704969.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.64,
-        "valueSharePct": 0.0
+        "spreadPct": 3.77,
+        "valueSharePct": 0.01
       },
       {
         "t": "CVHM2619",
@@ -4718,34 +4718,34 @@
         "volume": 43100.0,
         "valueVND": 11684841.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.64,
+        "spreadPct": 3.77,
         "valueSharePct": 0.05
       },
       {
         "t": "CVHM2620",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 290.0,
+        "lastPrice": 280.0,
         "refPrice": 290.0,
-        "priceChangePct": 0.0,
-        "volume": 4300.0,
-        "valueVND": 1247000.0,
+        "priceChangePct": -3.45,
+        "volume": 11100.0,
+        "valueVND": 3150957.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.51,
+        "spreadPct": 3.64,
         "valueSharePct": 0.01
       },
       {
         "t": "CVHM2621",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 320.0,
+        "lastPrice": 310.0,
         "refPrice": 300.0,
-        "priceChangePct": 6.67,
-        "volume": 269100.0,
-        "valueVND": 88216362.0,
+        "priceChangePct": 3.33,
+        "volume": 270200.0,
+        "valueVND": 88558050.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.17,
-        "valueSharePct": 0.41
+        "valueSharePct": 0.36
       },
       {
         "t": "CVHM2622",
@@ -4754,21 +4754,21 @@
         "lastPrice": 390.0,
         "refPrice": 380.0,
         "priceChangePct": 2.63,
-        "volume": 103100.0,
-        "valueVND": 40215186.0,
+        "volume": 103200.0,
+        "valueVND": 40254192.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.53,
-        "valueSharePct": 0.19
+        "spreadPct": 2.6,
+        "valueSharePct": 0.16
       },
       {
         "t": "CVHM2623",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 530.0,
+        "lastPrice": 520.0,
         "refPrice": 470.0,
-        "priceChangePct": 12.77,
-        "volume": 10100.0,
-        "valueVND": 5353000.0,
+        "priceChangePct": 10.64,
+        "volume": 10200.0,
+        "valueVND": 5404980.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.9,
         "valueSharePct": 0.02
@@ -4784,59 +4784,59 @@
         "valueVND": 21518000.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.87,
-        "valueSharePct": 0.1
+        "valueSharePct": 0.09
       },
       {
         "t": "CVHM2625",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 750.0,
+        "lastPrice": 740.0,
         "refPrice": 760.0,
-        "priceChangePct": -1.32,
-        "volume": 30700.0,
-        "valueVND": 22325040.0,
+        "priceChangePct": -2.63,
+        "volume": 31200.0,
+        "valueVND": 22694880.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.34,
-        "valueSharePct": 0.1
+        "valueSharePct": 0.09
       },
       {
         "t": "CVHM2626",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 810.0,
+        "lastPrice": 800.0,
         "refPrice": 820.0,
-        "priceChangePct": -1.22,
-        "volume": 22200.0,
-        "valueVND": 17105100.0,
+        "priceChangePct": -2.44,
+        "volume": 22400.0,
+        "valueVND": 17265920.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.23,
-        "valueSharePct": 0.08
+        "spreadPct": 1.24,
+        "valueSharePct": 0.07
       },
       {
         "t": "CVHM2627",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 870.0,
+        "lastPrice": 860.0,
         "refPrice": 880.0,
-        "priceChangePct": -1.14,
-        "volume": 21700.0,
-        "valueVND": 17999933.0,
+        "priceChangePct": -2.27,
+        "volume": 21800.0,
+        "valueVND": 18085934.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.16,
-        "valueSharePct": 0.08
+        "valueSharePct": 0.07
       },
       {
         "t": "CVHM2628",
         "u": "VHM",
         "traded": true,
-        "lastPrice": 1050.0,
+        "lastPrice": 1040.0,
         "refPrice": 1030.0,
-        "priceChangePct": 1.94,
-        "volume": 10100.0,
-        "valueVND": 10605000.0,
+        "priceChangePct": 0.97,
+        "volume": 10200.0,
+        "valueVND": 10708980.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.95,
-        "valueSharePct": 0.05
+        "spreadPct": 0.96,
+        "valueSharePct": 0.04
       },
       {
         "t": "CVHM2629",
@@ -4871,8 +4871,8 @@
         "lastPrice": 30.0,
         "refPrice": 40.0,
         "priceChangePct": -25.0,
-        "volume": 200.0,
-        "valueVND": 6000.0,
+        "volume": 4200.0,
+        "valueVND": 126000.0,
         "spreadTicks": 1.0,
         "spreadPct": 28.57,
         "valueSharePct": 0.0
@@ -4884,11 +4884,11 @@
         "lastPrice": 130.0,
         "refPrice": 150.0,
         "priceChangePct": -13.33,
-        "volume": 857000.0,
-        "valueVND": 133829120.0,
+        "volume": 897600.0,
+        "valueVND": 139110048.0,
         "spreadTicks": 1.0,
-        "spreadPct": 7.41,
-        "valueSharePct": 0.62
+        "spreadPct": 8.0,
+        "valueSharePct": 0.56
       },
       {
         "t": "CVIB2605",
@@ -4910,10 +4910,10 @@
         "lastPrice": 110.0,
         "refPrice": 90.0,
         "priceChangePct": 22.22,
-        "volume": 5000.0,
-        "valueVND": 544000.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 8.7,
+        "volume": 5100.0,
+        "valueVND": 554982.0,
+        "spreadTicks": 4.0,
+        "spreadPct": 40.0,
         "valueSharePct": 0.0
       },
       {
@@ -4925,8 +4925,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 2.0,
-        "spreadPct": 3.64,
+        "spreadTicks": 3.0,
+        "spreadPct": 5.5,
         "valueSharePct": null
       },
       {
@@ -4938,8 +4938,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 2.0,
-        "spreadPct": 7.41,
+        "spreadTicks": 1.0,
+        "spreadPct": 3.77,
         "valueSharePct": null
       },
       {
@@ -4962,11 +4962,11 @@
         "lastPrice": 150.0,
         "refPrice": 150.0,
         "priceChangePct": 0.0,
-        "volume": 150000.0,
-        "valueVND": 22500000.0,
+        "volume": 155000.0,
+        "valueVND": 23250000.0,
         "spreadTicks": 1.0,
         "spreadPct": 6.9,
-        "valueSharePct": 0.1
+        "valueSharePct": 0.09
       },
       {
         "t": "CVIB2611",
@@ -4975,11 +4975,11 @@
         "lastPrice": 460.0,
         "refPrice": 410.0,
         "priceChangePct": 12.2,
-        "volume": 164000.0,
-        "valueVND": 73099720.0,
+        "volume": 164500.0,
+        "valueVND": 73329165.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.2,
-        "valueSharePct": 0.34
+        "valueSharePct": 0.3
       },
       {
         "t": "CVIB2612",
@@ -4988,11 +4988,11 @@
         "lastPrice": 290.0,
         "refPrice": 290.0,
         "priceChangePct": 0.0,
-        "volume": 1117100.0,
-        "valueVND": 336023680.0,
+        "volume": 1153100.0,
+        "valueVND": 346518081.0,
         "spreadTicks": 1.0,
         "spreadPct": 3.39,
-        "valueSharePct": 1.55
+        "valueSharePct": 1.39
       },
       {
         "t": "CVIB2613",
@@ -5004,7 +5004,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.65,
+        "spreadPct": 1.63,
         "valueSharePct": null
       },
       {
@@ -5016,8 +5016,8 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 4.0,
-        "spreadPct": 5.13,
+        "spreadTicks": 1.0,
+        "spreadPct": 1.27,
         "valueSharePct": null
       },
       {
@@ -5027,24 +5027,24 @@
         "lastPrice": 630.0,
         "refPrice": 640.0,
         "priceChangePct": -1.56,
-        "volume": 130000.0,
-        "valueVND": 82300400.0,
+        "volume": 132000.0,
+        "valueVND": 83559960.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.63,
-        "valueSharePct": 0.38
+        "valueSharePct": 0.34
       },
       {
         "t": "CVIB2616",
         "u": "VIB",
         "traded": true,
-        "lastPrice": 580.0,
+        "lastPrice": 590.0,
         "refPrice": 590.0,
-        "priceChangePct": -1.69,
-        "volume": 106000.0,
-        "valueVND": 62519860.0,
+        "priceChangePct": 0.0,
+        "volume": 111000.0,
+        "valueVND": 65470020.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.74,
-        "valueSharePct": 0.29
+        "valueSharePct": 0.26
       },
       {
         "t": "CVIB2617",
@@ -5057,20 +5057,20 @@
         "valueVND": 199560595.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.95,
-        "valueSharePct": 0.92
+        "valueSharePct": 0.8
       },
       {
         "t": "CVIB2618",
         "u": "VIB",
         "traded": true,
-        "lastPrice": 1330.0,
+        "lastPrice": 1340.0,
         "refPrice": 1350.0,
-        "priceChangePct": -1.48,
-        "volume": 244000.0,
-        "valueVND": 327160080.0,
+        "priceChangePct": -0.74,
+        "volume": 246000.0,
+        "valueVND": 329839260.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.75,
-        "valueSharePct": 1.51
+        "valueSharePct": 1.33
       },
       {
         "t": "CVIC2516",
@@ -5082,34 +5082,34 @@
         "volume": 100.0,
         "valueVND": 2866000.0,
         "spreadTicks": 28.0,
-        "spreadPct": 0.97,
+        "spreadPct": 0.98,
         "valueSharePct": 0.01
       },
       {
         "t": "CVIC2603",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 660.0,
+        "lastPrice": 610.0,
         "refPrice": 630.0,
-        "priceChangePct": 4.76,
-        "volume": 14000.0,
-        "valueVND": 8589980.0,
+        "priceChangePct": -3.17,
+        "volume": 23000.0,
+        "valueVND": 14236080.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.55,
-        "valueSharePct": 0.04
+        "spreadPct": 1.63,
+        "valueSharePct": 0.06
       },
       {
         "t": "CVIC2604",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 1080.0,
+        "lastPrice": 990.0,
         "refPrice": 1000.0,
-        "priceChangePct": 8.0,
-        "volume": 100000.0,
-        "valueVND": 100143000.0,
+        "priceChangePct": -1.0,
+        "volume": 121500.0,
+        "valueVND": 121451400.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.97,
-        "valueSharePct": 0.46
+        "spreadPct": 1.0,
+        "valueSharePct": 0.49
       },
       {
         "t": "CVIC2607",
@@ -5121,8 +5121,8 @@
         "volume": 10300.0,
         "valueVND": 31015978.0,
         "spreadTicks": 5.0,
-        "spreadPct": 1.69,
-        "valueSharePct": 0.14
+        "spreadPct": 1.72,
+        "valueSharePct": 0.12
       },
       {
         "t": "CVIC2608",
@@ -5134,8 +5134,8 @@
         "volume": 17500.0,
         "valueVND": 64449000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 1.36,
-        "valueSharePct": 0.3
+        "spreadPct": 1.38,
+        "valueSharePct": 0.26
       },
       {
         "t": "CVIC2609",
@@ -5147,73 +5147,73 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 5.0,
-        "spreadPct": 1.57,
+        "spreadPct": 1.59,
         "valueSharePct": null
       },
       {
         "t": "CVIC2610",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 3040.0,
+        "lastPrice": 2770.0,
         "refPrice": 2810.0,
-        "priceChangePct": 8.19,
-        "volume": 5900.0,
-        "valueVND": 17932991.0,
+        "priceChangePct": -1.42,
+        "volume": 19900.0,
+        "valueVND": 56713010.0,
         "spreadTicks": 2.0,
-        "spreadPct": 0.69,
-        "valueSharePct": 0.08
+        "spreadPct": 0.71,
+        "valueSharePct": 0.23
       },
       {
         "t": "CVIC2611",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 2140.0,
+        "lastPrice": 2080.0,
         "refPrice": 2130.0,
-        "priceChangePct": 0.47,
-        "volume": 40300.0,
-        "valueVND": 88759944.0,
+        "priceChangePct": -2.35,
+        "volume": 41300.0,
+        "valueVND": 90850088.0,
         "spreadTicks": 2.0,
-        "spreadPct": 0.92,
-        "valueSharePct": 0.41
+        "spreadPct": 0.94,
+        "valueSharePct": 0.37
       },
       {
         "t": "CVIC2612",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 1390.0,
+        "lastPrice": 1340.0,
         "refPrice": 1390.0,
-        "priceChangePct": 0.0,
-        "volume": 106900.0,
-        "valueVND": 154039693.0,
+        "priceChangePct": -3.6,
+        "volume": 148200.0,
+        "valueVND": 208388466.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.72,
-        "valueSharePct": 0.71
+        "spreadPct": 0.75,
+        "valueSharePct": 0.84
       },
       {
         "t": "CVIC2613",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 3460.0,
+        "lastPrice": 3380.0,
         "refPrice": 3280.0,
-        "priceChangePct": 5.49,
-        "volume": 62700.0,
-        "valueVND": 226525068.0,
+        "priceChangePct": 3.05,
+        "volume": 67600.0,
+        "valueVND": 243024704.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.29,
-        "valueSharePct": 1.04
+        "spreadPct": 0.3,
+        "valueSharePct": 0.98
       },
       {
         "t": "CVIC2614",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 3350.0,
+        "lastPrice": 3290.0,
         "refPrice": 3310.0,
-        "priceChangePct": 1.21,
-        "volume": 76400.0,
-        "valueVND": 262355308.0,
+        "priceChangePct": -0.6,
+        "volume": 81400.0,
+        "valueVND": 278904890.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.3,
-        "valueSharePct": 1.21
+        "spreadPct": 0.31,
+        "valueSharePct": 1.12
       },
       {
         "t": "CVIC2615",
@@ -5225,8 +5225,8 @@
         "volume": 19500.0,
         "valueVND": 34161075.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.56,
-        "valueSharePct": 0.16
+        "spreadPct": 0.57,
+        "valueSharePct": 0.14
       },
       {
         "t": "CVIC2616",
@@ -5251,7 +5251,7 @@
         "volume": 500.0,
         "valueVND": 1085000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.46,
+        "spreadPct": 0.47,
         "valueSharePct": 0.0
       },
       {
@@ -5264,21 +5264,21 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 0.42,
+        "spreadPct": 0.43,
         "valueSharePct": null
       },
       {
         "t": "CVIC2619",
         "u": "VIC",
         "traded": true,
-        "lastPrice": 2520.0,
+        "lastPrice": 2480.0,
         "refPrice": 2490.0,
-        "priceChangePct": 1.2,
-        "volume": 5200.0,
-        "valueVND": 12952992.0,
+        "priceChangePct": -0.4,
+        "volume": 115200.0,
+        "valueVND": 282655872.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.4,
-        "valueSharePct": 0.06
+        "valueSharePct": 1.14
       },
       {
         "t": "CVIC2620",
@@ -5290,7 +5290,7 @@
         "volume": 1400.0,
         "valueVND": 3730006.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.37,
+        "spreadPct": 0.38,
         "valueSharePct": 0.02
       },
       {
@@ -5315,8 +5315,8 @@
         "priceChangePct": -6.94,
         "volume": 100.0,
         "valueVND": 134000.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 2.26,
+        "spreadTicks": 2.0,
+        "spreadPct": 1.5,
         "valueSharePct": 0.0
       },
       {
@@ -5343,17 +5343,17 @@
         "valueVND": 16741032.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.5,
-        "valueSharePct": 0.08
+        "valueSharePct": 0.07
       },
       {
         "t": "CVJC2608",
         "u": "VJC",
         "traded": true,
-        "lastPrice": 870.0,
+        "lastPrice": 860.0,
         "refPrice": 840.0,
-        "priceChangePct": 3.57,
-        "volume": 11300.0,
-        "valueVND": 9706022.0,
+        "priceChangePct": 2.38,
+        "volume": 11400.0,
+        "valueVND": 9792030.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.16,
         "valueSharePct": 0.04
@@ -5369,7 +5369,7 @@
         "valueVND": 10810980.0,
         "spreadTicks": 1.0,
         "spreadPct": 0.96,
-        "valueSharePct": 0.05
+        "valueSharePct": 0.04
       },
       {
         "t": "CVNM2523",
@@ -5391,11 +5391,11 @@
         "lastPrice": 30.0,
         "refPrice": 20.0,
         "priceChangePct": 50.0,
-        "volume": 45100.0,
-        "valueVND": 903804.0,
+        "volume": 140000.0,
+        "valueVND": 3750600.0,
         "spreadTicks": 1.0,
         "spreadPct": 40.0,
-        "valueSharePct": 0.0
+        "valueSharePct": 0.02
       },
       {
         "t": "CVNM2603",
@@ -5420,7 +5420,7 @@
         "volume": 15100.0,
         "valueVND": 2432006.0,
         "spreadTicks": 1.0,
-        "spreadPct": 6.06,
+        "spreadPct": 6.45,
         "valueSharePct": 0.01
       },
       {
@@ -5446,34 +5446,34 @@
         "volume": 1400.0,
         "valueVND": 578004.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.67,
+        "spreadPct": 2.82,
         "valueSharePct": 0.0
       },
       {
         "t": "CVNM2614",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 1060.0,
+        "lastPrice": 1070.0,
         "refPrice": 1170.0,
-        "priceChangePct": -9.4,
-        "volume": 700.0,
-        "valueVND": 781998.0,
-        "spreadTicks": 3.0,
-        "spreadPct": 2.79,
+        "priceChangePct": -8.55,
+        "volume": 800.0,
+        "valueVND": 889000.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.95,
         "valueSharePct": 0.0
       },
       {
         "t": "CVNM2615",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 1460.0,
+        "lastPrice": 1450.0,
         "refPrice": 1480.0,
-        "priceChangePct": -1.35,
-        "volume": 196300.0,
-        "valueVND": 293111234.0,
+        "priceChangePct": -2.03,
+        "volume": 216500.0,
+        "valueVND": 322435615.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.68,
-        "valueSharePct": 1.35
+        "spreadPct": 0.69,
+        "valueSharePct": 1.3
       },
       {
         "t": "CVNM2616",
@@ -5486,33 +5486,33 @@
         "valueVND": 5614802.0,
         "spreadTicks": 2.0,
         "spreadPct": 28.57,
-        "valueSharePct": 0.03
+        "valueSharePct": 0.02
       },
       {
         "t": "CVNM2617",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 350.0,
+        "lastPrice": 330.0,
         "refPrice": 360.0,
-        "priceChangePct": -2.78,
-        "volume": 24900.0,
-        "valueVND": 8756085.0,
+        "priceChangePct": -8.33,
+        "volume": 31000.0,
+        "valueVND": 10809080.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.9,
+        "spreadPct": 2.99,
         "valueSharePct": 0.04
       },
       {
         "t": "CVNM2618",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 130.0,
+        "lastPrice": 120.0,
         "refPrice": 140.0,
-        "priceChangePct": -7.14,
-        "volume": 129700.0,
-        "valueVND": 16861000.0,
+        "priceChangePct": -14.29,
+        "volume": 279700.0,
+        "valueVND": 34861808.0,
         "spreadTicks": 1.0,
         "spreadPct": 7.41,
-        "valueSharePct": 0.08
+        "valueSharePct": 0.14
       },
       {
         "t": "CVNM2619",
@@ -5534,37 +5534,37 @@
         "lastPrice": 20.0,
         "refPrice": 30.0,
         "priceChangePct": -33.33,
-        "volume": 116800.0,
-        "valueVND": 2298624.0,
+        "volume": 619500.0,
+        "valueVND": 7353465.0,
         "spreadTicks": 1.0,
         "spreadPct": 66.67,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.03
       },
       {
         "t": "CVNM2621",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 390.0,
+        "lastPrice": 380.0,
         "refPrice": 420.0,
-        "priceChangePct": -7.14,
-        "volume": 197000.0,
-        "valueVND": 78382360.0,
+        "priceChangePct": -9.52,
+        "volume": 197200.0,
+        "valueVND": 78459964.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.53,
-        "valueSharePct": 0.36
+        "spreadPct": 2.6,
+        "valueSharePct": 0.32
       },
       {
         "t": "CVNM2622",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 300.0,
+        "lastPrice": 290.0,
         "refPrice": 310.0,
-        "priceChangePct": -3.23,
-        "volume": 32000.0,
-        "valueVND": 9925120.0,
+        "priceChangePct": -6.45,
+        "volume": 32200.0,
+        "valueVND": 9983932.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.28,
-        "valueSharePct": 0.05
+        "spreadPct": 3.39,
+        "valueSharePct": 0.04
       },
       {
         "t": "CVNM2623",
@@ -5596,26 +5596,26 @@
         "t": "CVNM2625",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 1020.0,
+        "lastPrice": 980.0,
         "refPrice": 1030.0,
-        "priceChangePct": -0.97,
-        "volume": 100.0,
-        "valueVND": 102000.0,
+        "priceChangePct": -4.85,
+        "volume": 200.0,
+        "valueVND": 200000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.02,
+        "spreadPct": 1.01,
         "valueSharePct": 0.0
       },
       {
         "t": "CVNM2626",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 1560.0,
+        "lastPrice": 1540.0,
         "refPrice": 1580.0,
-        "priceChangePct": -1.27,
-        "volume": 200.0,
-        "valueVND": 315000.0,
+        "priceChangePct": -2.53,
+        "volume": 500.0,
+        "valueVND": 777000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.65,
+        "spreadPct": 0.64,
         "valueSharePct": 0.0
       },
       {
@@ -5628,7 +5628,7 @@
         "volume": 100.0,
         "valueVND": 232000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.21,
+        "spreadPct": 2.23,
         "valueSharePct": 0.0
       },
       {
@@ -5641,18 +5641,18 @@
         "volume": 100.0,
         "valueVND": 272000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 1.88,
+        "spreadPct": 1.89,
         "valueSharePct": 0.0
       },
       {
         "t": "CVNM2629",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 380.0,
+        "lastPrice": 370.0,
         "refPrice": 320.0,
-        "priceChangePct": 18.75,
-        "volume": 18200.0,
-        "valueVND": 7097090.0,
+        "priceChangePct": 15.62,
+        "volume": 18300.0,
+        "valueVND": 7134072.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.6,
         "valueSharePct": 0.03
@@ -5667,8 +5667,8 @@
         "volume": 24800.0,
         "valueVND": 11966000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.98,
-        "valueSharePct": 0.06
+        "spreadPct": 2.02,
+        "valueSharePct": 0.05
       },
       {
         "t": "CVNM2631",
@@ -5680,8 +5680,8 @@
         "volume": 11000.0,
         "valueVND": 5510010.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.83,
-        "valueSharePct": 0.03
+        "spreadPct": 1.87,
+        "valueSharePct": 0.02
       },
       {
         "t": "CVNM2632",
@@ -5694,7 +5694,7 @@
         "valueVND": 8340046.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.63,
-        "valueSharePct": 0.04
+        "valueSharePct": 0.03
       },
       {
         "t": "CVNM2633",
@@ -5706,7 +5706,7 @@
         "volume": 200.0,
         "valueVND": 115000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.38,
+        "spreadPct": 1.4,
         "valueSharePct": 0.0
       },
       {
@@ -5726,27 +5726,27 @@
         "t": "CVNM2635",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 800.0,
+        "lastPrice": 790.0,
         "refPrice": 810.0,
-        "priceChangePct": -1.23,
-        "volume": 319100.0,
-        "valueVND": 259948433.0,
+        "priceChangePct": -2.47,
+        "volume": 320100.0,
+        "valueVND": 260740656.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.26,
-        "valueSharePct": 1.2
+        "spreadPct": 1.27,
+        "valueSharePct": 1.05
       },
       {
         "t": "CVNM2636",
         "u": "VNM",
         "traded": true,
-        "lastPrice": 1250.0,
+        "lastPrice": 1240.0,
         "refPrice": 1260.0,
-        "priceChangePct": -0.79,
-        "volume": 158100.0,
-        "valueVND": 200244717.0,
+        "priceChangePct": -1.59,
+        "volume": 158200.0,
+        "valueVND": 200368210.0,
         "spreadTicks": 1.0,
-        "spreadPct": 0.8,
-        "valueSharePct": 0.92
+        "spreadPct": 0.81,
+        "valueSharePct": 0.81
       },
       {
         "t": "CVNM2637",
@@ -5758,7 +5758,7 @@
         "volume": 100.0,
         "valueVND": 50000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.02,
+        "spreadPct": 2.06,
         "valueSharePct": 0.0
       },
       {
@@ -5771,7 +5771,7 @@
         "volume": 100.0,
         "valueVND": 135000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 1.47,
+        "spreadPct": 1.48,
         "valueSharePct": 0.0
       },
       {
@@ -5781,11 +5781,11 @@
         "lastPrice": 10.0,
         "refPrice": 20.0,
         "priceChangePct": -50.0,
-        "volume": 2143300.0,
-        "valueVND": 21433000.0,
+        "volume": 2151700.0,
+        "valueVND": 21517000.0,
         "spreadTicks": null,
         "spreadPct": null,
-        "valueSharePct": 0.1
+        "valueSharePct": 0.09
       },
       {
         "t": "CVPB2532",
@@ -5796,35 +5796,35 @@
         "priceChangePct": null,
         "volume": null,
         "valueVND": null,
-        "spreadTicks": 2.0,
-        "spreadPct": 25.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 11.76,
         "valueSharePct": null
       },
       {
         "t": "CVPB2603",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 30.0,
+        "lastPrice": 20.0,
         "refPrice": 80.0,
-        "priceChangePct": -62.5,
-        "volume": 5000.0,
-        "valueVND": 101000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 100.0,
+        "priceChangePct": -75.0,
+        "volume": 5100.0,
+        "valueVND": 103020.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 66.67,
         "valueSharePct": 0.0
       },
       {
         "t": "CVPB2608",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 310.0,
+        "lastPrice": 320.0,
         "refPrice": 320.0,
-        "priceChangePct": -3.12,
-        "volume": 700200.0,
-        "valueVND": 226199610.0,
+        "priceChangePct": 0.0,
+        "volume": 750400.0,
+        "valueVND": 241771376.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.17,
-        "valueSharePct": 1.04
+        "spreadPct": 3.28,
+        "valueSharePct": 0.97
       },
       {
         "t": "CVPB2609",
@@ -5836,20 +5836,20 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 2.15,
+        "spreadPct": 2.2,
         "valueSharePct": null
       },
       {
         "t": "CVPB2611",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 350.0,
+        "lastPrice": 330.0,
         "refPrice": 340.0,
-        "priceChangePct": 2.94,
-        "volume": 200.0,
-        "valueVND": 67000.0,
+        "priceChangePct": -2.94,
+        "volume": 2200.0,
+        "valueVND": 726990.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.08,
+        "spreadPct": 3.17,
         "valueSharePct": 0.0
       },
       {
@@ -5872,23 +5872,23 @@
         "lastPrice": 350.0,
         "refPrice": 340.0,
         "priceChangePct": 2.94,
-        "volume": 519600.0,
-        "valueVND": 182161368.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 5.71,
-        "valueSharePct": 0.84
+        "volume": 549600.0,
+        "valueVND": 192662280.0,
+        "spreadTicks": 1.0,
+        "spreadPct": 2.99,
+        "valueSharePct": 0.78
       },
       {
         "t": "CVPB2616",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 530.0,
+        "lastPrice": 510.0,
         "refPrice": 500.0,
-        "priceChangePct": 6.0,
-        "volume": 23500.0,
-        "valueVND": 13383015.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.87,
+        "priceChangePct": 2.0,
+        "volume": 26200.0,
+        "valueVND": 14804048.0,
+        "spreadTicks": 5.0,
+        "spreadPct": 9.52,
         "valueSharePct": 0.06
       },
       {
@@ -5898,11 +5898,11 @@
         "lastPrice": 810.0,
         "refPrice": 820.0,
         "priceChangePct": -1.22,
-        "volume": 317900.0,
-        "valueVND": 292229575.0,
+        "volume": 326200.0,
+        "valueVND": 298952514.0,
         "spreadTicks": 2.0,
         "spreadPct": 2.5,
-        "valueSharePct": 1.35
+        "valueSharePct": 1.2
       },
       {
         "t": "CVPB2618",
@@ -5911,11 +5911,11 @@
         "lastPrice": 800.0,
         "refPrice": 790.0,
         "priceChangePct": 1.27,
-        "volume": 305200.0,
-        "valueVND": 252745276.0,
+        "volume": 306600.0,
+        "valueVND": 253901592.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.21,
-        "valueSharePct": 1.16
+        "spreadPct": 1.26,
+        "valueSharePct": 1.02
       },
       {
         "t": "CVPB2619",
@@ -5940,8 +5940,8 @@
         "volume": 211200.0,
         "valueVND": 16908672.0,
         "spreadTicks": 1.0,
-        "spreadPct": 13.33,
-        "valueSharePct": 0.08
+        "spreadPct": 15.38,
+        "valueSharePct": 0.07
       },
       {
         "t": "CVPB2621",
@@ -5953,7 +5953,7 @@
         "volume": 400.0,
         "valueVND": 125000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.28,
+        "spreadPct": 3.39,
         "valueSharePct": 0.0
       },
       {
@@ -5963,10 +5963,10 @@
         "lastPrice": 880.0,
         "refPrice": 880.0,
         "priceChangePct": 0.0,
-        "volume": 1700.0,
-        "valueVND": 1515992.0,
+        "volume": 1900.0,
+        "valueVND": 1692007.0,
         "spreadTicks": 2.0,
-        "spreadPct": 2.22,
+        "spreadPct": 2.27,
         "valueSharePct": 0.01
       },
       {
@@ -5979,7 +5979,7 @@
         "volume": 200.0,
         "valueVND": 121000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.74,
+        "spreadPct": 1.8,
         "valueSharePct": 0.0
       },
       {
@@ -5992,60 +5992,60 @@
         "volume": 37400.0,
         "valueVND": 9580010.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.08,
+        "spreadPct": 4.26,
         "valueSharePct": 0.04
       },
       {
         "t": "CVPB2625",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 210.0,
+        "lastPrice": 200.0,
         "refPrice": 200.0,
-        "priceChangePct": 5.0,
-        "volume": 1387300.0,
-        "valueVND": 281705138.0,
+        "priceChangePct": 0.0,
+        "volume": 1790000.0,
+        "valueVND": 364730400.0,
         "spreadTicks": 1.0,
         "spreadPct": 4.88,
-        "valueSharePct": 1.3
+        "valueSharePct": 1.47
       },
       {
         "t": "CVPB2626",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 40.0,
+        "lastPrice": 20.0,
         "refPrice": 40.0,
-        "priceChangePct": 0.0,
-        "volume": 138300.0,
-        "valueVND": 4519644.0,
+        "priceChangePct": -50.0,
+        "volume": 841000.0,
+        "valueVND": 20621320.0,
         "spreadTicks": 1.0,
-        "spreadPct": 28.57,
-        "valueSharePct": 0.02
+        "spreadPct": 40.0,
+        "valueSharePct": 0.08
       },
       {
         "t": "CVPB2627",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 480.0,
+        "lastPrice": 450.0,
         "refPrice": 440.0,
-        "priceChangePct": 9.09,
-        "volume": 1321500.0,
-        "valueVND": 626787450.0,
+        "priceChangePct": 2.27,
+        "volume": 1992100.0,
+        "valueVND": 929653307.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.11,
-        "valueSharePct": 2.89
+        "spreadPct": 2.25,
+        "valueSharePct": 3.74
       },
       {
         "t": "CVPB2628",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 540.0,
+        "lastPrice": 520.0,
         "refPrice": 510.0,
-        "priceChangePct": 5.88,
-        "volume": 71600.0,
-        "valueVND": 39468068.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.87,
-        "valueSharePct": 0.18
+        "priceChangePct": 1.96,
+        "volume": 72900.0,
+        "valueVND": 40154778.0,
+        "spreadTicks": 2.0,
+        "spreadPct": 3.92,
+        "valueSharePct": 0.16
       },
       {
         "t": "CVPB2629",
@@ -6054,24 +6054,24 @@
         "lastPrice": 410.0,
         "refPrice": 420.0,
         "priceChangePct": -2.38,
-        "volume": 22500.0,
-        "valueVND": 9234900.0,
+        "volume": 28500.0,
+        "valueVND": 11694975.0,
         "spreadTicks": 2.0,
         "spreadPct": 4.88,
-        "valueSharePct": 0.04
+        "valueSharePct": 0.05
       },
       {
         "t": "CVPB2630",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 280.0,
+        "lastPrice": 260.0,
         "refPrice": 250.0,
-        "priceChangePct": 12.0,
-        "volume": 2004900.0,
-        "valueVND": 549944070.0,
+        "priceChangePct": 4.0,
+        "volume": 2139900.0,
+        "valueVND": 587081565.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.64,
-        "valueSharePct": 2.53
+        "spreadPct": 3.77,
+        "valueSharePct": 2.36
       },
       {
         "t": "CVPB2631",
@@ -6083,7 +6083,7 @@
         "volume": 100.0,
         "valueVND": 27000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 3.64,
+        "spreadPct": 3.77,
         "valueSharePct": 0.0
       },
       {
@@ -6096,7 +6096,7 @@
         "volume": 100.0,
         "valueVND": 69000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.46,
+        "spreadPct": 1.48,
         "valueSharePct": 0.0
       },
       {
@@ -6109,7 +6109,7 @@
         "volume": 100.0,
         "valueVND": 169000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.99,
+        "spreadPct": 3.0,
         "valueSharePct": 0.0
       },
       {
@@ -6122,7 +6122,7 @@
         "volume": 100.0,
         "valueVND": 201000.0,
         "spreadTicks": 5.0,
-        "spreadPct": 2.49,
+        "spreadPct": 2.52,
         "valueSharePct": 0.0
       },
       {
@@ -6135,8 +6135,8 @@
         "volume": 41100.0,
         "valueVND": 14190186.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.74,
-        "valueSharePct": 0.07
+        "spreadPct": 2.82,
+        "valueSharePct": 0.06
       },
       {
         "t": "CVPB2636",
@@ -6149,7 +6149,7 @@
         "valueVND": 10113880.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.67,
-        "valueSharePct": 0.05
+        "valueSharePct": 0.04
       },
       {
         "t": "CVPB2637",
@@ -6161,7 +6161,7 @@
         "volume": 15300.0,
         "valueVND": 6224958.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.35,
+        "spreadPct": 2.41,
         "valueSharePct": 0.03
       },
       {
@@ -6174,7 +6174,7 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 1.0,
-        "spreadPct": 1.8,
+        "spreadPct": 1.83,
         "valueSharePct": null
       },
       {
@@ -6187,21 +6187,21 @@
         "volume": 256100.0,
         "valueVND": 36320102.0,
         "spreadTicks": 1.0,
-        "spreadPct": 7.41,
-        "valueSharePct": 0.17
+        "spreadPct": 8.0,
+        "valueSharePct": 0.15
       },
       {
         "t": "CVPB2640",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 400.0,
+        "lastPrice": 380.0,
         "refPrice": 370.0,
-        "priceChangePct": 8.11,
-        "volume": 253800.0,
-        "valueVND": 96268878.0,
+        "priceChangePct": 2.7,
+        "volume": 254900.0,
+        "valueVND": 96688668.0,
         "spreadTicks": 1.0,
-        "spreadPct": 2.67,
-        "valueSharePct": 0.44
+        "spreadPct": 2.74,
+        "valueSharePct": 0.39
       },
       {
         "t": "CVPB2641",
@@ -6213,7 +6213,7 @@
         "volume": 100.0,
         "valueVND": 59000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.71,
+        "spreadPct": 1.74,
         "valueSharePct": 0.0
       },
       {
@@ -6226,7 +6226,7 @@
         "volume": 1200.0,
         "valueVND": 684000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.74,
+        "spreadPct": 1.77,
         "valueSharePct": 0.0
       },
       {
@@ -6239,20 +6239,20 @@
         "volume": 100.0,
         "valueVND": 70000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.44,
+        "spreadPct": 1.46,
         "valueSharePct": 0.0
       },
       {
         "t": "CVPB2644",
         "u": "VPB",
         "traded": true,
-        "lastPrice": 580.0,
+        "lastPrice": 570.0,
         "refPrice": 760.0,
-        "priceChangePct": -23.68,
-        "volume": 1500.0,
-        "valueVND": 718995.0,
+        "priceChangePct": -25.0,
+        "volume": 1700.0,
+        "valueVND": 818992.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.74,
+        "spreadPct": 1.77,
         "valueSharePct": 0.0
       },
       {
@@ -6264,8 +6264,8 @@
         "priceChangePct": 7.89,
         "volume": 200.0,
         "valueVND": 161000.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.24,
+        "spreadTicks": 2.0,
+        "spreadPct": 2.53,
         "valueSharePct": 0.0
       },
       {
@@ -6278,8 +6278,8 @@
         "volume": 169000.0,
         "valueVND": 128440000.0,
         "spreadTicks": 2.0,
-        "spreadPct": 2.7,
-        "valueSharePct": 0.59
+        "spreadPct": 2.74,
+        "valueSharePct": 0.52
       },
       {
         "t": "CVPB2647",
@@ -6291,34 +6291,34 @@
         "volume": null,
         "valueVND": null,
         "spreadTicks": 2.0,
-        "spreadPct": 2.6,
+        "spreadPct": 2.63,
         "valueSharePct": null
       },
       {
         "t": "CVRE2526",
         "u": "VRE",
-        "traded": false,
-        "lastPrice": null,
+        "traded": true,
+        "lastPrice": 30.0,
         "refPrice": 40.0,
-        "priceChangePct": null,
-        "volume": null,
-        "valueVND": null,
+        "priceChangePct": -25.0,
+        "volume": 115400.0,
+        "valueVND": 1173618.0,
         "spreadTicks": 2.0,
         "spreadPct": 100.0,
-        "valueSharePct": null
+        "valueSharePct": 0.0
       },
       {
         "t": "CVRE2603",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 120.0,
+        "lastPrice": 110.0,
         "refPrice": 100.0,
-        "priceChangePct": 20.0,
-        "volume": 566600.0,
-        "valueVND": 63277888.0,
+        "priceChangePct": 10.0,
+        "volume": 741100.0,
+        "valueVND": 83040255.0,
         "spreadTicks": 1.0,
-        "spreadPct": 8.0,
-        "valueSharePct": 0.29
+        "spreadPct": 8.7,
+        "valueSharePct": 0.33
       },
       {
         "t": "CVRE2604",
@@ -6366,50 +6366,50 @@
         "lastPrice": 200.0,
         "refPrice": 180.0,
         "priceChangePct": 11.11,
-        "volume": 140200.0,
-        "valueVND": 28040000.0,
+        "volume": 169000.0,
+        "valueVND": 33800000.0,
         "spreadTicks": 1.0,
         "spreadPct": 4.88,
-        "valueSharePct": 0.13
+        "valueSharePct": 0.14
       },
       {
         "t": "CVRE2609",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 870.0,
+        "lastPrice": 830.0,
         "refPrice": 730.0,
-        "priceChangePct": 19.18,
-        "volume": 976800.0,
-        "valueVND": 837693912.0,
+        "priceChangePct": 13.7,
+        "volume": 1371000.0,
+        "valueVND": 1167392790.0,
         "spreadTicks": 2.0,
-        "spreadPct": 2.41,
-        "valueSharePct": 3.86
+        "spreadPct": 2.47,
+        "valueSharePct": 4.7
       },
       {
         "t": "CVRE2610",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 550.0,
+        "lastPrice": 540.0,
         "refPrice": 520.0,
-        "priceChangePct": 5.77,
-        "volume": 53300.0,
-        "valueVND": 28762812.0,
+        "priceChangePct": 3.85,
+        "volume": 60200.0,
+        "valueVND": 32468870.0,
         "spreadTicks": 2.0,
-        "spreadPct": 3.7,
+        "spreadPct": 3.77,
         "valueSharePct": 0.13
       },
       {
         "t": "CVRE2611",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 230.0,
+        "lastPrice": 220.0,
         "refPrice": 180.0,
-        "priceChangePct": 27.78,
-        "volume": 83000.0,
-        "valueVND": 18499870.0,
+        "priceChangePct": 22.22,
+        "volume": 85600.0,
+        "valueVND": 19071680.0,
         "spreadTicks": 1.0,
-        "spreadPct": 4.44,
-        "valueSharePct": 0.09
+        "spreadPct": 4.65,
+        "valueSharePct": 0.08
       },
       {
         "t": "CVRE2612",
@@ -6418,24 +6418,24 @@
         "lastPrice": 700.0,
         "refPrice": 630.0,
         "priceChangePct": 11.11,
-        "volume": 67000.0,
-        "valueVND": 46240050.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.42,
-        "valueSharePct": 0.21
+        "volume": 70900.0,
+        "valueVND": 48935180.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 4.32,
+        "valueSharePct": 0.2
       },
       {
         "t": "CVRE2613",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 980.0,
+        "lastPrice": 970.0,
         "refPrice": 910.0,
-        "priceChangePct": 7.69,
-        "volume": 72100.0,
-        "valueVND": 68335659.0,
-        "spreadTicks": 1.0,
-        "spreadPct": 1.03,
-        "valueSharePct": 0.31
+        "priceChangePct": 6.59,
+        "volume": 73100.0,
+        "valueVND": 69298800.0,
+        "spreadTicks": 3.0,
+        "spreadPct": 3.11,
+        "valueSharePct": 0.28
       },
       {
         "t": "CVRE2614",
@@ -6446,35 +6446,35 @@
         "priceChangePct": 0.0,
         "volume": 100.0,
         "valueVND": 195000.0,
-        "spreadTicks": 2.0,
-        "spreadPct": 1.02,
+        "spreadTicks": 1.0,
+        "spreadPct": 0.51,
         "valueSharePct": 0.0
       },
       {
         "t": "CVRE2615",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 400.0,
+        "lastPrice": 410.0,
         "refPrice": 430.0,
-        "priceChangePct": -6.98,
-        "volume": 5000.0,
-        "valueVND": 2000000.0,
+        "priceChangePct": -4.65,
+        "volume": 15000.0,
+        "valueVND": 6100050.0,
         "spreadTicks": 1.0,
         "spreadPct": 2.11,
-        "valueSharePct": 0.01
+        "valueSharePct": 0.02
       },
       {
         "t": "CVRE2616",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 570.0,
+        "lastPrice": 560.0,
         "refPrice": 490.0,
-        "priceChangePct": 16.33,
-        "volume": 15100.0,
-        "valueVND": 8207001.0,
+        "priceChangePct": 14.29,
+        "volume": 15200.0,
+        "valueVND": 8263024.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.74,
-        "valueSharePct": 0.04
+        "valueSharePct": 0.03
       },
       {
         "t": "CVRE2617",
@@ -6483,24 +6483,24 @@
         "lastPrice": 740.0,
         "refPrice": 650.0,
         "priceChangePct": 13.85,
-        "volume": 11100.0,
-        "valueVND": 8084019.0,
+        "volume": 12200.0,
+        "valueVND": 8896972.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.34,
+        "spreadPct": 1.36,
         "valueSharePct": 0.04
       },
       {
         "t": "CVRE2618",
         "u": "VRE",
         "traded": true,
-        "lastPrice": 800.0,
+        "lastPrice": 790.0,
         "refPrice": 700.0,
-        "priceChangePct": 14.29,
-        "volume": 10100.0,
-        "valueVND": 8080000.0,
+        "priceChangePct": 12.86,
+        "volume": 10200.0,
+        "valueVND": 8158980.0,
         "spreadTicks": 1.0,
         "spreadPct": 1.24,
-        "valueSharePct": 0.04
+        "valueSharePct": 0.03
       },
       {
         "t": "CVRE2619",
@@ -6512,7 +6512,7 @@
         "volume": 200.0,
         "valueVND": 164000.0,
         "spreadTicks": 1.0,
-        "spreadPct": 1.24,
+        "spreadPct": 1.27,
         "valueSharePct": 0.0
       }
     ]
@@ -6522,34 +6522,34 @@
       "underlying": "VPB",
       "warrants": 40,
       "traded": 36,
-      "valueVND": 2821968787.0,
-      "valueSharePct": 13.0,
-      "volume": 9979600.0,
-      "medianValueVND": 7729929.0,
-      "medianSpreadPct": 2.67,
-      "bestChangePct": 12.0,
-      "worstChangePct": -62.5
+      "valueVND": 3301060640.0,
+      "valueSharePct": 13.28,
+      "volume": 12002500.0,
+      "medianValueVND": 9846945.0,
+      "medianSpreadPct": 2.82,
+      "bestChangePct": 10.91,
+      "worstChangePct": -75.0
     },
     {
       "underlying": "HDB",
       "warrants": 20,
       "traded": 19,
-      "valueVND": 2377159136.0,
-      "valueSharePct": 10.95,
-      "volume": 1859600.0,
-      "medianValueVND": 2359980.0,
-      "medianSpreadPct": 2.33,
+      "valueVND": 2605031129.0,
+      "valueSharePct": 10.48,
+      "volume": 2051800.0,
+      "medianValueVND": 12620087.0,
+      "medianSpreadPct": 2.11,
       "bestChangePct": 10.17,
       "worstChangePct": -48.0
     },
     {
       "underlying": "HPG",
       "warrants": 48,
-      "traded": 41,
-      "valueVND": 2101520181.0,
-      "valueSharePct": 9.68,
-      "volume": 5948200.0,
-      "medianValueVND": 2612000.0,
+      "traded": 46,
+      "valueVND": 2461385666.0,
+      "valueSharePct": 9.9,
+      "volume": 7412100.0,
+      "medianValueVND": 3147725.0,
       "medianSpreadPct": 3.39,
       "bestChangePct": 800.0,
       "worstChangePct": -50.0
@@ -6558,143 +6558,143 @@
       "underlying": "TCB",
       "warrants": 24,
       "traded": 21,
-      "valueVND": 1760317319.0,
-      "valueSharePct": 8.11,
-      "volume": 5059700.0,
-      "medianValueVND": 13200000.0,
-      "medianSpreadPct": 2.94,
-      "bestChangePct": 12.5,
+      "valueVND": 2160678270.0,
+      "valueSharePct": 8.69,
+      "volume": 6684300.0,
+      "medianValueVND": 13333010.0,
+      "medianSpreadPct": 3.39,
+      "bestChangePct": 6.25,
       "worstChangePct": -34.13
-    },
-    {
-      "underlying": "MWG",
-      "warrants": 27,
-      "traded": 23,
-      "valueVND": 1658967089.0,
-      "valueSharePct": 7.64,
-      "volume": 4753200.0,
-      "medianValueVND": 20010000.0,
-      "medianSpreadPct": 2.6,
-      "bestChangePct": 29.73,
-      "worstChangePct": -27.59
     },
     {
       "underlying": "MSN",
       "warrants": 31,
       "traded": 28,
-      "valueVND": 1627615933.0,
-      "valueSharePct": 7.5,
-      "volume": 3215000.0,
-      "medianValueVND": 6477492.0,
-      "medianSpreadPct": 2.02,
+      "valueVND": 1914033781.0,
+      "valueSharePct": 7.7,
+      "volume": 3999600.0,
+      "medianValueVND": 9762028.0,
+      "medianSpreadPct": 2.38,
       "bestChangePct": 19.23,
       "worstChangePct": -47.62
     },
     {
-      "underlying": "VIB",
-      "warrants": 17,
-      "traded": 10,
-      "valueVND": 1237543455.0,
-      "valueSharePct": 5.7,
-      "volume": 2959800.0,
-      "medianValueVND": 77700060.0,
-      "medianSpreadPct": 4.04,
-      "bestChangePct": 22.22,
-      "worstChangePct": -25.0
+      "underlying": "MWG",
+      "warrants": 27,
+      "traded": 23,
+      "valueVND": 1828987893.0,
+      "valueSharePct": 7.36,
+      "volume": 5382500.0,
+      "medianValueVND": 24509800.0,
+      "medianSpreadPct": 2.74,
+      "bestChangePct": 29.73,
+      "worstChangePct": -27.59
     },
     {
       "underlying": "VRE",
       "warrants": 17,
-      "traded": 14,
-      "valueVND": 1117589211.0,
-      "valueSharePct": 5.15,
-      "volume": 2000700.0,
-      "medianValueVND": 13353436.0,
-      "medianSpreadPct": 2.35,
+      "traded": 15,
+      "valueVND": 1486968219.0,
+      "valueSharePct": 5.98,
+      "volume": 2739300.0,
+      "medianValueVND": 8896972.0,
+      "medianSpreadPct": 3.11,
       "bestChangePct": 800.0,
-      "worstChangePct": -6.98
+      "worstChangePct": -25.0
     },
     {
       "underlying": "VIC",
       "warrants": 17,
       "traded": 14,
-      "valueVND": 1008606035.0,
-      "valueSharePct": 4.65,
-      "volume": 460700.0,
-      "medianValueVND": 32588526.0,
-      "medianSpreadPct": 0.69,
-      "bestChangePct": 8.19,
+      "valueVND": 1433531569.0,
+      "valueSharePct": 5.77,
+      "volume": 667400.0,
+      "medianValueVND": 60581005.0,
+      "medianSpreadPct": 0.71,
+      "bestChangePct": 6.36,
       "worstChangePct": -7.34
+    },
+    {
+      "underlying": "VIB",
+      "warrants": 17,
+      "traded": 10,
+      "valueVND": 1261318111.0,
+      "valueSharePct": 5.08,
+      "volume": 3055000.0,
+      "medianValueVND": 78444562.0,
+      "medianSpreadPct": 3.58,
+      "bestChangePct": 22.22,
+      "worstChangePct": -25.0
     },
     {
       "underlying": "VHM",
       "warrants": 22,
       "traded": 21,
-      "valueVND": 990335888.0,
-      "valueSharePct": 4.56,
-      "volume": 1944800.0,
-      "medianValueVND": 17999933.0,
-      "medianSpreadPct": 2.44,
+      "valueVND": 1025593428.0,
+      "valueSharePct": 4.13,
+      "volume": 1986800.0,
+      "medianValueVND": 18085934.0,
+      "medianSpreadPct": 2.5,
       "bestChangePct": 66.67,
       "worstChangePct": -22.34
+    },
+    {
+      "underlying": "STB",
+      "warrants": 33,
+      "traded": 26,
+      "valueVND": 1025115153.0,
+      "valueSharePct": 4.12,
+      "volume": 1928700.0,
+      "medianValueVND": 9322530.0,
+      "medianSpreadPct": 1.3,
+      "bestChangePct": 12.63,
+      "worstChangePct": -17.39
     },
     {
       "underlying": "MBB",
       "warrants": 23,
       "traded": 18,
-      "valueVND": 964754294.0,
-      "valueSharePct": 4.44,
-      "volume": 3765500.0,
+      "valueVND": 992347283.0,
+      "valueSharePct": 3.99,
+      "volume": 3892400.0,
       "medianValueVND": 14900000.0,
       "medianSpreadPct": 4.26,
       "bestChangePct": 20.0,
-      "worstChangePct": -33.33
-    },
-    {
-      "underlying": "STB",
-      "warrants": 33,
-      "traded": 25,
-      "valueVND": 922150585.0,
-      "valueSharePct": 4.25,
-      "volume": 1640400.0,
-      "medianValueVND": 8648000.0,
-      "medianSpreadPct": 1.27,
-      "bestChangePct": 15.38,
-      "worstChangePct": -8.7
+      "worstChangePct": -37.14
     },
     {
       "underlying": "VNM",
       "warrants": 31,
       "traded": 29,
-      "valueVND": 921037389.0,
-      "valueSharePct": 4.24,
-      "volume": 1515500.0,
-      "medianValueVND": 2298624.0,
-      "medianSpreadPct": 2.53,
+      "valueVND": 980073326.0,
+      "valueSharePct": 3.94,
+      "volume": 2291500.0,
+      "medianValueVND": 3750600.0,
+      "medianSpreadPct": 2.23,
       "bestChangePct": 76.19,
       "worstChangePct": -39.02
     },
     {
       "underlying": "FPT",
       "warrants": 42,
-      "traded": 35,
-      "valueVND": 650664052.0,
-      "valueSharePct": 3.0,
-      "volume": 2992800.0,
-      "medianValueVND": 1210072.0,
-      "medianSpreadPct": 10.64,
+      "traded": 37,
+      "valueVND": 737052450.0,
+      "valueSharePct": 2.97,
+      "volume": 3633600.0,
+      "medianValueVND": 1301955.0,
+      "medianSpreadPct": 8.35,
       "bestChangePct": 100.0,
-      "worstChangePct": -33.33
+      "worstChangePct": -40.0
     },
     {
       "underlying": "ACB",
       "warrants": 30,
       "traded": 26,
-      "valueVND": 633641572.0,
-      "valueSharePct": 2.92,
-      "volume": 1843700.0,
-      "medianValueVND": 2719505.0,
-      "medianSpreadPct": 3.72,
+      "valueVND": 655633667.0,
+      "valueSharePct": 2.64,
+      "volume": 2036100.0,
+      "medianValueVND": 3941995.0,
+      "medianSpreadPct": 4.08,
       "bestChangePct": 6.67,
       "worstChangePct": -60.0
     }
@@ -6702,52 +6702,52 @@
   "spread": {
     "available": true,
     "median": 2.67,
-    "p25": 1.68,
+    "p25": 1.57,
     "p75": 6.9,
-    "p90": 31.28,
+    "p90": 40.0,
     "buckets": [
       {
         "label": "≤1%",
-        "count": 44
+        "count": 55
       },
       {
         "label": "1–2%",
-        "count": 116
+        "count": 114
       },
       {
         "label": "2–5%",
-        "count": 172
+        "count": 165
       },
       {
         "label": ">5%",
-        "count": 140
+        "count": 139
       }
     ],
     "cheapestAmongTopValue": [
       {
+        "StockCode": "CHDB2615",
+        "Underlying": "HDB",
+        "SpreadPct": 1.45
+      },
+      {
         "StockCode": "CVPB2627",
         "Underlying": "VPB",
-        "SpreadPct": 2.11
+        "SpreadPct": 2.25
       },
       {
         "StockCode": "CVRE2609",
         "Underlying": "VRE",
-        "SpreadPct": 2.41
-      },
-      {
-        "StockCode": "CHDB2615",
-        "Underlying": "HDB",
-        "SpreadPct": 3.58
-      },
-      {
-        "StockCode": "CVPB2630",
-        "Underlying": "VPB",
-        "SpreadPct": 3.64
+        "SpreadPct": 2.47
       },
       {
         "StockCode": "CHPG2628",
         "Underlying": "HPG",
         "SpreadPct": 3.85
+      },
+      {
+        "StockCode": "CTCB2624",
+        "Underlying": "TCB",
+        "SpreadPct": 6.9
       }
     ]
   },
@@ -6806,7 +6806,7 @@
         "title": "Số mã không khớp lệnh trong phiên",
         "status": "ok",
         "severity": "info",
-        "amount": 67,
+        "amount": 57,
         "value": [
           "CACB2620",
           "CACB2633",
@@ -6822,14 +6822,14 @@
         "title": "Có độ sâu hai chiều (B1P và S1P)",
         "status": "warn",
         "severity": "warn",
-        "amount": 10,
+        "amount": 9,
         "value": [
+          "CACB2630",
           "CFPT2603",
           "CFPT2621",
-          "CHDB2614",
-          "CHPG2631",
-          "CLPB2608",
-          "CMWG2610"
+          "CHPG2603",
+          "CMWG2610",
+          "CMWG2632"
         ],
         "detail": "Thiếu một bên sổ lệnh thì không tính được chênh lệch mua–bán."
       },
@@ -6838,7 +6838,7 @@
         "title": "Chênh lệch mua–bán ≤ 5%",
         "status": "warn",
         "severity": "warn",
-        "amount": 140,
+        "amount": 139,
         "value": [
           "CACB2515",
           "CACB2517",
