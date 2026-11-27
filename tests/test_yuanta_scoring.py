@@ -141,6 +141,49 @@ def test_single_trade_close_is_penalised_on_price_quality():
     assert by_ticker["CONE0002"]["parts"]["priceQuality"] == 0
 
 
+def test_price_quality_uses_market_percentiles_not_a_saturating_cutoff():
+    frame = _frame([
+        _row(StockCode="CLOW001", TotalVol=10_000, LastMVol=100),
+        _row(StockCode="CLOW002", TotalVol=10_000, LastMVol=500),
+        _row(StockCode="CHIGH01", TotalVol=10_000, LastMVol=5_000),
+        _row(StockCode="CONE0001", TotalVol=10_000, LastMVol=10_000),
+    ])
+    result = score_warrants(frame)
+    by_ticker = {row["t"]: row for row in result["ranking"]}
+    scores = [by_ticker[ticker]["parts"]["priceQuality"]
+              for ticker in ("CLOW001", "CLOW002", "CHIGH01", "CONE0001")]
+    assert scores == sorted(scores, reverse=True)
+    assert len(set(scores)) == 4
+    assert scores[0] < 100  # best-in-market percentile is near, not saturated at, 100
+    assert result["priceQualityMeta"]["scored"] == 4
+    assert result["priceQualityMeta"]["medianLastTradeSharePct"] == pytest.approx(27.5)
+    assert "Phân vị nghịch" in result["priceQualityMeta"]["basis"]
+
+
+def test_equal_last_trade_shares_keep_equal_quality_scores():
+    frame = _frame([
+        _row(StockCode="CTIE001", TotalVol=10_000, LastMVol=1_000),
+        _row(StockCode="CTIE002", TotalVol=20_000, LastMVol=2_000),
+        _row(StockCode="COTHER1", TotalVol=10_000, LastMVol=10_000),
+    ])
+    result = score_warrants(frame)
+    by_ticker = {row["t"]: row for row in result["ranking"]}
+    assert by_ticker["CTIE001"]["parts"]["priceQuality"] == by_ticker["CTIE002"]["parts"]["priceQuality"]
+
+
+def test_untraded_rows_do_not_distort_price_quality_percentiles():
+    frame = _frame([
+        _row(StockCode="CLOW001", TotalVol=10_000, LastMVol=100),
+        _row(StockCode="CONE0001", TotalVol=10_000, LastMVol=10_000),
+        _row(StockCode="CNO_TRADE", TotalVol=0, TotalVal=0, LastMVol=0, LastMP=None),
+    ])
+    result = score_warrants(frame, last_share=pd.Series([1, 100, 50], index=frame.index))
+    by_ticker = {row["t"]: row for row in result["ranking"]}
+    assert by_ticker["CLOW001"]["parts"]["priceQuality"] == 50
+    assert by_ticker["CONE0001"]["parts"]["priceQuality"] == 0
+    assert result["priceQualityMeta"]["scored"] == 2
+
+
 def test_consistency_axis_is_gone():
     """Trục "độ ổn định" đã bị bỏ khỏi công thức điểm.
 
