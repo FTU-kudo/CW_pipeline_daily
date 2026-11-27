@@ -338,14 +338,19 @@ function renderOverview(){
 
   // ITM/ATM/OTM is counted from the loaded valuation state for this snapshot only.
   const counts = {ITM: 0, ATM: 0, OTM: 0};
+  let moneynessDataAvailable = false;
   for (const row of rows) {
     const moneyness = moneynessOf(String(row.StockCode).toUpperCase());
-    if (moneyness && Object.hasOwn(counts, moneyness)) counts[moneyness] += 1;
+    if (moneyness && Object.hasOwn(counts, moneyness)) {
+      counts[moneyness] += 1;
+      moneynessDataAvailable = true;
+    }
   }
-  const pricedCount = counts.ITM + counts.ATM + counts.OTM;
-  const itmPct = kpiShare(counts.ITM, pricedCount);
-  const atmPct = kpiShare(counts.ATM, pricedCount);
-  const otmPct = kpiShare(counts.OTM, pricedCount);
+  const pricedCount = moneynessDataAvailable
+    ? counts.ITM + counts.ATM + counts.OTM : null;
+  const itmPct = kpiShare(moneynessDataAvailable ? counts.ITM : null, pricedCount);
+  const atmPct = kpiShare(moneynessDataAvailable ? counts.ATM : null, pricedCount);
+  const otmPct = kpiShare(moneynessDataAvailable ? counts.OTM : null, pricedCount);
   const valSummary = val?.summary || {};
   const ivhv = val?.ivVsHv || {};
   const medianIvSpread = kpiValue(ivhv.medianIvMinusHv);
@@ -364,66 +369,109 @@ function renderOverview(){
   const abovePct = kpiShare(ivAboveCount, validSpreadCount);
   const belowPct = kpiShare(ivBelowCount, validSpreadCount);
 
+  const q1Iv = kpiValue(valSummary.p25Iv);
+  const medianIv = kpiValue(valSummary.medianIv);
+  const q3Iv = kpiValue(valSummary.p75Iv);
+  const iqrWidth = q1Iv !== null && q3Iv !== null ? q3Iv - q1Iv : null;
+  const iqrRatio = iqrWidth !== null && iqrWidth > 0
+    ? safeDivide(medianIv === null ? null : medianIv - q1Iv, iqrWidth) : null;
+  const iqrMarker = medianIv !== null && iqrWidth !== null && iqrWidth >= 0
+    ? (iqrWidth === 0 ? 50
+      : iqrRatio === null ? null : Math.max(0, Math.min(100, iqrRatio * 100)))
+    : null;
+
   const cards = [
     {
-      k: 'Mã CW niêm yết', v: kpiNum(totalCW), icon: 'layers',
+      id: 'listed', tier: 'primary', k: 'Mã CW niêm yết', v: kpiNum(totalCW),
+      icon: 'layers', iconTone: 'indigo',
       footer: miniBars([
         ['Khớp lệnh', activeCW, 'up', activePct],
         ['Không GD', inactiveCW, 'inactive', inactivePct],
       ], totalCW),
     },
     {
-      k: 'Giá trị giao dịch', v: kpiShortVnd(totalValue), icon: 'coins',
+      id: 'value', tier: 'primary', k: 'Giá trị giao dịch',
+      v: kpiShortVnd(totalValue), icon: 'coins', iconTone: 'emerald',
       badge: `VND · ${tx('Phiên hiện tại')}`,
-      footer: `<span>${tx('Bình quân / mã khớp lệnh')}</span><b>${kpiShortVnd(avgValuePerActiveCW)}</b>`,
+      footer: `<div class="ov-value-footer"><span>${esc(tx('Bình quân / mã khớp lệnh'))}</span><b>${esc(kpiShortVnd(avgValuePerActiveCW))}</b></div>`,
     },
     {
-      k: 'Cổ phiếu cơ sở', v: kpiNum(totalUnderlyings), icon: 'bank',
-      footer: `<span>${tx('Mật độ phân bổ')}:</span><b>~${kpiNum(avgCWPerUnderlying, 1)} ${tx('CW / cổ phiếu cơ sở')}</b>`,
-    },
-    {
-      k: 'Tăng / giảm / đứng', icon: 'trending',
-      split: [['up', kpiNum(upCount)], ['down', kpiNum(downCount)], ['flat', kpiNum(unchangedCount)]],
+      id: 'breadth', tier: 'primary', k: 'Tăng / giảm / đứng', icon: 'trending', iconTone: 'cyan',
+      split: [
+        ['up', kpiNum(upCount), 'Tăng', upPct],
+        ['down', kpiNum(downCount), 'Giảm', downPct],
+        ['flat', kpiNum(unchangedCount), 'Đứng', unchangedPct],
+      ],
       footer: miniBars([
         ['Tăng', upCount, 'up', upPct], ['Giảm', downCount, 'down', downPct],
         ['Đứng', unchangedCount, 'flat', unchangedPct],
       ], activeChangeCW),
     },
     {
-      k: 'Phân bố trạng thái tiền', icon: 'target',
+      id: 'underlyings', tier: 'secondary', k: 'Cổ phiếu cơ sở',
+      v: kpiNum(totalUnderlyings), icon: 'bank', iconTone: 'blue',
+      footer: `<div class="ov-value-footer"><span>${esc(tx('Mật độ phân bổ'))}</span><b>~${esc(kpiNum(avgCWPerUnderlying, 1))} ${esc(tx('CW / cổ phiếu cơ sở'))}</b></div>`,
+    },
+    {
+      id: 'moneyness', tier: 'secondary', k: 'Phân bố trạng thái tiền', icon: 'target', iconTone: 'amber',
       badge: `${tx('Đã định giá')}: ${kpiNum(pricedCount)}/${kpiNum(totalCW)}`,
-      split: [['up', kpiNum(counts.ITM)], ['flat', kpiNum(counts.ATM)], ['down', kpiNum(counts.OTM)]],
+      split: [
+        ['itm', kpiNum(moneynessDataAvailable ? counts.ITM : null), 'ITM', itmPct],
+        ['atm', kpiNum(moneynessDataAvailable ? counts.ATM : null), 'ATM', atmPct],
+        ['otm', kpiNum(moneynessDataAvailable ? counts.OTM : null), 'OTM', otmPct],
+      ],
       footer: miniBars([
-        ['ITM', counts.ITM, 'itm', itmPct], ['ATM', counts.ATM, 'atm', atmPct],
-        ['OTM', counts.OTM, 'otm', otmPct],
+        ['ITM', moneynessDataAvailable ? counts.ITM : null, 'itm', itmPct],
+        ['ATM', moneynessDataAvailable ? counts.ATM : null, 'atm', atmPct],
+        ['OTM', moneynessDataAvailable ? counts.OTM : null, 'otm', otmPct],
       ], pricedCount),
     },
     {
-      k: 'IV trung vị', v: kpiPct(valSummary.medianIv), icon: 'activity',
-      footer: `<span>${tx('Biên độ IQR (Q1–Q3)')}:</span><b>${kpiPct(valSummary.p25Iv)} – ${kpiPct(valSummary.p75Iv)}</b>`,
+      id: 'iv', tier: 'secondary', k: 'IV trung vị', v: kpiPct(medianIv),
+      icon: 'activity', iconTone: 'violet',
+      footer: `<div class="ov-iqr"><div class="ov-iqr-label">${esc(tx('Biên độ IQR (Q1–Q3)'))}</div>`
+        + `<div class="ov-iqr-track" role="img" aria-label="${esc(tx('Biên độ IQR (Q1–Q3)'))}: ${esc(kpiPct(q1Iv))}–${esc(kpiPct(q3Iv))}">`
+        + `${iqrMarker === null ? '' : `<span class="ov-iqr-marker" style="left:${iqrMarker}%" title="${esc(tx('Trung vị'))}: ${esc(kpiPct(medianIv))}"></span>`}</div>`
+        + `<div class="ov-iqr-values"><span>Q1 <b>${esc(kpiPct(q1Iv))}</b></span><span>Q3 <b>${esc(kpiPct(q3Iv))}</b></span></div></div>`,
     },
     {
-      k: 'IV − HV', v: medianIvSpread === null ? '—'
+      id: 'iv-hv', tier: 'secondary', k: 'IV − HV',
+      v: medianIvSpread === null ? '—'
         : `${medianIvSpread > 0 ? '+' : ''}${kpiNum(medianIvSpread, 1)} ${tx('điểm')}`,
-      icon: 'scale', tone: medianIvSpread === null ? '' : medianIvSpread >= 0 ? 'up' : 'down',
-      footer: `<span>${tx('IV > HV')}: <b>${kpiNum(ivAboveCount)}</b> (${abovePct}%)</span><span>${tx('IV < HV')}: <b>${kpiNum(ivBelowCount)}</b> (${belowPct}%)</span>`,
+      icon: 'scale', iconTone: 'rose',
+      tone: medianIvSpread === null || medianIvSpread === 0 ? '' : medianIvSpread > 0 ? 'premium' : 'discount',
+      footer: miniBars([
+        ['IV > HV', ivAboveCount, 'up', abovePct],
+        ['IV < HV', ivBelowCount, 'down', belowPct],
+      ], validSpreadCount),
     },
     {
-      k: 'Spread trung vị', v: kpiPct(s.medianSpreadPct, 1), icon: 'arrows',
-      footer: `<span>${tx('Chênh lệch bid-ask')}:</span><b>${kpiNum(s.medianSpreadTicks, 1)} ${tx('bước giá')} (${kpiNum(s.medianSpreadAbsVND, 1)} VND)</b>`,
+      id: 'spread', tier: 'secondary', k: 'Spread trung vị',
+      v: kpiPct(s.medianSpreadPct, 1), icon: 'arrows', iconTone: 'slate',
+      footer: `<div class="ov-value-footer"><span>${esc(tx('Chênh lệch bid-ask'))}</span>`
+        + `<b>${esc(kpiNum(s.medianSpreadTicks, 1))} ${esc(tx('bước giá'))} (${esc(kpiNum(s.medianSpreadAbsVND, 1))} VND)</b></div>`,
     },
   ];
 
-  // Eight cards: four columns by two rows on desktop, responsive columns on narrow screens.
-  grid.style.setProperty('--overview-columns', '4');
-  grid.innerHTML = cards.map(card => {
-    const value = card.split
-      ? `<div class="ov-v split">${card.split.map(([cls, text]) => `<span class="${cls}">${text}</span>`).join('<span class="sep">/</span>')}</div>`
-      : `<div class="ov-v${card.tone ? ` ${card.tone}` : ''}">${esc(card.v)}</div>`;
+  const renderCard = card => {
+    const cardClass = `ov-card ov-card-${card.tier} ov-card-${card.id}`;
     const badge = card.badge ? `<span class="ov-badge">${esc(card.badge)}</span>` : '';
-    return `<div class="ov-card"><div class="ov-k">${icon(card.icon)}<span>${esc(tx(card.k))}</span>${badge}</div>`
-      + value + `<div class="ov-footer${card.footer.startsWith('<div') ? ' ov-footer-stack' : ''}">${card.footer}</div></div>`;
-  }).join('');
+    const value = card.split
+      ? `<div class="ov-split">${card.split.map(([tone, count, label, pct]) => {
+        const percentLabel = pct === '—' ? '—' : `${pct}%`;
+        return `<div class="ov-split-item ${tone}"><span class="ov-split-value">${esc(count)}</span>`
+          + `<span class="ov-split-label">${esc(tx(label))}<b>${esc(percentLabel)}</b></span></div>`;
+      }).join('')}</div>`
+      : `<div class="ov-v${card.tone ? ` ${card.tone}` : ''}">${esc(card.v)}</div>`;
+    return `<article class="${cardClass}" data-tier="${card.tier}">`
+      + `<div class="ov-k"><span class="ov-icon-badge ${card.iconTone}">${icon(card.icon)}</span>`
+      + `<span class="ov-k-title">${esc(tx(card.k))}</span>${badge}</div>`
+      + value + `<div class="ov-footer${card.footer.startsWith('<div class="ov-distribution') ? ' ov-footer-stack' : ''}">${card.footer}</div></article>`;
+  };
+  const primaryCards = cards.filter(card => card.tier === 'primary').map(renderCard).join('');
+  const secondaryCards = cards.filter(card => card.tier === 'secondary').map(renderCard).join('');
+  grid.innerHTML = `<div class="ov-tier ov-tier-primary" role="group" aria-label="${esc(tx('Chỉ số chính'))}">${primaryCards}</div>`
+    + `<div class="ov-tier ov-tier-secondary" role="group" aria-label="${esc(tx('Chỉ số định lượng'))}">${secondaryCards}</div>`;
   host.hidden = false;
 }
 
@@ -452,7 +500,7 @@ function renderFreshness(){
     if (host) {
       host.hidden = !pending;
       const stamp = host.querySelector('#stamp');
-      if (pending && stamp) stamp.textContent = text;
+      if (pending && stamp) stamp.textContent = content;
     }
   };
 

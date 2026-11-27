@@ -24,9 +24,9 @@ CW Việt Nam có điều khoản đặc thù (chốt giá, điều chỉnh khi 
 không mô tả. Vì vậy ``bsPrice`` được dùng để **xếp hạng tương đối** (mã nào đắt/rẻ so với
 nhóm cùng cơ sở), không phải để nói "mã này sẽ về giá X".
 
-**Lãi suất phi rủi ro** dùng hằng số cấu hình ``config.DEFAULT_RISK_FREE`` và được ghi kèm
-nguồn, vì repo không có chuỗi lợi suất trái phiếu. Đây là tham số phần mềm, không phải số
-liệu thị trường — ``riskFreeSource`` nói rõ điều đó.
+**Lãi suất phi rủi ro** ưu tiên đường cong HNX ``spot_continuous`` của ngày mới nhất không
+muộn hơn phiên định giá, nội suy theo kỳ hạn CW. ``config.DEFAULT_RISK_FREE`` chỉ là phương
+án dự phòng khi không có đường cong phù hợp; ``riskFreeSource`` ghi rõ nguồn và ngày dữ liệu.
 """
 from __future__ import annotations
 
@@ -243,9 +243,10 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
     Chỉ mã **có khớp lệnh** được định giá: không có giá thị trường thì không có IV để suy
     ngược, và không có gì để so sánh với giá lý thuyết.
 
-    ``yield_curve`` là khung của ``cwintel.yield_curve.load_curve``: có nó thì ``r`` được
-    **nội suy theo đúng kỳ hạn từng CW** từ đường cong TPCP HNX. Không có thì lùi về
-    ``risk_free`` (mặc định hằng số cấu hình) và mỗi dòng ghi rõ nguồn là hằng số.
+    ``yield_curve`` là khung của ``cwintel.yield_curve.load_curve``: ``r`` được nội suy theo
+    kỳ hạn CW từ đường cong TPCP HNX mới nhất không muộn hơn phiên định giá. Mỗi dòng ghi
+    ngày đường cong đã dùng. Chỉ khi không có đường cong cùng ngày hoặc trước đó mới lùi về
+    ``risk_free`` (mặc định hằng số cấu hình) và ghi rõ nguồn là hằng số.
 
     Nếu snapshot được chụp trước khi nguồn công bố điều khoản của ngày đó, có thể dùng
     bản điều khoản trước gần nhất tối đa ba ngày lịch. Kết quả và từng dòng đều gắn cờ
@@ -330,9 +331,9 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             "sessions": len(closes),
         }
 
-    # Đường cong lợi suất của đúng phiên đang định giá. Không lùi về phiên trước: nếu phiên
-    # này HNX không công bố thì dùng hằng số và ghi rõ, thay vì lặng lẽ ghép lãi suất của
-    # một ngày khác vào giá của ngày này.
+    # Dùng đường cong mới nhất không muộn hơn phiên CW. Workflow CW chạy trước khi nguồn
+    # HNX cập nhật trong ngày, nên mặc định thường là đường cong phiên giao dịch liền trước.
+    # `curve_on` giữ ngày nguồn để công khai rõ dữ liệu được carry-forward.
     day_curve = yc.curve_on(yield_curve, session) if yield_curve is not None else None
 
     traded = frame[frame["Traded"].fillna(False)]
@@ -518,8 +519,9 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
             "Hằng số cấu hình config.DEFAULT_RISK_FREE, chỉ dùng cho mã KHÔNG nội suy được "
             "từ đường cong TPCP. Tham số phần mềm, không phải số liệu thị trường."
             if day_curve is None else
-            "Đường cong lợi suất TPCP HNX (spot_continuous) của đúng phiên, nội suy tuyến "
-            "tính theo kỳ hạn còn lại của từng mã."
+            "Đường cong lợi suất TPCP HNX (spot_continuous) mới nhất không muộn hơn phiên "
+            "định giá, nội suy tuyến tính theo kỳ hạn còn lại của từng mã; ngày nguồn được "
+            "ghi tại yieldCurve.session và từng riskFreeSource."
         ),
         "riskFreeByTenor": bool(day_curve is not None),
         "riskFreeSourcesSeen": sorted(rate_sources),

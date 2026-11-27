@@ -1,9 +1,9 @@
-"""Lãi suất phi rủi ro lấy từ đường cong lợi suất TPCP Việt Nam — không còn hằng số.
+"""Ưu tiên lãi suất phi rủi ro từ đường cong lợi suất TPCP Việt Nam.
 
-Trước module này, toàn bộ định giá Black–Scholes dùng ``config.DEFAULT_RISK_FREE = 0.0444``
-và chính payload xuất bản phải tự thú: *"đây là THAM SỐ PHẦN MỀM, không phải số liệu thị
-trường"*. Sai 15% ở ``r`` làm IV lệch khoảng 1 điểm phần trăm — không lớn, nhưng **toàn bộ**
-mã đều dùng chung một số bịa.
+Đường cong HNX được chọn theo ngày dữ liệu mới nhất không muộn hơn phiên CW. Vì job CW
+chạy trước khi repo nguồn cập nhật trong ngày, thường sẽ dùng đường cong phiên giao dịch
+liền trước. ``config.DEFAULT_RISK_FREE = 0.0444`` chỉ là fallback cuối cùng khi kho không
+có đường cong nào phù hợp; nguồn và ngày đường cong được ghi vào metadata.
 
 Nguồn: repo ``FTU-kudo/VN_Bond_Yield_pipeline``, kho ``cache/hnx_yield_curve_daily.parquet``
 — 11 kỳ hạn chuẩn (3M, 6M, 9M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y) từ 2013-03-19, cập nhật
@@ -41,8 +41,9 @@ chọn giữa số liệu và mô hình cho một tham số đầu vào, chọn 
 
 ## Không im lặng khi thiếu
 
-``load_curve`` trả cả nguồn gốc. Nếu tệp không tồn tại hoặc cũ hơn ngưỡng, hàm trả ``None``
-thay vì lặng lẽ lùi về hằng số — nơi gọi quyết định, và phải ghi lý do vào payload.
+``curve_on`` chọn đường cong mới nhất không muộn hơn phiên CW và không bao giờ chọn dữ liệu
+của tương lai. Nếu không có ngày dữ liệu nào phù hợp, định giá mới dùng fallback; payload
+và từng dòng CW ghi rõ nguồn cùng ngày đường cong được chọn.
 """
 from __future__ import annotations
 
@@ -116,17 +117,22 @@ def load_curve(path: Path | None = None) -> pd.DataFrame | None:
 
 
 def curve_on(curve: pd.DataFrame, day: str | date) -> pd.DataFrame | None:
-    """Các điểm lợi suất của **đúng** một phiên; ``None`` nếu phiên đó không có.
+    """Đường cong mới nhất có ngày không muộn hơn phiên định giá.
 
-    Ngày không giao dịch thì trả ``None`` chứ không lấy phiên gần nhất: định giá phiên nào
-    phải dùng lãi suất phiên đó. Nơi gọi tự quyết định lùi về phiên trước hay không, và ghi
-    lý do — im lặng lấy phiên cũ là che mất lỗ hổng dữ liệu.
+    Workflow CW chạy trước khi repo nguồn cập nhật đường cong trong ngày. Vì vậy, nếu chưa
+    có đường cong cùng ngày, dùng ngày dữ liệu gần nhất trước đó (thường là phiên giao dịch
+    liền trước), thay vì rơi thẳng về hằng số cấu hình. Không bao giờ chọn đường cong tương
+    lai. Ngày nguồn được giữ trong DataFrame để chẩn đoán và ghi vào metadata.
     """
     if curve is None or curve.empty:
         return None
     target = pd.Timestamp(day) if not isinstance(day, pd.Timestamp) else day
-    day_frame = curve[curve["date"] == target.normalize()]
-    return day_frame if not day_frame.empty else None
+    target = target.normalize()
+    available = curve[curve["date"] <= target]
+    if available.empty:
+        return None
+    selected_day = available["date"].max()
+    return available[available["date"] == selected_day].copy()
 
 
 def rate_for_years(day_curve: pd.DataFrame, years: float) -> float | None:
@@ -171,8 +177,10 @@ def risk_free_for(day_curve: pd.DataFrame, years: float,
     """
     rate = rate_for_years(day_curve, years)
     if rate is None:
-        return fallback, "hằng số cấu hình (không có đường cong cho phiên này)"
-    return rate, f"nội suy đường cong TPCP HNX tại T={years:.2f} năm"
+        return fallback, "hằng số cấu hình (không có đường cong cùng ngày hoặc trước phiên)"
+    curve_day = pd.Timestamp(day_curve["date"].max()).date().isoformat()
+    return rate, (f"nội suy đường cong TPCP HNX ngày {curve_day} "
+                  f"tại T={years:.2f} năm")
 
 
 def summarize(day_curve: pd.DataFrame | None, session: str | None = None
@@ -181,14 +189,21 @@ def summarize(day_curve: pd.DataFrame | None, session: str | None = None
     if day_curve is None or day_curve.empty:
         return {
             "available": False,
-            "reason": ("Không có đường cong lợi suất cho phiên này. Định giá dùng lãi suất "
-                       "hằng số và điều đó được ghi kèm từng dòng."),
+            "reason": ("Không có đường cong lợi suất cùng ngày hoặc trước phiên định giá. "
+                       "Định giá dùng lãi suất hằng số và điều đó được ghi kèm từng dòng."),
         }
     points = day_curve.sort_values("years")
     anchor = rate_for_years(day_curve, 1.0)
+    curve_session = str(pd.Timestamp(points["date"].iloc[0]).date())
+    valuation_session = str(session) if session else curve_session
+    age_days = (pd.Timestamp(valuation_session).normalize()
+                - pd.Timestamp(curve_session).normalize()).days
     return {
+        # `session` remains the source-curve date; valuationSession identifies the CW bar.
+        "session": curve_session,
+        "valuationSession": valuation_session,
+        "ageCalendarDays": age_days,
         "available": True,
-        "session": session or str(points["date"].iloc[0].date()),
         "source": "HNX yield curve (spot_continuous) qua FTU-kudo/VN_Bond_Yield_pipeline",
         "basis": ("spot_continuous — lợi suất ghép lãi liên tục, đúng cơ sở chiết khấu "
                   "exp(-rT) của Black–Scholes"),

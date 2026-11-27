@@ -135,8 +135,8 @@ def main(argv: list[str] | None = None) -> int:
                              "không định giá, phần còn lại vẫn chạy")
     parser.add_argument("--yield-curve", type=Path,
                         default=ROOT / "data" / "bond_yield" / "yield_curve.csv",
-                        help="đường cong lợi suất TPCP (HNX spot_continuous); thiếu thì lãi "
-                             "suất phi rủi ro lùi về hằng số cấu hình và được ghi rõ")
+                        help="đường cong lợi suất TPCP (HNX spot_continuous); dùng ngày "
+                             "mới nhất <= phiên CW, chỉ thiếu mọi ngày trước đó mới fallback")
     parser.add_argument("--cwintel-cache", type=Path, default=None,
                         help="xuất parquet OHLCV theo schema cwintel (tuỳ chọn)")
     parser.add_argument("--limit", type=int, default=hist.SERIES_LIMIT,
@@ -197,12 +197,14 @@ def main(argv: list[str] | None = None) -> int:
             series = hist_underlying.load_store(args.underlying_store, path.stem)
             if series is not None and not series.empty:
                 underlyings[path.stem.upper()] = series
-    # Lãi suất phi rủi ro: đường cong TPCP của đúng phiên nếu có. Thiếu thì `yield_curve`
-    # là None và engine tự lùi về hằng số, ghi rõ nguồn cho từng dòng — không im lặng.
+    # Lãi suất phi rủi ro: dùng đường cong HNX mới nhất có ngày <= phiên CW. Nếu không có
+    # dữ liệu cùng ngày, engine sẽ dùng ngày nguồn gần nhất trước đó và ghi rõ ngày này.
+    # Chỉ khi kho không có đường cong phù hợp mới dùng hằng số fallback.
     curve = yield_curve.load_curve(args.yield_curve) if args.yield_curve else None
     if curve is None:
-        print(f"CẢNH BÁO: không có đường cong lợi suất ở {args.yield_curve}; "
-              "lãi suất phi rủi ro sẽ là hằng số cấu hình.", file=sys.stderr)
+        print(f"CẢNH BÁO: không có đường cong lợi suất cùng ngày hoặc trước phiên ở "
+              f"{args.yield_curve}; lãi suất phi rủi ro sẽ là hằng số cấu hình.",
+              file=sys.stderr)
     analytics = build_analytics(frame, history=history, terms=terms,
                                 underlying_history=underlyings or None,
                                 yield_curve=curve,
@@ -283,11 +285,12 @@ def main(argv: list[str] | None = None) -> int:
             print("  Loại khỏi định giá: " + ", ".join(f"{k}: {v}" for k, v in excluded.items()))
         curve_info = valuation.get("yieldCurve") or {}
         if curve_info.get("available"):
-            print(f"  Lãi suất phi rủi ro: nội suy đường cong TPCP HNX {curve_info['session']} "
+            print(f"  Lãi suất phi rủi ro: nội suy đường cong TPCP HNX ngày "
+                  f"{curve_info['session']} cho phiên CW {curve_info.get('valuationSession')} "
                   f"(1Y neo {curve_info.get('anchored1YPct')}%) theo kỳ hạn từng mã")
         else:
             print(f"  Lãi suất phi rủi ro {valuation.get('riskFree')} — hằng số cấu hình "
-                  "(không có đường cong cho phiên này)")
+                  "(không có đường cong cùng ngày hoặc trước phiên này)")
         ivhv = valuation.get("ivVsHv") or {}
         if ivhv.get("available"):
             print(f"  IV − HV: trung vị {ivhv['medianIvMinusHv']:+.2f} điểm "

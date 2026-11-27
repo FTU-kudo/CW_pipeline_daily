@@ -5,6 +5,7 @@ import {metricNumber, metricPercent, safeDivide, safeRatioPercent} from '../../d
 
 const html = readFileSync(new URL('../../docs/index.html', import.meta.url), 'utf8');
 const translations = readFileSync(new URL('../../docs/assets/ui.js', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../../docs/assets/ui.css', import.meta.url), 'utf8');
 
 test('safe KPI arithmetic handles zero, missing, and non-finite inputs', () => {
   assert.equal(safeDivide(18_000, 0), null);
@@ -29,7 +30,7 @@ test('overview always builds the full eight-card, current-session KPI deck', () 
   const block = html.split('const cards = [', 2)[1].split('\n  ];', 1)[0];
   const labels = [...block.matchAll(/k: '([^']+)'/g)].map(match => match[1]);
   assert.deepEqual(labels, [
-    'Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở', 'Tăng / giảm / đứng',
+    'Mã CW niêm yết', 'Giá trị giao dịch', 'Tăng / giảm / đứng', 'Cổ phiếu cơ sở',
     'Phân bố trạng thái tiền', 'IV trung vị', 'IV − HV', 'Spread trung vị',
   ]);
   for (const metric of ['activePct', 'inactivePct', 'avgValuePerActiveCW', 'avgCWPerUnderlying',
@@ -37,7 +38,10 @@ test('overview always builds the full eight-card, current-session KPI deck', () 
     'abovePct', 'belowPct', 'medianSpreadTicks', 'medianSpreadAbsVND']) {
     assert.ok(block.includes(metric) || html.includes(`const ${metric}`), `missing dynamic ${metric}`);
   }
-  assert.match(html, /grid\.style\.setProperty\('--overview-columns', '4'\)/);
+  assert.match(html, /class="ov-tier ov-tier-primary"/);
+  assert.match(html, /class="ov-tier ov-tier-secondary"/);
+  assert.match(css, /\.ov-tier-primary\s*\{\s*grid-template-columns:\s*repeat\(3,/);
+  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(5,/);
 });
 
 test('every new KPI footer label has a VI to EN dictionary entry', () => {

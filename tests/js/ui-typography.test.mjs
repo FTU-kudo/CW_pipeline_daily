@@ -17,9 +17,11 @@ test('active app styles do not declare text below 12px', () => {
   }
 });
 
-test('KPI grid and contrast-aware scales match the redesign', () => {
-  assert.match(css, /\.overview \.ov-grid\s*\{\s*grid-template-columns:\s*repeat\(4,/);
-  assert.match(css, /\.overview \.ov-v[\s\S]*?font-size:\s*clamp\(24px, 1\.8vw, 26px\)/);
+test('Bento KPI tiers and contrast-aware scales match the redesign', () => {
+  assert.match(css, /\.ov-tier-primary\s*\{\s*grid-template-columns:\s*repeat\(3,/);
+  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(5,/);
+  assert.match(css, /\.ov-card-primary > \.ov-v\s*\{[\s\S]*?font-size:\s*clamp\(32px/);
+  assert.match(css, /\.ov-card-secondary > \.ov-v\s*\{[\s\S]*?font-size:\s*clamp\(24px/);
   assert.match(css, /--muted:\s*#475569/);
   assert.match(css, /--text:\s*#f8fafc/);
   assert.match(css, /--th-text:\s*#334155/);
