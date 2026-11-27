@@ -40,8 +40,11 @@ test('overview always builds the full eight-card, current-session KPI deck', () 
   }
   assert.match(html, /class="ov-tier ov-tier-primary"/);
   assert.match(html, /class="ov-tier ov-tier-secondary"/);
+  assert.match(html, /compactSplit: true/);
+  assert.match(html, /\{percentOnly: true\}/);
   assert.match(css, /\.ov-tier-primary\s*\{\s*grid-template-columns:\s*repeat\(3,/);
-  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(5,/);
+  assert.match(css, /\.ov-tier-secondary\s*\{\s*grid-template-columns:\s*repeat\(6,/);
+  assert.match(css, /\.ov-tier-secondary > \.ov-card:nth-child\(4\)\s*\{\s*grid-column:\s*2 \/ span 2;/);
 });
 
 test('every new KPI footer label has a VI to EN dictionary entry', () => {
