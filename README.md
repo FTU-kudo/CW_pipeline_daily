@@ -2,7 +2,7 @@
 
 Bảng giá chứng quyền dạng **snapshot**, kèm lớp phân tích định lượng. Mã ứng dụng chỉ gọi
 endpoint bảng giá `stock_type=EW`, giữ nguyên tên trường và giá trị gốc từ API, rồi xuất JSON
-hiện tại cho GitHub Pages.
+hiện tại cho GitHub Pages. Chi tiết xem [tại đây](https://cw-analytics.vercel.app/).
 
 > **Ghi công nguồn.** Endpoint bảng giá: `ysradar.yuanta.com.vn/api/v3/market_data/price_board/stock/list_stock_info?stock_type=EW`
 > — do chủ dự án cung cấp và tuyên bố được phép sử dụng, công bố. Điều khoản hợp đồng từ repo
