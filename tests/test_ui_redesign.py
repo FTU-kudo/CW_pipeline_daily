@@ -215,7 +215,7 @@ def test_10_overview_has_three_primary_and_five_secondary_cards():
     assert block.count("tier: 'primary'") == 3
     assert block.count("tier: 'secondary'") == 5
     for label in ('Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở',
-                  'Tăng / giảm / đứng', 'Phân bố trạng thái tiền', 'IV trung vị',
+                  'Tăng / giảm / giữ nguyên', 'Phân bố trạng thái tiền', 'IV trung vị',
                   'IV − HV', 'Spread trung vị'):
         assert label in block, f"thiếu thẻ KPI: {label}"
     assert 'class="ov-tier ov-tier-primary"' in block
