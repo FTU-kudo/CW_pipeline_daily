@@ -24,8 +24,12 @@ CSS = (ROOT / "docs" / "assets" / "ui.css").read_text(encoding="utf-8")
 
 # ── nhãn hiển thị ──────────────────────────────────────────────────────
 def test_title_is_the_new_brand():
-    assert "Covered Warrants — Quant Analysis" in HTML
-    assert "Covered Warrants — Yuanta" not in HTML
+    # Keep the browser title and visible brand independently meaningful; markup splits
+    # the visible brand into accessible text spans rather than one literal phrase.
+    assert "<title>CW Board — Quant Analysis</title>" in HTML
+    assert '<h1><span>Covered Warrants</span>' in HTML
+    assert '<span class="product-badge">Quant Analysis</span>' in HTML
+    assert "Yuanta" not in HTML
 
 
 def test_provider_name_does_not_appear_in_rendered_surfaces():

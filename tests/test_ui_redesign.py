@@ -24,8 +24,9 @@ def _details() -> dict:
 # ── 1. Dòng phụ nêu giờ cập nhật ────────────────────────────────────────
 def test_1_sub_line_states_the_update_time():
     assert 'id="sub-line"' in HTML
-    assert "Bảng giá chứng quyền (CW)" in HTML
-    assert "được cập nhật lúc" in HTML
+    assert '<h1><span>Covered Warrants</span>' in HTML
+    assert 'id="sub-line-text">Cập nhật: —</span>' in HTML
+    assert "Cập nhật: <strong>${updatedTime} ICT</strong>" in HTML
     # Câu này được dựng động từ fetchedAt nên phải nằm trong renderFreshness.
     assert "sub.textContent" in HTML
 
@@ -102,7 +103,8 @@ def test_6_change_colours_up_down_flat():
 def test_6_no_colour_when_moneyness_unknown():
     """Mã không định giá được thì không tô màu — trạng thái chưa xác định, tô là đoán."""
     assert "money === 'ITM' ? 'money-itm'" in HTML
-    assert ": money === 'OTM' ? 'money-otm' : ''" in HTML
+    assert ": money === 'OTM' ? 'money-otm'" in HTML
+    assert ": 'money-unknown'" in HTML
 
 
 def test_6_moneyness_counts_match_the_published_analytics():
@@ -161,12 +163,13 @@ def test_8_navigation_is_split_into_three_groups():
     # Nhóm 2: ba tuỳ chọn hiển thị, phải mang class chip để nhỏ hơn.
     for view in ('stale', 'intraday', 'band'):
         assert f'class="tab chip" data-view="{view}"' in nav, f"{view} phải là chip"
-    # Nhóm 3: hai nút phụ có viền, không phải .tab, đẩy sang phải.
-    secondary = nav.split('class="nav-secondary"', 1)[1]
-    assert 'class="btn-ghost" data-view="history"' in secondary
-    assert 'class="btn-ghost" data-view="glossary"' in secondary
-    # Mỗi nhóm có nhãn riêng để người dùng hiểu ba loại điều hướng khác nhau.
+    # Nhóm 3: hai nút phụ nằm trong utility cluster trên thanh tiêu đề, không phải nav.
+    utility = HTML.split('utility-cluster"', 1)[1].split('</div>', 1)[0]
+    assert 'class="btn-ghost top-action" data-view="history"' in utility
+    assert 'class="btn-ghost top-action" data-view="glossary"' in utility
+    # Hai nhóm chính có nhãn riêng; tiện ích được phân biệt bằng cluster có aria-label.
     assert nav.count('class="nav-group-label"') == 2
+    assert 'aria-label="Điều hướng phụ"' in HTML
 
 
 def test_9_every_navigation_item_has_an_outline_icon():
@@ -176,13 +179,14 @@ def test_9_every_navigation_item_has_an_outline_icon():
     và ăn theo currentColor nên tự đúng màu ở cả hai chế độ.
     """
     nav = HTML.split('<nav class="nav-block"', 1)[1].split('</nav>', 1)[0]
-    assert nav.count('<svg class="icon"') == 10, "mỗi mục điều hướng đúng một icon"
+    nav_items = len(re.findall(r'class="[^"]*\btab\b[^"]*"', nav))
+    assert nav.count('<svg class="icon"') == nav_items, "mỗi chế độ xem có đúng một icon"
     assert 'stroke="currentColor"' in nav
     assert 'stroke-width="1.75"' in nav
     # Không còn emoji nào trong thanh điều hướng.
     assert not any(0x1F300 <= ord(ch) <= 0x1FAFF for ch in nav), "nav còn emoji"
     # Nhãn chữ vẫn còn cho trình đọc màn hình.
-    assert nav.count('class="t-txt"') == 10
+    assert nav.count('class="t-txt"') == nav_items
 
 
 # ── 10. Bảng thống kê toàn thị trường ở trang đầu ──────────────────────
@@ -278,18 +282,21 @@ def _board_thead() -> str:
 
 
 def _board_headers() -> list[str]:
-    """Nhãn hiển thị của 12 cột bảng giá, đã bỏ tooltip."""
-    import re
-    # Tách theo thẻ mở, bỏ phần thuộc tính của chính <th> đầu tiên.
+    """Nhãn hiển thị của 11 cột bảng giá, bỏ thuộc tính và chỉ báo sắp xếp."""
     cells = re.findall(r'<th[^>]*>(.*?)</th>', _board_thead(), re.S)
-    return [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+    labels = []
+    for cell in cells:
+        # Sort indicators are presentation state, not part of the investor-facing label.
+        cell = re.sub(r'<span[^>]*>.*?</span>', '', cell, flags=re.S)
+        labels.append(re.sub(r'<[^>]+>', '', cell).strip())
+    return labels
 
 
 def test_board_headers_are_investor_vocabulary():
     headers = _board_headers()
     expected = ['Mã CW', 'Giá tham chiếu', 'Giá khớp cuối', '% trong ngày',
                 'Cao nhất', 'Thấp nhất', 'Tổng KL', 'Tổng giá trị', 'Tỷ trọng GT',
-                'Chênh lệch mua–bán', 'Room ngoại', 'Dữ liệu gốc']
+                'Chênh lệch mua–bán', 'Room ngoại']
     assert headers == expected
 
 
@@ -501,7 +508,7 @@ def test_2_unscored_is_not_rendered_as_zero():
     """`null` = chưa chấm, khác hẳn điểm 0. Hai thứ không được hiển thị giống nhau."""
     js = _scoring_js()
     assert 'chưa chấm' in js
-    assert 'title="${escAttr(label)}: chưa đủ dữ liệu để chấm"' in js
+    assert "${escAttr(labelText)}: ${bi('chưa đủ dữ liệu để chấm', 'not enough data to score')}" in js
     assert '.na {' in CSS
 
 
@@ -710,7 +717,7 @@ def test_6_board_has_twelve_columns_not_twenty_two():
     Trần–sàn; mở cửa/bình quân → tab Trong phiên), và Giá (VND) trùng Giá khớp cuối.
     """
     headers = _board_headers()
-    assert len(headers) == 12, f"bảng giá còn {len(headers)} cột — mục tiêu là 12"
+    assert len(headers) == 11, f"bảng giá còn {len(headers)} cột — mục tiêu là 11"
 
 
 def test_6_board_row_has_one_cell_per_header():
@@ -719,7 +726,7 @@ def test_6_board_row_has_one_cell_per_header():
     n_cells = row.count('<td')
     assert n_cells == len(_board_headers()), \
         f"{n_cells} ô dữ liệu nhưng {len(_board_headers())} tiêu đề"
-    assert 'colspan="12"' in HTML, "dòng trạng thái phải colspan đúng 12"
+    assert 'colspan="11"' in HTML, "dòng trạng thái phải colspan đúng 11"
 
 
 def test_6_cut_columns_do_not_come_back():
@@ -744,8 +751,11 @@ def test_6_cut_data_is_still_reachable_somewhere():
     assert "'B1'" in detail and "'S1'" in detail
     # KL ngoại mua/bán + room: trang chi tiết từng mã.
     assert 'FTBuyVol' in detail and 'FTSellVol' in detail and 'FRoom' in detail
-    # Và toàn bộ trường gốc vẫn nằm trong cột "Dữ liệu gốc".
-    assert 'JSON gốc' in HTML
+    # Toàn bộ trường gốc vẫn có thể tra trong ngăn chi tiết, được render riêng từ raw.
+    detail = (ROOT / "docs" / "assets" / "detail.js").read_text(encoding="utf-8")
+    assert "function rawSection(row)" in detail
+    assert "bi('Trường gốc từ API', 'Raw API fields')" in detail
+    assert "Object.entries(raw)" in detail
 
 
 def test_6_every_cut_column_still_has_a_glossary_entry():
