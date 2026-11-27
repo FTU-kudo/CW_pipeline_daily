@@ -744,6 +744,25 @@ thead th {
   white-space: nowrap;
 }
 thead th:first-child { z-index: 3; }
+.board-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.board-sort:hover, .board-sort:focus-visible { color: var(--accent); }
+.board-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.board-sort span { color: var(--muted); font-size: 10px; }
+.board-sort:hover span { color: var(--accent); }
+.board-sort[aria-pressed="true"] span { color: var(--accent); }
 tbody tr { transition: background-color .12s ease; }
 tbody tr:hover td { background: var(--row-hover); }
 tbody tr:hover td:first-child { background: var(--row-hover); }
