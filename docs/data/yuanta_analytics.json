@@ -6804,7 +6804,7 @@
         "premiumPct": 17.75,
         "breakeven": 23020.0,
         "leverage": 977.5,
-        "vsBsPct": 0.0,
+        "vsBsPct": -0.0,
         "underlyingSource": "giá đóng cửa cổ phiếu cơ sở (2026-11-27)",
         "hvShort": 18.14,
         "hvLong": 20.34,
