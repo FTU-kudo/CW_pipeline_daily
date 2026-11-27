@@ -163,6 +163,31 @@ def test_price_warrants_produces_iv_and_greeks():
     assert row["breakeven"] == pytest.approx(31800 + 150 * 2)
 
 
+def test_price_warrants_uses_recent_terms_provisionally_for_intraday_snapshot():
+    """Use previous-session contract inputs only within the strict fallback window."""
+    frame = _cw([_cw_row()], at="2026-11-27T05:30:00+00:00")
+    priced, diag = price_warrants(
+        frame, _terms([_term_row(session="2026-11-26")]), session="2026-11-27")
+    assert diag["available"] is True and diag["priced"] == 1
+    assert diag["termsSession"] == "2026-11-26"
+    assert diag["termsCurrent"] is False
+    assert diag["termsStaleDays"] == 1
+    assert diag["provisional"] is True
+    assert priced.iloc[0]["termsSession"] == "2026-11-26"
+    assert bool(priced.iloc[0]["provisional"]) is True
+
+
+def test_price_warrants_rejects_terms_outside_fallback_window():
+    frame = _cw([_cw_row()], at="2026-11-27T05:30:00+00:00")
+    priced, diag = price_warrants(
+        frame, _terms([_term_row(session="2026-11-23")]), session="2026-11-27")
+    assert priced.empty
+    assert diag["available"] is False
+    assert diag["termsSession"] == "2026-11-23"
+    assert diag["termsStaleDays"] == 4
+    assert "không dùng dữ liệu quá 3 ngày" in diag["reason"]
+
+
 def test_price_warrants_excludes_when_underlying_crosscheck_fails():
     """S không nhất quán → không được dùng để định giá, dù đủ bốn biến."""
     frame = _cw([_cw_row()])

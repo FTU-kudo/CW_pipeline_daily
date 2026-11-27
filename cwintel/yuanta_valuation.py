@@ -156,6 +156,11 @@ MIN_VOL_SESSIONS = 10
 #: Số phiên dùng để ước lượng biến động gần nhất.
 VOL_WINDOW = 21
 
+#: Cho phép dùng bản điều khoản gần nhất trong tối đa ba ngày lịch (ví dụ snapshot trưa
+#: thứ Sáu dùng hợp đồng cập nhật sau phiên thứ Năm). Các giá trị S/giá CW vẫn lấy từ nguồn
+#: gần nhất và payload đánh dấu rõ đây là kết quả tạm thời; không dùng bản cũ hơn.
+MAX_TERMS_FALLBACK_AGE_DAYS = 3
+
 
 def realized_vol_from_series(series: pd.DataFrame, *, window: int = VOL_WINDOW) -> dict[str, float]:
     """Biến động thực hiện của **CW** từ chuỗi giá đã tích luỹ (%, theo năm).
@@ -241,6 +246,10 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
     ``yield_curve`` là khung của ``cwintel.yield_curve.load_curve``: có nó thì ``r`` được
     **nội suy theo đúng kỳ hạn từng CW** từ đường cong TPCP HNX. Không có thì lùi về
     ``risk_free`` (mặc định hằng số cấu hình) và mỗi dòng ghi rõ nguồn là hằng số.
+
+    Nếu snapshot được chụp trước khi nguồn công bố điều khoản của ngày đó, có thể dùng
+    bản điều khoản trước gần nhất tối đa ba ngày lịch. Kết quả và từng dòng đều gắn cờ
+    ``provisional`` cùng ngày nguồn; dữ liệu cũ hơn vẫn bị từ chối.
     """
     risk_free = config.DEFAULT_RISK_FREE if risk_free is None else risk_free
     excluded: dict[str, int] = {}
@@ -263,12 +272,43 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
         raise ValueError("cần `session` để chọn đúng bản ghi điều khoản")
 
     same_day = terms[terms["session"].astype(str) == str(session)]
+    terms_session = str(session)
+    terms_current = True
+    terms_stale_days = 0
     if same_day.empty:
-        return pd.DataFrame(columns=["ticker"]), {
-            "available": False,
-            "reason": f"Bảng điều khoản không có phiên {session}.",
-            "excluded": {},
-        }
+        # CW can be snapshotted intraday before Vietstock publishes that session's
+        # contract file. Contract terms change infrequently, so use only the latest
+        # prior-session file within a strict three-calendar-day window. The output is
+        # explicitly tagged as provisional; stale S/market inputs are not silently called
+        # current. Older files remain unavailable rather than being guessed forward.
+        available_sessions = sorted({
+            str(value) for value in terms["session"].dropna().unique()
+            if str(value) < str(session)
+        })
+        latest_session = available_sessions[-1] if available_sessions else None
+        try:
+            terms_stale_days = ((date.fromisoformat(str(session))
+                                 - date.fromisoformat(latest_session)).days
+                                if latest_session else 0)
+        except ValueError:
+            terms_stale_days = MAX_TERMS_FALLBACK_AGE_DAYS + 1
+        if latest_session and 0 < terms_stale_days <= MAX_TERMS_FALLBACK_AGE_DAYS:
+            terms_session = latest_session
+            terms_current = False
+            same_day = terms[terms["session"].astype(str) == terms_session]
+        else:
+            reason = (f"Bảng điều khoản không có phiên {session}. Bản mới nhất: "
+                      f"{latest_session or 'không có'}; không dùng dữ liệu quá "
+                      f"{MAX_TERMS_FALLBACK_AGE_DAYS} ngày.")
+            return pd.DataFrame(columns=["ticker"]), {
+                "available": False,
+                "reason": reason,
+                "excluded": {},
+                "session": str(session),
+                "termsSession": latest_session,
+                "termsCurrent": False,
+                "termsStaleDays": terms_stale_days,
+            }
     term_by_ticker = same_day.set_index(same_day["ticker"].astype(str).str.upper())
 
     # Chỉ số cổ phiếu cơ sở từ lịch sử thật (nếu đã tải): giá đóng cửa mới nhất, HV 21/63
@@ -456,6 +496,9 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
                           if history_row and history_row["hvShort"] else None),
             "crosscheckPct": crosscheck,
             "termsSource": term.get("termsSource"),
+            "termsSession": terms_session,
+            "termsStaleDays": terms_stale_days,
+            "provisional": not terms_current,
         })
 
     result = iv_residual(pd.DataFrame(rows))
@@ -463,6 +506,10 @@ def price_warrants(frame: pd.DataFrame, terms: pd.DataFrame, *,
     diagnostics = {
         "available": bool(len(result)),
         "session": str(session),
+        "termsSession": terms_session,
+        "termsCurrent": terms_current,
+        "termsStaleDays": terms_stale_days,
+        "provisional": not terms_current,
         "priced": int(len(result)),
         "traded": int(len(traded)),
         "excluded": dict(sorted(excluded.items(), key=lambda kv: -kv[1])),
