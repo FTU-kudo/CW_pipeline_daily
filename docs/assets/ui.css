@@ -1654,7 +1654,7 @@ html[data-theme="dark"] #view-glossary { --g-green:#4ade80; --g-yellow:#fbbf24; 
 }
 
 /* ── Overview KPI row: align the five headline cards ─────────── */
-.overview .ov-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.overview .ov-grid { grid-template-columns: repeat(var(--overview-columns, 5), minmax(0, 1fr)); gap: 10px; align-items: stretch; }
 .overview .ov-card { height: 100%; padding: 14px; gap: 7px; }
 .overview .ov-k { min-height: 20px; gap: 7px; }
 .overview .ov-v { font-size: clamp(22px, 1.8vw, 26px); }
@@ -1692,3 +1692,6 @@ html[data-theme="dark"] .valuation-provisional {
   background: rgba(245, 158, 11, .09);
 }
 html[data-theme="dark"] .valuation-provisional strong { color: #fbbf24; }
+
+/* A synchronous head hint hides the statically visible board until the URL tab is applied. */
+html[data-boot-tab] #view-board { display: none !important; }

@@ -47,6 +47,11 @@
     .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
     .flag{color:var(--warn)}footer{margin-top:18px;font-size:12px;color:var(--muted)}@media(max-width:700px){main{padding:14px}h1{font-size:20px}.toolbar{flex-wrap:wrap}.summary{width:100%;margin:0}}
   </style>
+  <script>
+    // Set a pre-render hint so a deep-linked tab never flashes the default board on reload.
+    const bootTab = new URLSearchParams(window.location.search).get('tab');
+    if (bootTab !== null) document.documentElement.dataset.bootTab = bootTab;
+  </script>
   <!-- Inter cho chữ; fallback hệ thống nên trang vẫn đúng nếu không tải được webfont.
        `display=swap` để chữ hiện ngay bằng font hệ thống rồi đổi sang Inter, không bị trắng chữ. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -199,6 +204,7 @@ import {
 } from './assets/ui.js';
 import { initDetail, openDetail } from './assets/detail.js';
 import katex from './assets/katex/katex.mjs';
+import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
@@ -359,6 +365,12 @@ function renderOverview(){
   }
   cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows', help: 'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.',
     n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`});
+
+  // Chọn số cột theo số KPI để giữ các hàng cân đối: tối đa 5 thẻ vẫn một hàng,
+  // từ 6–10 thẻ chia đều thành hai hàng thay vì để hàng cuối chỉ còn vài thẻ.
+  const desktopColumns = cards.length <= 5 ? Math.max(1, cards.length)
+    : Math.min(5, Math.ceil(cards.length / 2));
+  grid.style.setProperty('--overview-columns', String(desktopColumns));
 
   // Thanh tiến trình chỉ dành cho hai thẻ phân bố — nơi tỷ lệ mới là thông tin.
   grid.innerHTML = cards.map(c => {
@@ -1541,7 +1553,17 @@ function renderGlossary(){
   searchInput.addEventListener('keydown', event => { if (event.key === 'Escape') { searchInput.value=''; apply(); } });
 }
 
-let currentView = 'board';
+function updateTabAddress(view, replace = false) {
+  const target = urlForView(window.location.href, view);
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (target === current) return;
+  const method = replace ? 'replaceState' : 'pushState';
+  window.history[method]({tab: VIEW_SLUGS[view]}, '', target);
+}
+
+let currentView = viewFromSearch(window.location.search);
+// Canonicalize unknown/default slugs without adding an extra browser-history entry.
+updateTabAddress(currentView, true);
 onLangChange(() => { if (currentView === 'glossary') renderGlossary(); });
 document.addEventListener('keydown', event => {
   const target = event.target;
@@ -1566,9 +1588,28 @@ function setView(name) {
     const node = document.querySelector(`#view-${view}`);
     if (node) node.hidden = view !== name;
   }
+  const activeView = document.querySelector(`#view-${name}`);
+  if (name !== 'board' && activeView && !activeView.firstElementChild) {
+    activeView.innerHTML = `<div class="empty" role="status">${bi('Đang tải dữ liệu…','Loading data…')}</div>`;
+  }
   // Trang thuật ngữ dựng bằng JS nên chỉ sinh khi mở tới — không tốn công lúc tải trang.
   if (name === 'glossary') renderGlossary();
 }
+
+function navigateToView(name) {
+  const view = Object.hasOwn(VIEW_SLUGS, name) ? name : 'board';
+  if (view !== currentView) updateTabAddress(view);
+  setView(view);
+}
+
+document.querySelectorAll('#tabs [data-view], .controls [data-view]').forEach(tab => {
+  tab.addEventListener('click', () => navigateToView(tab.dataset.view));
+});
+window.addEventListener('popstate', () => {
+  const view = viewFromSearch(window.location.search);
+  updateTabAddress(view, true);
+  setView(view);
+});
 
 // Delegated controls keep search, sorting, pagination and the detail drawer working after
 // each local table repaint.
@@ -1613,6 +1654,8 @@ async function loadOptional(key, url) {
 initTheme();
 startClock({ lang: getLang });
 initI18n();
+setView(currentView);
+document.documentElement.removeAttribute('data-boot-tab');
 renderFooter();
 
 // Nạp chi tiết từng mã (tuỳ chọn): thiếu file thì bảng vẫn đầy đủ, chỉ mất phần chi tiết.
@@ -1682,12 +1725,7 @@ renderStale();
 renderIntraday();
 renderBand();
 renderHistory();
-// Gắn cho MỌI mục có data-view trong thanh điều hướng — hai nút phụ (Lịch sử, Thuật ngữ)
-// cố ý không mang class .tab nhưng vẫn phải bấm được.
-document.querySelectorAll('#tabs [data-view], .controls [data-view]').forEach(tab => {
-  tab.addEventListener('click', () => setView(tab.dataset.view));
-});
-setView('board');
+// The current URL view was selected before data loading; no URL write or reload is needed here.
 
 // Nội dung các view do JS sinh nên phải dịch lại sau khi render, và vẽ lại khi đổi ngôn ngữ.
 renderFreshness();
