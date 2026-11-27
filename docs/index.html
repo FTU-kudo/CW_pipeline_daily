@@ -1132,13 +1132,13 @@ function scoringValue(row, key) {
  * `null` là CHƯA CHẤM (ví dụ độ ổn định cần ≥5 phiên), khác hẳn điểm 0. Hai thứ đó
  * không được hiển thị giống nhau, nếu không người đọc sẽ hiểu mã bị trừ điểm.
  */
-function partCell(value, label) {
+function partCell(value, label, digits = 0) {
   const labelText = getLang() === 'en' ? (EN_TABLE_HEADERS[label] || tx(label)) : label;
   if (value === null || value === undefined) {
     return `<td class="part-cell"><span class="na" title="${escAttr(labelText)}: ${bi('chưa đủ dữ liệu để chấm', 'not enough data to score')}">${bi('chưa chấm', 'not scored')}</span></td>`;
   }
   const v = Math.max(0, Math.min(100, value));
-  return `<td class="part-cell"><span class="part-num">${num(v, 0)}</span>`
+  return `<td class="part-cell"><span class="part-num">${num(v, digits)}</span>`
     + `<span class="part-track"><span class="part-fill b${Math.round(v / 20) * 20}" style="width:${v}%"></span></span></td>`;
 }
 
@@ -1278,7 +1278,7 @@ function scoringTable(rows, sc) {
         ${partCell(r.parts?.liquidity, 'Thanh khoản')}
         ${partCell(r.parts?.cost, 'Chi phí')}
         ${partCell(r.parts?.valuation, 'Định giá')}
-        ${partCell(r.parts?.priceQuality, 'Chất lượng giá')}
+        ${partCell(r.parts?.priceQuality, 'Chất lượng giá', 1)}
         ${warnCell(r, sc)}
       </tr>`).join('')}</tbody>
     </table>
@@ -1292,6 +1292,7 @@ function renderScoring() {
   const dist = sc.distribution || {};
   const val = sc.valuation || {};
   const weights = sc.weights || {};
+  const priceQuality = sc.priceQualityMeta || {};
 
   // Sắp xếp theo lựa chọn hiện tại. Mã chưa chấm một trục (null) bị đẩy xuống cuối ở cả
   // hai chiều — chúng không "thấp", chúng chưa có dữ liệu.
@@ -1334,6 +1335,8 @@ function renderScoring() {
             `Each warrant receives a score from 0 to 100, based on ${num(sc.scored, 0)} traded warrants. Untraded warrants are excluded because they have no traded price to score.`)}</li>
           <li>${bi('Mỗi trục cho điểm 0–100 rồi nhân trọng số ở trên. Trục nào thiếu dữ liệu thì tính lại trọng số trên phần còn lại, không cộng 0 — vì cộng 0 sẽ trừ điểm oan cho mã chỉ thiếu một trường.',
             'Each factor is scored from 0 to 100 and multiplied by its weight above. If a factor is missing, the remaining weights are renormalized rather than assigning zero, which would unfairly penalize a warrant for one missing field.')}</li>
+          <li>${bi(`Chất lượng giá (${Math.round((weights.priceQuality || 0) * 100)}%) được xếp phân vị nghịch theo tỷ lệ KL lệnh cuối / KL cả phiên trên các mã giao dịch: tỷ lệ thấp hơn nhận điểm cao hơn. Snapshot này có trung vị tỷ lệ ${fmtPct(priceQuality.medianLastTradeSharePct, 1)}; đây là điểm so sánh trong phiên, không phải đánh giá tuyệt đối.`,
+            `${Math.round((weights.priceQuality || 0) * 100)}% price quality is the inverse percentile of last-trade volume / session volume among traded warrants: a smaller ratio scores higher. The snapshot median ratio is ${fmtPct(priceQuality.medianLastTradeSharePct, 1)}; this is a within-session comparison, not an absolute quality grade.`)}</li>
           <li>${bi('Độ phủ = phần trăm trọng số thực sự có dữ liệu. Độ phủ 100% nghĩa là cả bốn trục đều chấm được; thấp hơn thì điểm đó chỉ dựa trên phần trọng số còn lại.',
             'Coverage is the percentage of factor weights with available data. 100% means all four factors were scored; lower coverage means the score uses only the available factors.')}</li>
           <li>${bi(`Định giá ${Math.round((weights.valuation || 0) * 100)}% tính từ IV của mã so với trung vị IV các CW cùng cổ phiếu cơ sở (${num(sc.valuationMeta?.scored, 0)} mã được chấm).`,

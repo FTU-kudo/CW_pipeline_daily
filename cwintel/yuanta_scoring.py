@@ -170,18 +170,20 @@ def _cost_score(frame: pd.DataFrame) -> pd.Series:
 
 
 def _price_quality_score(frame: pd.DataFrame, last_share: pd.Series | None) -> pd.Series:
-    """Độ đại diện của giá đóng cửa: ít lệnh hơn → giá kém tin cậy hơn.
+    """Độ đại diện giá đóng cửa, chấm theo phân vị trong toàn bộ mã có giao dịch.
 
-    ``LastMVol/TotalVol`` cao nghĩa là cả phiên chỉ có một lệnh, nên "giá đóng cửa" thực
-    chất là giá của một giao dịch lẻ. Chỉ số này **không** nói mã tốt hay xấu — nó nói giá
-    đóng cửa đáng tin tới đâu.
+    ``LastMVol/TotalVol`` cao nghĩa là lệnh cuối chiếm phần lớn khối lượng phiên nên giá
+    đóng cửa ít đại diện hơn. Thang cũ cho 100 điểm bất cứ khi nào tỷ lệ ≤10%; trên snapshot
+    kiểm tra, 63,7% mã bị dồn vào 100 điểm, khiến gần như toàn bộ top 50 không phân biệt được.
+    Dùng phân vị nghịch của tỷ lệ thay vì một ngưỡng bão hoà: tỷ lệ thấp hơn trong cùng phiên
+    nhận điểm cao hơn; đồng hạng vẫn giữ cùng điểm. Đây là so sánh tương đối, không phải thước
+    đo chất lượng tuyệt đối hay tín hiệu mua/bán.
     """
     if last_share is None:
         return pd.Series(np.nan, index=frame.index, dtype="float64")
-    # 1 lệnh duy nhất (100%) → 0 điểm; ≤10% → 100 điểm. Không dùng ngưỡng tuyệt đối khác
-    # vì 65,7% mã có tỷ lệ ≤10%, tức phần lớn mã đạt điểm tối đa — thang này cố ý chỉ phạt
-    # nhóm đóng cửa bằng một lệnh duy nhất.
-    return _inverse_level(last_share, best=10.0, worst=100.0)
+    traded = frame["Traded"].fillna(False) if "Traded" in frame else pd.Series(True, index=frame.index)
+    return _pct_rank(pd.to_numeric(last_share, errors="coerce").where(traded),
+                     higher_is_better=False)
 
 
 def _valuation_score(priced: pd.DataFrame | None,
@@ -338,6 +340,17 @@ def score_warrants(frame: pd.DataFrame, *, last_share: pd.Series | None = None,
             "p75": _f(score_values.quantile(0.75)) if len(score_values) else None,
         },
         "valuationMeta": valuation_meta,
+        "priceQualityMeta": {
+            "available": bool(last_share.where(traded).notna().any()),
+            "scored": int(parts["priceQuality"].notna().sum()),
+            "medianLastTradeSharePct": _f(_num(last_share).where(traded).median()),
+            "medianScore": _f(parts["priceQuality"].median()),
+            "basis": (
+                "Phân vị nghịch của LastMVol/TotalVol trong các CW có giao dịch cùng phiên; "
+                "tỷ lệ lệnh cuối thấp hơn nhận điểm cao hơn. So sánh tương đối, đồng hạng "
+                "được giữ cùng điểm."
+            ),
+        },
         "valuation": valuation_status(priced, valuation_diagnostics),
     }
 
@@ -380,8 +393,9 @@ def valuation_status(priced: pd.DataFrame | None = None,
         "engineReady": "cwintel.bs.price_and_greeks / implied_vol (đã có, chờ dữ liệu đầu vào)",
         "unlocks": ["giá lý thuyết", "IV", "Greeks", "premium", "moneyness", "điểm định giá"],
         "alternativeUsed": (
-            "Điểm số thay thế dùng 5 trục đo được từ bảng giá: thanh khoản, chi phí giao dịch, "
-            "chất lượng giá, độ ổn định lịch sử, dư địa trần–sàn."
+            "Điểm số thay thế dùng các trục đo được từ bảng giá: thanh khoản, chi phí giao dịch, "
+            "chất lượng giá đóng cửa (phân vị LastMVol/TotalVol) và định giá tương đối khi có "
+            "đủ điều khoản."
         ),
     }
 
