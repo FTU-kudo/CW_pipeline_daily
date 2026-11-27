@@ -179,17 +179,17 @@
   </div>
   <div class="table-wrap"><table>
     <thead><tr>
-      <th>Mã CW</th>
-      <th title="Giá đóng cửa phiên trước (nguồn: RefP)">Giá tham chiếu</th>
-      <th title="Giá của lệnh khớp cuối cùng — cũng là giá đóng cửa của phiên (nguồn: LastMP)">Giá khớp cuối</th>
-      <th title="Thay đổi so với giá tham chiếu (nguồn: refChangePct)">% trong ngày</th>
-      <th title="Giá khớp cao nhất trong phiên (nguồn: HighestP)">Cao nhất</th>
-      <th title="Giá khớp thấp nhất trong phiên (nguồn: LowestP)">Thấp nhất</th>
-      <th title="Tổng khối lượng khớp trong phiên (nguồn: TotalVol)">Tổng KL</th>
-      <th title="Tổng giá trị khớp trong phiên, đơn vị VND (nguồn: TotalVal)">Tổng giá trị</th>
-      <th title="Phần trăm giá trị giao dịch của mã trên toàn bảng">Tỷ trọng GT</th>
-      <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)">Chênh lệch mua–bán</th>
-      <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)">Room ngoại</th>
+      <th aria-sort="none"><button type="button" class="board-sort" data-board-sort="ticker">Mã CW <span aria-hidden="true">↕</span></button></th>
+      <th title="Giá đóng cửa phiên trước (nguồn: RefP)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="reference">Giá tham chiếu <span aria-hidden="true">↕</span></button></th>
+      <th title="Giá của lệnh khớp cuối cùng — cũng là giá đóng cửa của phiên (nguồn: LastMP)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="last">Giá khớp cuối <span aria-hidden="true">↕</span></button></th>
+      <th title="Thay đổi so với giá tham chiếu (nguồn: refChangePct)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="change">% trong ngày <span aria-hidden="true">↕</span></button></th>
+      <th title="Giá khớp cao nhất trong phiên (nguồn: HighestP)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="high">Cao nhất <span aria-hidden="true">↕</span></button></th>
+      <th title="Giá khớp thấp nhất trong phiên (nguồn: LowestP)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="low">Thấp nhất <span aria-hidden="true">↕</span></button></th>
+      <th title="Tổng khối lượng khớp trong phiên (nguồn: TotalVol)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="volume">Tổng KL <span aria-hidden="true">↕</span></button></th>
+      <th title="Tổng giá trị khớp trong phiên, đơn vị VND (nguồn: TotalVal)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="value">Tổng giá trị <span aria-hidden="true">↕</span></button></th>
+      <th title="Phần trăm giá trị giao dịch của mã trên toàn bảng" aria-sort="none"><button type="button" class="board-sort" data-board-sort="share">Tỷ trọng GT <span aria-hidden="true">↕</span></button></th>
+      <th title="Chênh lệch giá mua–bán, tính theo bước giá 10 VND (nguồn: S1P, B1P)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="spread">Chênh lệch mua–bán <span aria-hidden="true">↕</span></button></th>
+      <th title="Khối ngoại còn được mua thêm (nguồn: FRoom)" aria-sort="none"><button type="button" class="board-sort" data-board-sort="room">Room ngoại <span aria-hidden="true">↕</span></button></th>
     </tr></thead>
     <tbody id="rows"><tr><td colspan="11" id="state">Đang tải…</td></tr></tbody>
   </table></div>
@@ -205,6 +205,7 @@ import {
 import { initDetail, openDetail } from './assets/detail.js';
 import katex from './assets/katex/katex.mjs';
 import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
+import { sortBoardRows } from './assets/board-sort.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
@@ -450,6 +451,26 @@ function renderFooter(){
   );
 }
 
+const boardSort = {key: null, direction: 'desc'};
+const boardSortValue = (row, key) => {
+  const code = String(row.StockCode ?? '').trim().toUpperCase();
+  const d = derived.get(code) || {};
+  switch (key) {
+    case 'ticker': return code;
+    case 'reference': return row.RefP;
+    case 'last': return d.traded === true ? d.lastPrice : null;
+    case 'change': return d.priceChangePct;
+    case 'high': return row.HighestP;
+    case 'low': return row.LowestP;
+    case 'volume': return row.TotalVol;
+    case 'value': return row.TotalVal;
+    case 'share': return d.valueSharePct;
+    case 'spread': return d.spreadTicks;
+    case 'room': return row.FRoom;
+    default: return null;
+  }
+};
+
 function render(){
   const query = document.querySelector('#search').value.trim().toUpperCase();
   const fUnderlying = document.querySelector('#f-underlying')?.value || '';
@@ -467,8 +488,22 @@ function render(){
   });
   document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
   const tbody = document.querySelector('#rows');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="11" id="state">Không có mã phù hợp.</td></tr>';return;}
-  tbody.innerHTML = list.map(r => {
+  const sortedList = boardSort.key
+    ? sortBoardRows(list, boardSort.key, boardSort.direction, boardSortValue)
+    : list;
+  document.querySelectorAll('thead button[data-board-sort]').forEach(header => {
+    const key = header.dataset.boardSort;
+    const active = key === boardSort.key;
+    const th = header.matches('th') ? header : header.closest('th');
+    th?.setAttribute('aria-sort', active ? (boardSort.direction === 'desc' ? 'descending' : 'ascending') : 'none');
+    const indicator = header.querySelector('span');
+    if (indicator) {
+      indicator.textContent = active ? (boardSort.direction === 'desc' ? '↓' : '↑') : '↕';
+      header.setAttribute('aria-pressed', String(active));
+    }
+  });
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="11" id="state">Không có mã phù hợp.</td></tr>'; return; }
+  tbody.innerHTML = sortedList.map(r => {
     const code = String(r.StockCode ?? '').trim().toUpperCase();
     const d = derived.get(code) || {};
     // Ba trạng thái tiền dùng xanh/vàng/đỏ; xám chỉ báo thiếu dữ liệu, không suy đoán trạng thái.
@@ -1624,6 +1659,14 @@ document.addEventListener('input', event => {
   if (start !== null) next?.setSelectionRange(start, start);
 });
 document.addEventListener('click', event => {
+  const boardHeader = event.target.closest('button[data-board-sort]');
+  if (boardHeader) {
+    const key = boardHeader.dataset.boardSort;
+    if (boardSort.key === key) boardSort.direction = boardSort.direction === 'desc' ? 'asc' : 'desc';
+    else { boardSort.key = key; boardSort.direction = 'desc'; }
+    render();
+    return;
+  }
   const sort = event.target.closest('[data-val-sort]');
   if (sort) {
     const key = sort.dataset.valSort;
