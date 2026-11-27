@@ -2056,7 +2056,17 @@ html[data-theme="dark"] #overview {
   --kpi-card-bg: #111827;
   --kpi-card-border: rgba(30, 41, 59, .92);
 }
-#ov-grid { display: grid; gap: 14px; }
+/* Keep the two tiers as full-width rows; the outer container must not auto-size to card min-content. */
+#overview { display: block; width: 100%; min-width: 0; }
+#ov-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 14px;
+}
+#ov-grid > .ov-tier { width: 100%; min-width: 0; }
 .ov-tier { display: grid; min-width: 0; gap: 14px; }
 .ov-tier-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ov-tier-secondary { grid-template-columns: repeat(5, minmax(0, 1fr)); }
