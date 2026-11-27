@@ -53,6 +53,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="assets/ui.css">
+  <link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
 <main>
@@ -194,9 +195,10 @@
 </main>
 <script type="module">
 import {
-  initI18n, initTheme, startClock, applyI18n, num as uiNum, bi, getLang, translate as translateUI,
+  initI18n, initTheme, startClock, applyI18n, num as uiNum, bi, getLang, onLangChange, translate as translateUI,
 } from './assets/ui.js';
 import { initDetail, openDetail } from './assets/detail.js';
+import katex from './assets/katex/katex.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
@@ -457,17 +459,16 @@ function render(){
   tbody.innerHTML = list.map(r => {
     const code = String(r.StockCode ?? '').trim().toUpperCase();
     const d = derived.get(code) || {};
-    // Ba trạng thái tiền: ITM xanh, ATM vàng, OTM đỏ. Không có định giá thì không tô — mã
-    // không giao dịch hoặc thiếu điều khoản chưa xác định được trạng thái, tô màu sẽ là đoán.
+    // Ba trạng thái tiền dùng xanh/vàng/đỏ; xám chỉ báo thiếu dữ liệu, không suy đoán trạng thái.
     const money = moneynessOf(code);
     const moneyCls = money === 'ITM' ? 'money-itm' : money === 'ATM' ? 'money-atm'
-      : money === 'OTM' ? 'money-otm' : '';
+      : money === 'OTM' ? 'money-otm' : 'money-unknown';
     // Tăng xanh, giảm đỏ, đứng giá vàng. `null` (không khớp lệnh) không tô.
     const chgCls = d.priceChangePct > 0 ? 'chg-up' : d.priceChangePct < 0 ? 'chg-down'
       : (d.priceChangePct === 0 ? 'chg-flat' : '');
     const codeAttr = escAttr(code);
     // Nhãn ITM/ATM/OTM hiện ngay cạnh mã để thấy được khi quét bảng, kèm tooltip giải thích.
-    const moneyTag = money ? ` <span class="mtag ${moneyCls}">${esc(money)}</span>` : '';
+    const moneyTag = ` <span class="mtag ${moneyCls}"${money ? '' : ` title="${escAttr(bi('Chưa định giá — trạng thái tiền chưa xác định','Unpriced — moneyness unknown'))}"`}>${esc(money || '—')}</span>`;
     const traded = d.traded === true;
     // Cột "Giá khớp cuối": mã không khớp lệnh không có giá đóng cửa, ô để trống thay vì
     // dùng lại giá phiên trước — giá cũ sẽ tạo ra biến động ảo.
@@ -836,7 +837,7 @@ function valuationRow(r){
   const date = source.match(/\((\d{4})-(\d{2})-(\d{2})\)/);
   const sourceShort = date ? `${bi('Đóng cửa','Close')} · ${date[3]}/${date[2]}`
     : /premium|đòn bẩy/i.test(source) ? bi('Suy từ terms','Terms-derived') : bi('Nguồn S','S source');
-  const moneyClass = r.moneyness === 'ITM' ? 'money-itm' : r.moneyness === 'ATM' ? 'money-atm' : 'money-otm';
+  const moneyClass = r.moneyness === 'ITM' ? 'money-itm' : r.moneyness === 'ATM' ? 'money-atm' : r.moneyness === 'OTM' ? 'money-otm' : 'money-unknown';
   const days = Number(r.daysToMaturity);
   return `<tr>
     <td class="ticker-cell"><button class="ticker-btn" type="button" data-ticker="${escAttr(r.ticker)}">${esc(r.ticker)}</button></td>
@@ -1222,7 +1223,7 @@ const GLOSSARY = [
      'Giá cổ phiếu cơ sở THẤP HƠN strike. Chưa có giá trị nội tại; toàn bộ giá CW là giá trị thời gian.',
      'S < K'],
     ['Màu trên bảng',
-     'ITM xanh, ATM vàng, OTM đỏ. Mã chưa định giá được (không khớp lệnh hoặc thiếu điều khoản) không tô màu — trạng thái chưa xác định thì không đoán.',
+     'ITM xanh, ATM vàng, OTM đỏ. Chưa định giá được (không khớp lệnh hoặc thiếu điều khoản) hiển thị xám trung tính để báo thiếu dữ liệu — không biểu thị một trạng thái tiền.',
      ''],
   ]},
   {group: 'Black–Scholes và định giá', items: [
@@ -1369,7 +1370,7 @@ const GLOSSARY_EN = {
   'ITM — In the Money': ['ITM — In the Money', 'The underlying stock price is above the strike. Exercising the call now would have intrinsic value.'],
   'ATM — At the Money': ['ATM — At the Money', 'The underlying stock price is approximately equal to the strike. Here, ATM means |S − K| ≤ 1% of the strike.'],
   'OTM — Out of the Money': ['OTM — Out of the Money', 'The underlying stock price is below the strike. It has no intrinsic value; the warrant price consists entirely of time value.'],
-  'Màu trên bảng': ['Board colors', 'ITM is green, ATM yellow, and OTM red. Unvalued warrants (no trade or missing terms) are not colored—the state is unknown, so it is not guessed.'],
+  'Màu trên bảng': ['Board colors', 'ITM is green, ATM yellow, and OTM red. Unvalued warrants (no trade or missing terms) use neutral gray to indicate missing data—not a moneyness state.'],
   'Black–Scholes–Merton': ['Black–Scholes–Merton', 'A European-option pricing model. It discounts at exp(−rT) and assumes no dividends (q = 0).'],
   'S — Giá cổ phiếu cơ sở': ['S — Underlying stock price', 'Uses the actual underlying close when history is available. Otherwise, S is derived from the contract terms (premium and leverage, cross-checked against each other; discrepancies above 1% are excluded).'],
   'K — Strike (giá thực hiện)': ['K — Strike price', 'The price paid to buy the underlying stock when exercising the warrant. Vietnamese covered warrants adjust K for stock bonuses or dividends.'],
@@ -1425,30 +1426,130 @@ const GLOSSARY_EN = {
 };
 
 
+// Project notation stays in the source data; this map is only its presentation layer.
+// Every existing expression is rendered by KaTeX from LaTeX (never shown as raw ASCII).
+const GLOSSARY_LATEX = {
+  'ITM — In the Money': String.raw`S > K`,
+  'ATM — At the Money': String.raw`|S-K|\le 1\%\times K`,
+  'OTM — Out of the Money': String.raw`S < K`,
+  'Black–Scholes–Merton': String.raw`C_{\mathrm{CW}}=\frac{S N(d_1)-K e^{-rT}N(d_2)}{n}`,
+  'T — Thời gian tới đáo hạn': String.raw`T=\frac{\text{maturity date}-\text{session date}}{365}`,
+  'r — Lãi suất phi rủi ro': String.raw`r_{\mathrm{continuous}}=\ln(1+r_{\mathrm{annual}})`,
+  'HV — Biến động thực hiện': String.raw`\mathrm{HV}=\operatorname{stdev}\!\left(\ln\frac{P_t}{P_{t-1}}\right)\sqrt{252}`,
+  'Delta (Δ)': String.raw`\frac{\partial C}{\partial S}`,
+  'Gamma (Γ)': String.raw`\frac{\partial^2 C}{\partial S^2}`,
+  'Theta (Θ)': String.raw`\frac{\partial C}{\partial t}`,
+  'Vega': String.raw`\frac{\partial C}{\partial \sigma}`,
+  'Rho (ρ)': String.raw`\frac{\partial C}{\partial r}`,
+  'Giá trị nội tại': String.raw`\frac{\max(S-K,0)}{n}`,
+  'Premium hoà vốn': String.raw`\frac{K+Wn-S}{S}`,
+  'Đòn bẩy': String.raw`\frac{S/W}{n}`,
+  'Cơ sở điều khoản (termsBasis)': String.raw`f=\frac{K_{\mathrm{original}}}{K_{\mathrm{adjusted}}}`,
+  'Chênh lệch mua–bán': String.raw`\frac{\text{best ask}-\text{best bid}}{\text{tick size}}`,
+  '% trong ngày': String.raw`\frac{\text{price}-\text{reference price}}{\text{reference price}}`,
+  'HHI': String.raw`\sum_i (\text{market share}_i)^2`,
+};
+const GLOSSARY_RISK_TERMS = new Set([
+  'S — Giá cổ phiếu cơ sở','K — Strike (giá thực hiện)','n — Tỷ lệ chuyển đổi',
+  'T — Thời gian tới đáo hạn','r — Lãi suất phi rủi ro','IV — Biến động ẩn',
+  'HV — Biến động thực hiện','IV − HV','Chênh lệch IV (ivResidualPct)',
+  'Delta (Δ)','Gamma (Γ)','Theta (Θ)','Vega','Rho (ρ)','Giá trị nội tại',
+  'Giá trị thời gian','Premium hoà vốn','Đòn bẩy','Cơ sở điều khoản (termsBasis)',
+]);
+function glossaryFormula(term, formula, english) {
+  if (!formula) return '';
+  // English copy of the source formula may vary; use the canonical LaTeX expression by term.
+  const latex = GLOSSARY_LATEX[term];
+  if (!latex) return '';
+  let rendered = '';
+  try { rendered = katex.renderToString(latex, { displayMode: true, throwOnError: false, strict: 'ignore' }); }
+  catch { rendered = '<span class="formula-fallback">Formula unavailable</span>'; }
+  const label = english ? 'Copy LaTeX' : 'Sao chép LaTeX';
+  const raw = esc(latex);
+  return `<div class="formula-box"><div class="formula-equation" aria-label="${raw}">${rendered}</div><button type="button" class="formula-copy" data-copy-latex="${raw}" aria-label="${label}" title="${label}"><span aria-hidden="true">⧉</span> ${label}</button></div>`;
+}
 function renderGlossary(){
   const host = document.querySelector('#view-glossary');
   if (!host) return;
   const english = getLang() === 'en';
-  const title = english ? 'Glossary' : 'Giải thích thuật ngữ';
-  const caption = english
-    ? 'All terms used in this project, collected in one place. Other tabs show session data only.'
-    : 'Toàn bộ thuật ngữ dùng trong dự án, gom về một chỗ. Các tab khác chỉ hiển thị số liệu của phiên.';
-  host.innerHTML = `<h2>${title}</h2>
-    <p class="caption">${caption}</p>`
-    + GLOSSARY.map(g => `<div class="glossary-group">
-        <h3>${esc(english ? (GLOSSARY_GROUPS_EN[g.group] || g.group) : g.group)}</h3>
-        <dl class="glossary-list">
-        ${g.items.map(([term, desc, formula]) => {
-          const translated = english ? GLOSSARY_EN[term] : null;
-          return `<div class="glossary-item">
-          <dt>${esc(translated ? translated[0] : term)}</dt>
-          <dd>${esc(translated ? translated[1] : desc)}${formula ? `<div class="g-meta"><code>${esc(english ? (GLOSSARY_FORMULAS_EN[term] || formula) : formula)}</code></div>` : ''}</dd>
-        </div>`;
-        }).join('')}
-        </dl></div>`).join('');
+  const groups = GLOSSARY.map((g, i) => ({...g, key: i === 0 ? 'moneyness' : i === 1 ? 'black-scholes' : 'other'}));
+  const t = english ? {
+    title:'Quant glossary', intro:'A field guide to the terms, models and data rules used across this dashboard.',
+    search:'Search symbols, variables or definitions…', all:'All terms', money:'Moneyness', bs:'Black–Scholes', risk:'Variables & risk',
+    terms:'terms', rule:'Project rule', symbols:'Notation', empty:'No terms match your search.',
+    legend:'Moneyness spectrum', itm:'ITM · S > K', atm:'ATM · within 1% of K', otm:'OTM · S < K', unknown:'Unpriced · unknown',
+    relation:'Underlying price relative to strike', copy:'Copy formula', done:'Copied',
+  } : {
+    title:'Sổ tay thuật ngữ định lượng', intro:'Giải nghĩa thuật ngữ, mô hình và quy tắc dữ liệu đang dùng trong dashboard.',
+    search:'Tìm ký hiệu, biến số hoặc nội dung…', all:'Tất cả', money:'Moneyness', bs:'Black–Scholes', risk:'Biến số & rủi ro',
+    terms:'thuật ngữ', rule:'Quy tắc dự án', symbols:'Ký hiệu', empty:'Không tìm thấy thuật ngữ phù hợp.',
+    legend:'Phổ trạng thái tiền', itm:'ITM · S > K', atm:'ATM · trong 1% của K', otm:'OTM · S < K', unknown:'Chưa định giá',
+    relation:'Giá cơ sở so với strike', copy:'Sao chép công thức', done:'Đã sao chép',
+  };
+  const filters = [{id:'all',label:t.all},{id:'moneyness',label:t.money},{id:'black-scholes',label:t.bs},{id:'variables',label:t.risk}];
+  const latexSymbolLegend = english
+    ? [['S','underlying stock price'],['K','strike price'],['n','conversion ratio'],['T','time to maturity (years)'],['r','continuous risk-free rate'],['σ','volatility'],['N(·)','standard normal CDF']]
+    : [['S','giá cổ phiếu cơ sở'],['K','giá thực hiện (strike)'],['n','tỷ lệ chuyển đổi'],['T','thời gian tới đáo hạn (năm)'],['r','lãi suất phi rủi ro liên tục'],['σ','biến động'],['N(·)','hàm phân phối chuẩn tích luỹ']];
+  const cards = groups.map(g => {
+    const groupName = english ? (GLOSSARY_GROUPS_EN[g.group] || g.group) : g.group;
+    return `<section class="glossary-group" data-glossary-group="${g.key}"><div class="glossary-group-head"><h3>${esc(groupName)}</h3><span class="glossary-group-count">${g.items.length} ${t.terms}</span></div><div class="glossary-grid">${g.items.map(([term, desc, formula]) => {
+      const translated = english ? GLOSSARY_EN[term] : null;
+      const title = translated ? translated[0] : term;
+      const definition = translated ? translated[1] : desc;
+      const displayFormula = english ? (GLOSSARY_FORMULAS_EN[term] || formula) : formula;
+      const search = [term,title,desc,definition,formula,displayFormula].filter(Boolean).join(' ').toLowerCase();
+      const categories = [g.key];
+      if (GLOSSARY_RISK_TERMS.has(term)) categories.push('variables');
+      const badge = (term.match(/^[^ —(]+(?:\s*\([^)]*\))?/) || [term])[0];
+      const calloutTerms = ['ITM — In the Money','ATM — At the Money','OTM — Out of the Money','Màu trên bảng','T — Thời gian tới đáo hạn','r — Lãi suất phi rủi ro','HV — Biến động thực hiện','IV — Biến động ẩn','Chênh lệch IV (ivResidualPct)','Giá trị thời gian','Premium hoà vốn','Đòn bẩy','Cơ sở điều khoản (termsBasis)','Chênh lệch mua–bán','% trong ngày','HHI','"chưa chấm" trong bảng xếp hạng','Sao không có trục "độ ổn định"','Mã không giao dịch','Khoảng trống','Kiểm tra liên tục','Giá trần / Giá sàn','Tỷ trọng GT','Giá (VND) chỉ có khi khớp lệnh','Cơ sở suy từ tên mã','Snapshot chỉ thay thế khi thành công','Định giá cần điều khoản hợp đồng','Mã không định giá được','Không có trong dự án'];
+      const safeDesc = String(definition).replace(/<\/?b>/g,'');
+      const formulaHtml = glossaryFormula(term, displayFormula, english);
+      const shouldCallout = calloutTerms.includes(term);
+      const descriptionHtml = shouldCallout ? `<div class="glossary-rule"><span class="rule-label">${t.rule}</span><p>${safeDesc}</p></div>` : `<p class="glossary-definition">${safeDesc}</p>`;
+      return `<article class="glossary-card" data-categories="${categories.join(' ')}" data-search="${esc(search)}"><div class="glossary-card-top"><span class="term-badge">${esc(badge)}</span><span class="term-index">${esc(term.split(' — ')[0].slice(0,12))}</span></div><h4>${esc(title)}</h4>${descriptionHtml}${formulaHtml}</article>`;
+    }).join('')}</div></section>`;
+  }).join('');
+  const visualFormula = (tex, label) => `<div class="spectrum-equation"><span>${label}</span>${katex.renderToString(tex,{displayMode:false,throwOnError:false,strict:'ignore'})}</div>`;
+  host.innerHTML = `<div class="glossary-hero"><div class="glossary-eyebrow"><span class="live-dot"></span>${english?'PROJECT REFERENCE':'TỪ ĐIỂN DỰ ÁN'}</div><h2>${t.title}</h2><p>${t.intro}</p><div class="glossary-hero-meta"><span>◈ ${GLOSSARY.reduce((n,g)=>n+g.items.length,0)} ${t.terms}</span><span>∑ KaTeX</span><span>VI / EN</span></div></div>
+    <section class="moneyness-panel"><div class="moneyness-heading"><div><span class="panel-kicker">${t.relation}</span><h3>${t.legend}</h3></div><span class="ratio-label">S / K</span></div><div class="moneyness-spectrum"><div class="spectrum-zone itm-zone"><b>${t.itm}</b>${visualFormula(String.raw`S>K`,'Call')}</div><div class="spectrum-zone atm-zone"><b>${t.atm}</b>${visualFormula(String.raw`|S-K|\le 1\%\times K`,'Band')}</div><div class="spectrum-zone otm-zone"><b>${t.otm}</b>${visualFormula(String.raw`S<K`,'Call')}</div></div><div class="spectrum-axis"><span>S/K &gt; 1</span><span>S/K ≈ 1</span><span>S/K &lt; 1</span></div><div class="unpriced-note"><i></i>${t.unknown}</div></section>
+    <section class="notation-panel"><div><span class="panel-kicker">${t.symbols}</span><h3>${english?'Read the notation':'Đọc ký hiệu'}</h3></div><div class="notation-list">${latexSymbolLegend.map(([symbol,meaning])=>`<span><b>${esc(symbol)}</b>${esc(meaning)}</span>`).join('')}</div></section>
+    <div class="glossary-controls"><label class="glossary-search"><span aria-hidden="true">⌕</span><input id="glossary-search" type="search" placeholder="${t.search}" autocomplete="off"><kbd>/</kbd></label><div class="glossary-filters" role="group" aria-label="${english?'Filter terms':'Lọc thuật ngữ'}">${filters.map((f,i)=>`<button type="button" class="glossary-filter${i===0?' active':''}" data-glossary-filter="${f.id}" aria-pressed="${i===0}">${esc(f.label)}</button>`).join('')}</div></div>
+    <div class="glossary-results" aria-live="polite">${cards}</div><div class="glossary-empty" hidden>${t.empty}</div>`;
+  const searchInput = host.querySelector('#glossary-search');
+  let activeFilter = 'all';
+  const apply = () => {
+    const query = searchInput.value.trim().toLowerCase(); let visible = 0;
+    host.querySelectorAll('.glossary-card').forEach(card => {
+      const show = (activeFilter === 'all' || card.dataset.categories.split(' ').includes(activeFilter)) && card.dataset.search.includes(query);
+      card.hidden = !show; if (show) visible++;
+    });
+    host.querySelectorAll('.glossary-group').forEach(group => { group.hidden = !group.querySelector('.glossary-card:not([hidden])'); });
+    host.querySelector('.glossary-empty').hidden = visible > 0;
+  };
+  searchInput.addEventListener('input', apply);
+  host.querySelectorAll('[data-glossary-filter]').forEach(button => button.addEventListener('click', () => {
+    activeFilter = button.dataset.glossaryFilter;
+    host.querySelectorAll('[data-glossary-filter]').forEach(item => { const selected=item===button; item.classList.toggle('active',selected); item.setAttribute('aria-pressed',String(selected)); });
+    apply();
+  }));
+  host.querySelectorAll('[data-copy-latex]').forEach(button => button.addEventListener('click', async () => {
+    const latex = button.dataset.copyLatex;
+    try { await navigator.clipboard.writeText(latex); button.classList.add('copied'); button.title=t.done; setTimeout(()=>{button.classList.remove('copied');button.title=t.copy;},1400); }
+    catch { const area=document.createElement('textarea'); area.value=latex; area.style.position='fixed'; area.style.opacity='0'; document.body.append(area); area.select(); document.execCommand('copy'); area.remove(); button.classList.add('copied'); }
+  }));
+  searchInput.addEventListener('keydown', event => { if (event.key === 'Escape') { searchInput.value=''; apply(); } });
 }
 
 let currentView = 'board';
+onLangChange(() => { if (currentView === 'glossary') renderGlossary(); });
+document.addEventListener('keydown', event => {
+  const target = event.target;
+  const isEditing = target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  if (currentView === 'glossary' && event.key === '/' && !isEditing) {
+    event.preventDefault();
+    document.querySelector('#glossary-search')?.focus();
+  }
+});
 
 function setView(name) {
   currentView = name;

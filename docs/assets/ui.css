@@ -764,6 +764,7 @@ tbody tr:hover td:first-child { background: var(--row-hover); }
 .money-itm { color: var(--itm); background: var(--itm-soft); border: 1px solid var(--itm); }
 .money-atm { color: var(--atm); background: var(--atm-soft); border: 1px solid var(--atm); }
 .money-otm { color: var(--otm); background: var(--otm-soft); border: 1px solid var(--otm); }
+.money-unknown { color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
 
 /* Chữ tăng/giảm dùng biến *-text (đậm hơn thanh ở chế độ sáng) để đạt WCAG AA. */
 .chg-up { color: var(--up-text); font-weight: 600; }
@@ -1560,4 +1561,94 @@ html[data-theme="dark"] .disclaimer-banner strong { color: #fbbf24; }
 @media (max-width: 420px) {
   .controls { flex-wrap: wrap; row-gap: 5px; }
   .market-pill { margin-left: auto; }
+}
+
+/* ── Quantitative glossary, v2 ─────────────────────────────── */
+#view-glossary { --g-green:var(--itm); --g-yellow:var(--atm); --g-red:var(--otm); --g-cyan:#036b85; }
+html[data-theme="dark"] #view-glossary { --g-green:#4ade80; --g-yellow:#fbbf24; --g-red:#fb7185; --g-cyan:#22d3ee; }
+#view-glossary .glossary-hero {
+  position:relative; overflow:hidden; padding:24px 26px; margin:10px 0 16px;
+  border:1px solid var(--line); border-radius:18px;
+  background:radial-gradient(ellipse at 88% 5%,rgba(8,145,178,.13),transparent 38%),linear-gradient(135deg,var(--panel),var(--panel-2));
+}
+#view-glossary .glossary-hero:after { content:"∑"; position:absolute; right:34px; top:-30px; font:700 142px/1 Georgia,serif; color:var(--accent); opacity:.055; pointer-events:none; }
+.glossary-eyebrow,.panel-kicker { color:var(--accent); font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+.glossary-eyebrow { display:flex; align-items:center; gap:8px; }
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--g-cyan); box-shadow:0 0 0 4px color-mix(in srgb,var(--g-cyan) 15%,transparent); }
+#view-glossary .glossary-hero h2 { margin:7px 0 4px; font-size:25px; letter-spacing:-.035em; }
+#view-glossary .glossary-hero>p { color:var(--muted); margin:0; max-width:700px; }
+.glossary-hero-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:15px; }
+.glossary-hero-meta span { border:1px solid var(--line); border-radius:999px; padding:4px 9px; color:var(--muted); background:var(--panel); font-size:11px; font-weight:650; }
+.moneyness-panel,.notation-panel { background:var(--panel); border:1px solid var(--line); border-radius:15px; padding:17px 18px; margin-bottom:14px; }
+.moneyness-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
+.moneyness-heading h3,.notation-panel h3 { margin:3px 0 0; color:var(--text); font-size:15px; }
+.ratio-label { font:700 12px ui-monospace,monospace; color:var(--muted); padding:5px 9px; border:1px solid var(--line); border-radius:7px; font-variant-numeric:tabular-nums; }
+.moneyness-spectrum { display:grid; grid-template-columns:1fr 1.12fr 1fr; gap:8px; margin-top:14px; }
+.spectrum-zone { min-width:0; padding:12px; border:1px solid var(--line); border-top:3px solid; border-radius:10px; }
+.itm-zone { border-top-color:var(--g-green); background:color-mix(in srgb,var(--g-green) 6%,var(--panel)); }
+.atm-zone { border-top-color:var(--g-yellow); background:color-mix(in srgb,var(--g-yellow) 7%,var(--panel)); }
+.otm-zone { border-top-color:var(--g-red); background:color-mix(in srgb,var(--g-red) 6%,var(--panel)); }
+.spectrum-zone>b { display:block; font-size:11px; color:var(--text); }
+.itm-zone>b { color:var(--g-green); }.atm-zone>b { color:var(--g-yellow); }.otm-zone>b { color:var(--g-red); }
+.spectrum-equation { display:flex; align-items:center; gap:8px; margin-top:9px; color:var(--muted); }
+.spectrum-equation>span { font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
+.spectrum-equation .katex { color:var(--text); font-size:1em; }
+.spectrum-axis { display:flex; justify-content:space-between; padding:7px 5px 0; color:var(--muted); font:11px ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.unpriced-note { display:flex; align-items:center; gap:7px; margin-top:10px; font-size:11px; color:var(--muted); }
+.unpriced-note i { width:8px; height:8px; border-radius:50%; background:#94a3b8; }
+.notation-panel { display:flex; align-items:flex-start; gap:18px; }
+.notation-panel>div:first-child { flex:0 0 140px; }
+.notation-list { display:flex; flex-wrap:wrap; gap:7px; }
+.notation-list span { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:7px; background:var(--panel-2); color:var(--muted); font-size:10px; }
+.notation-list b { color:var(--accent); font:700 11px ui-monospace,monospace; }
+.glossary-controls { position:sticky; top:8px; z-index:5; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:9px; margin:12px 0 16px; border:1px solid var(--line); border-radius:12px; background:color-mix(in srgb,var(--panel) 94%,transparent); backdrop-filter:blur(12px); box-shadow:0 7px 22px rgba(15,23,42,.08); }
+.glossary-search { display:flex; align-items:center; gap:9px; flex:1 1 260px; min-width:190px; height:40px; padding:0 11px; border:1px solid var(--line); border-radius:9px; background:var(--bg); color:var(--muted); }
+.glossary-search>span { font-size:22px; line-height:1; }
+.glossary-search input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--text); font:inherit; font-size:12px; }
+.glossary-search input::placeholder { color:var(--muted); opacity:.85; }
+.glossary-search kbd { border:1px solid var(--line); border-radius:4px; padding:0 5px; color:var(--muted); font-size:10px; }
+.glossary-filters { display:flex; flex-wrap:wrap; gap:5px; }
+.glossary-filter { padding:7px 10px; border-radius:999px; font-size:11px; font-weight:650; white-space:nowrap; }
+.glossary-filter.active { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+.glossary-group { margin:0 0 22px; }
+.glossary-group-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:0 2px 7px; margin-bottom:9px; border-bottom:1px solid var(--line); }
+.glossary-group-head h3 { margin:0; color:var(--text); font-size:14px; font-weight:750; }
+.glossary-group-count { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+.glossary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.glossary-card { min-width:0; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); transition:border-color .15s,transform .15s,box-shadow .15s; }
+.glossary-card:hover { border-color:color-mix(in srgb,var(--accent) 48%,var(--line)); transform:translateY(-1px); box-shadow:0 8px 20px rgba(15,23,42,.07); }
+.glossary-card[hidden],.glossary-group[hidden] { display:none!important; }
+.glossary-card-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.term-badge { display:inline-flex; max-width:85%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 7px; border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line)); border-radius:6px; background:var(--accent-soft); color:var(--accent); font:700 10px ui-monospace,monospace; }
+.term-index { color:var(--muted); font:10px ui-monospace,monospace; opacity:.7; }
+.glossary-card h4 { margin:9px 0 5px; color:var(--text); font-size:13px; line-height:1.4; }
+.glossary-definition,.glossary-rule p { margin:0; color:var(--muted); font-size:12px; line-height:1.62; }
+.glossary-rule { margin-top:10px; padding:9px 10px; border-left:3px solid var(--g-cyan); border-radius:0 7px 7px 0; background:color-mix(in srgb,var(--g-cyan) 7%,var(--panel)); }
+.rule-label { display:block; margin-bottom:3px; color:var(--g-cyan); font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.formula-box { position:relative; display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; margin-top:11px; padding:10px 9px 8px 11px; border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line)); border-radius:9px; background:color-mix(in srgb,var(--accent) 4%,var(--bg)); }
+.formula-equation { min-width:0; max-width:calc(100% - 92px); overflow-x:auto; overflow-y:hidden; color:var(--text); }
+.formula-equation .katex { font-size:1.02em; }
+.formula-copy { flex:0 0 auto; padding:5px 7px; border-radius:6px; font-size:9px; color:var(--muted); white-space:nowrap; }
+.formula-copy:hover,.formula-copy.copied { color:var(--accent); border-color:var(--accent); }
+.glossary-empty { padding:24px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:12px; }
+.glossary-empty[hidden] { display:none; }
+#view-glossary .formula-fallback { color:var(--g-red); }
+@media(max-width:800px) { .glossary-controls { top:4px; } }
+@media(max-width:620px) {
+  #view-glossary .glossary-hero { padding:19px 16px; }
+  #view-glossary .glossary-hero h2 { font-size:21px; }
+  .moneyness-panel,.notation-panel { padding:13px; }
+  .moneyness-spectrum { grid-template-columns:1fr; }
+  .spectrum-zone { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 10px; }
+  .spectrum-equation { margin:0; }
+  .spectrum-axis { padding-inline:2px; font-size:9px; }
+  .notation-panel { display:block; }.notation-list { margin-top:10px; }
+  .glossary-controls { align-items:stretch; padding:7px; }
+  .glossary-search { flex-basis:100%; }
+  .glossary-filters { flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px; }
+  .glossary-filter { padding:7px 9px; font-size:10px; }
+  .glossary-grid { grid-template-columns:1fr; }
+  .glossary-card { padding:13px; }
+  .formula-box { align-items:flex-start; }
+  .formula-equation .katex { font-size:.95em; }
 }
