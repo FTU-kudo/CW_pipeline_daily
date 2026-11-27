@@ -81,6 +81,7 @@ def test_snapshot_translates_dynamic_labels_and_preserves_unknown_text() -> None
         spreadNote: translate('1,0 bước giá (10 VND)'),
         unavailable: translate('Chưa định giá được.'),
         missingSession: translate('Bảng điều khoản không có phiên 2026-11-27.'),
+        staleTerms: translate('Bảng điều khoản không có phiên 2026-11-27. Bản mới nhất: 2026-11-26; không dùng dữ liệu quá 3 ngày.'),
         termRequirements: translate('Điều khoản cần có: strike (K), tỷ lệ chuyển đổi (n), ngày đáo hạn (T), giá cổ phiếu cơ sở (S). Nạp bằng'),
         unknown: translate('một câu kiểm thử không có trong từ điển'),
       }};
@@ -107,6 +108,7 @@ def test_snapshot_translates_dynamic_labels_and_preserves_unknown_text() -> None
         "spreadNote": "1,0 ticks (10 VND)",
         "unavailable": "Valuation unavailable.",
         "missingSession": "No contract-terms data is available for session 2026-11-27.",
+        "staleTerms": "No contract terms for session 2026-11-27. Latest available: 2026-11-26; refusing terms older than 3 days.",
         "termRequirements": "Required contract terms: strike (K), conversion ratio (n), maturity date (T), and underlying price (S). Load them with",
         "unknown": None,
     }

@@ -1673,3 +1673,22 @@ html[data-theme="dark"] #view-glossary { --g-green:#4ade80; --g-yellow:#fbbf24; 
 @media (max-width: 700px) {
   .overview .ov-grid { grid-template-columns: 1fr; }
 }
+
+.valuation-provisional {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 83, 9, .28);
+  border-left: 3px solid #b45309;
+  border-radius: 9px;
+  background: rgba(245, 158, 11, .08);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.valuation-provisional strong { color: #8a5b00; }
+html[data-theme="dark"] .valuation-provisional {
+  border-color: rgba(251, 191, 36, .3);
+  border-left-color: #fbbf24;
+  background: rgba(245, 158, 11, .09);
+}
+html[data-theme="dark"] .valuation-provisional strong { color: #fbbf24; }

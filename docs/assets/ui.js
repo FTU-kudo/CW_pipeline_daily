@@ -329,6 +329,8 @@ export const TEMPLATES = [
     (what, date) => `No ${what} block in the analytics file.${date ? ` Available analytics: session ${date}.` : ''}`],
   [/^Bảng điều khoản không có phiên (\d{4}-\d{2}-\d{2})\.$/,
     (date) => `No contract-terms data is available for session ${date}.`],
+  [/^Bảng điều khoản không có phiên (\d{4}-\d{2}-\d{2})\. Bản mới nhất: (\d{4}-\d{2}-\d{2}|không có); không dùng dữ liệu quá (\d+) ngày\.$/,
+    (date, latest, age) => `No contract terms for session ${date}. Latest available: ${latest}; refusing terms older than ${age} days.`],
   [/^giá đóng cửa cổ phiếu cơ sở \((\d{4}-\d{2}-\d{2})\)$/,
     (date) => `underlying stock close (${date})`],
   [/^S không khớp chéo \(>([\d.,]+)%\)$/,
