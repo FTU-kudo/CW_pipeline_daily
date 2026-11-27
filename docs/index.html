@@ -301,7 +301,7 @@ const kpiShortVnd = value => {
 };
 
 // Stacked distributions always use their stated denominator; unavailable segments are 0 wide.
-function miniBars(items, total){
+function miniBars(items, total, options = {}){
   const denominator = kpiValue(total);
   const segments = items.map(([label, value, variant, pctValue]) => {
     const count = kpiValue(value);
@@ -312,7 +312,8 @@ function miniBars(items, total){
   }).join('');
   const legend = items.map(([label, value, variant, pctValue]) => {
     const pct = pctValue ?? kpiShare(value, denominator);
-    return `<span class="legend-pill ${variant}"><i></i>${esc(tx(label))} <b>${kpiNum(value)} (${pct}%)</b></span>`;
+    const detail = options.percentOnly ? `(${pct}%)` : `${kpiNum(value)} (${pct}%)`;
+    return `<span class="legend-pill ${variant}"><i></i>${esc(tx(label))} <b>${detail}</b></span>`;
   }).join('');
   return `<div class="ov-distribution"><div class="stack-track" role="img" aria-label="${items.map(([label, value, , pctValue]) => `${tx(label)}: ${kpiNum(value)} (${pctValue ?? kpiShare(value, denominator)}%)`).join(', ')}">${segments}</div><div class="stack-legend">${legend}</div></div>`;
 }
@@ -402,10 +403,11 @@ function renderOverview(){
         ['down', kpiNum(downCount), 'Giảm', downPct],
         ['flat', kpiNum(unchangedCount), 'Đứng', unchangedPct],
       ],
+      compactSplit: true,
       footer: miniBars([
         ['Tăng', upCount, 'up', upPct], ['Giảm', downCount, 'down', downPct],
         ['Đứng', unchangedCount, 'flat', unchangedPct],
-      ], activeChangeCW),
+      ], activeChangeCW, {percentOnly: true}),
     },
     {
       id: 'underlyings', tier: 'secondary', k: 'Cổ phiếu cơ sở',
@@ -457,15 +459,17 @@ function renderOverview(){
     const cardClass = `ov-card ov-card-${card.tier} ov-card-${card.id}`;
     const badge = card.badge ? `<span class="ov-badge">${esc(card.badge)}</span>` : '';
     const value = card.split
-      ? `<div class="ov-split">${card.split.map(([tone, count, label, pct]) => {
+      ? `<div class="ov-split${card.compactSplit ? ' ov-split-counts' : ''}"${card.compactSplit ? ` role="group" aria-label="${esc(tx(card.k))}"` : ''}>${card.split.map(([tone, count, label, pct]) => {
         const percentLabel = pct === '—' ? '—' : `${pct}%`;
-        return `<div class="ov-split-item ${tone}"><span class="ov-split-value">${esc(count)}</span>`
-          + `<span class="ov-split-label">${esc(tx(label))}<b>${esc(percentLabel)}</b></span></div>`;
+        const splitLabel = card.compactSplit
+          ? `<span class="sr-only">${esc(tx(label))}</span>`
+          : `<span class="ov-split-label">${esc(tx(label))}<b>${esc(percentLabel)}</b></span>`;
+        return `<div class="ov-split-item ${tone}"><span class="ov-split-value">${esc(count)}</span>${splitLabel}</div>`;
       }).join('')}</div>`
       : `<div class="ov-v${card.tone ? ` ${card.tone}` : ''}">${esc(card.v)}</div>`;
     return `<article class="${cardClass}" data-tier="${card.tier}">`
-      + `<div class="ov-k"><span class="ov-icon-badge ${card.iconTone}">${icon(card.icon)}</span>`
-      + `<span class="ov-k-title">${esc(tx(card.k))}</span>${badge}</div>`
+      + `<div class="ov-k"><div class="ov-k-main"><span class="ov-icon-badge ${card.iconTone}">${icon(card.icon)}</span>`
+      + `<span class="ov-k-title">${esc(tx(card.k))}</span></div>${badge}</div>`
       + value + `<div class="ov-footer${card.footer.startsWith('<div class="ov-distribution') ? ' ov-footer-stack' : ''}">${card.footer}</div></article>`;
   };
   const primaryCards = cards.filter(card => card.tier === 'primary').map(renderCard).join('');
