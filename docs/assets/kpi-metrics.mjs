@@ -4,9 +4,9 @@ export function finiteMetric(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function metricNumber(value, digits = 0) {
+export function metricNumber(value, digits = 0, locale = 'en-US') {
   const parsed = finiteMetric(value);
-  return parsed === null ? '—' : parsed.toLocaleString('en-US', {
+  return parsed === null ? '—' : parsed.toLocaleString(locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });

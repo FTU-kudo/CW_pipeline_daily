@@ -211,6 +211,8 @@ export const STRINGS = {
   'không': 'not traded',
   'nhóm cổ phiếu có mã CW': 'underlying stocks with warrants',
   'Tăng / giảm / đứng': 'Gainers / losers / unchanged',
+  'Tăng / giảm / giữ nguyên': 'Gainers / losers / unchanged',
+  'Giữ nguyên': 'Unchanged',
   'Tăng': 'Up',
   'Giảm': 'Down',
   'Đứng': 'Unchanged',
@@ -642,8 +644,8 @@ export function startClock(opts = {}) {
 /* ---------------------------------------------------------------
    4. ĐỊNH DẠNG SỐ — dùng chung, không làm tròn quá mức
    --------------------------------------------------------------- */
-export function num(value, digits = 0) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+export function num(value, digits = 0, locale = getLang() === 'en' ? 'en-US' : 'vi-VN') {
+  if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return '—';
   const n = Number(value);
   const scale = 10 ** digits;
   const magnitude = Math.abs(n) * scale;
@@ -651,17 +653,14 @@ export function num(value, digits = 0) {
   // The small epsilon compensates for binary floating-point values such as 1.005.
   const rounded = Math.sign(n)
     * Math.floor(magnitude + 0.5 + Number.EPSILON * Math.max(1, magnitude)) / scale;
-  return rounded.toLocaleString('vi-VN', {
+  return rounded.toLocaleString(locale, {
     minimumFractionDigits: digits, maximumFractionDigits: digits,
   });
 }
 
-export function money(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  const v = Number(value);
-  if (Math.abs(v) >= 1e9) return `${(v / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`;
-  if (Math.abs(v) >= 1e6) return `${(v / 1e6).toFixed(1)} ${bi('tr', 'mn')}`;
-  return num(v);
+export function money(value, locale = getLang() === 'en' ? 'en-US' : 'vi-VN') {
+  if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return '—';
+  return num(Number(value), 0, locale);
 }
 
 export function pct(value, digits = 2) {

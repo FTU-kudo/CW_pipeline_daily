@@ -205,7 +205,7 @@ import {
 import { initDetail, openDetail } from './assets/detail.js';
 import katex from './assets/katex/katex.mjs';
 import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
-import { finiteMetric as kpiValue, metricNumber as kpiNum, metricPercent as kpiPct, safeRatioPercent as kpiShare, safeDivide } from './assets/kpi-metrics.mjs';
+import { finiteMetric as kpiValue, metricNumber, metricPercent as kpiPct, safeRatioPercent as kpiShare, safeDivide } from './assets/kpi-metrics.mjs';
 import { sortBoardRows } from './assets/board-sort.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
@@ -219,10 +219,16 @@ let analytics = null;
 let sessions = null;
 const esc = (value) => String(value ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cell = (row,key) => row[key] === null || row[key] === undefined ? '—' : esc(row[key]);
-const num = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
-  ? '—' : value.toLocaleString('vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
-const numLang = (value, digits = 0) => (value === null || value === undefined || Number.isNaN(value))
-  ? '—' : Number(value).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN', {minimumFractionDigits: digits, maximumFractionDigits: digits});
+const numLang = (value, digits = 0) => {
+  if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return '—';
+  const options = digits === null
+    ? {maximumFractionDigits: 3}
+    : {minimumFractionDigits: digits, maximumFractionDigits: digits};
+  return Number(value).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN', options);
+};
+const num = (value, digits = 0) => numLang(value, digits);
+const kpiNum = (value, digits = 0) => metricNumber(value, digits, getLang() === 'en' ? 'en-US' : 'vi-VN');
+const numericCell = (row, key, digits = 0) => numLang(row[key], digits);
 const pct = (value, digits = 2) => (value === null || value === undefined) ? '—' : `${value.toFixed(digits)}%`;
 const tx = (text) => getLang() === 'en' ? (translateUI(text) || text) : text;
 // Dòng phân tích được key theo mã để bảng có thể hiển thị cả cột suy ra.
@@ -291,13 +297,10 @@ const ICONS = {
 // Nét vẽ đồng nhất 1.75, màu theo currentColor → mỗi chế độ tự có màu đúng.
 const icon = (name, cls = 'ov-ico') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-// Compact VND amounts retain a decimal point in both languages.
-const kpiShortVnd = value => {
+// Full VND amounts use locale grouping so high-value figures remain exact and easy to scan.
+const kpiVnd = value => {
   const amount = kpiValue(value);
-  if (amount === null) return '—';
-  if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`;
-  if (amount >= 1e6) return `${(amount / 1e6).toFixed(1)} ${bi('tr', 'm')}`;
-  return kpiNum(amount);
+  return amount === null ? '—' : kpiNum(amount);
 };
 
 // Stacked distributions always use their stated denominator; unavailable segments are 0 wide.
@@ -392,21 +395,21 @@ function renderOverview(){
     },
     {
       id: 'value', tier: 'primary', k: 'Giá trị giao dịch',
-      v: kpiShortVnd(totalValue), icon: 'coins', iconTone: 'emerald',
+      v: kpiVnd(totalValue), icon: 'coins', iconTone: 'emerald',
       badge: `VND · ${tx('Phiên hiện tại')}`,
-      footer: `<div class="ov-value-footer"><span>${esc(tx('Bình quân / mã khớp lệnh'))}</span><b>${esc(kpiShortVnd(avgValuePerActiveCW))}</b></div>`,
+      footer: `<div class="ov-value-footer"><span>${esc(tx('Bình quân / mã khớp lệnh'))}</span><b>${esc(kpiVnd(avgValuePerActiveCW))}</b></div>`,
     },
     {
-      id: 'breadth', tier: 'primary', k: 'Tăng / giảm / đứng', icon: 'trending', iconTone: 'cyan',
+      id: 'breadth', tier: 'primary', k: 'Tăng / giảm / giữ nguyên', icon: 'trending', iconTone: 'cyan',
       split: [
         ['up', kpiNum(upCount), 'Tăng', upPct],
         ['down', kpiNum(downCount), 'Giảm', downPct],
-        ['flat', kpiNum(unchangedCount), 'Đứng', unchangedPct],
+        ['flat', kpiNum(unchangedCount), 'Giữ nguyên', unchangedPct],
       ],
       compactSplit: true,
       footer: miniBars([
         ['Tăng', upCount, 'up', upPct], ['Giảm', downCount, 'down', downPct],
-        ['Đứng', unchangedCount, 'flat', unchangedPct],
+        ['Giữ nguyên', unchangedCount, 'flat', unchangedPct],
       ], activeChangeCW, {percentOnly: true}),
     },
     {
@@ -581,7 +584,7 @@ function render(){
     if (fIssuer && issuerOf(code) !== fIssuer) return false;
     return true;
   });
-  document.querySelector('#summary').textContent = `${list.length.toLocaleString('vi-VN')} / ${(snapshot?.count || 0).toLocaleString('vi-VN')} mã`;
+  document.querySelector('#summary').textContent = `${numLang(list.length)} / ${numLang(snapshot?.count || 0)} ${bi('mã', 'warrants')}`;
   const tbody = document.querySelector('#rows');
   const sortedList = boardSort.key
     ? sortBoardRows(list, boardSort.key, boardSort.direction, boardSortValue)
@@ -618,16 +621,16 @@ function render(){
       ? num(d.lastPrice)
       : '<span class="idle" title="Không khớp lệnh trong phiên — không có giá đóng cửa">—</span>';
     return `<tr><td><button type="button" class="ticker-btn" data-ticker="${codeAttr}">${cell(r,'StockCode')}</button>${moneyTag}</td>`
-      + `<td>${cell(r,'RefP')}</td>`
+      + `<td>${numericCell(r,'RefP')}</td>`
       + `<td class="num">${lastPrice}</td>`
       + `<td class="num ${chgCls}">${pct(d.priceChangePct)}</td>`
-      + `<td>${cell(r,'HighestP')}</td>`
-      + `<td>${cell(r,'LowestP')}</td>`
-      + `<td>${cell(r,'TotalVol')}</td>`
-      + `<td>${cell(r,'TotalVal')}</td>`
+      + `<td>${numericCell(r,'HighestP')}</td>`
+      + `<td>${numericCell(r,'LowestP')}</td>`
+      + `<td>${numericCell(r,'TotalVol')}</td>`
+      + `<td>${numericCell(r,'TotalVal')}</td>`
       + `<td class="num">${pct(d.valueSharePct)}</td>`
       + `<td class="num">${num(d.spreadTicks, 1)}</td>`
-      + `<td>${cell(r,'FRoom')}</td></tr>`;
+      + `<td>${numericCell(r,'FRoom')}</td></tr>`;
   }).join('');
 }
 
@@ -650,10 +653,7 @@ async function loadAnalysis(){
 // ─────────────────────────────────────────────────────────────────
 // CÁC VIEW PHÂN TÍCH (dữ liệu do workflow sinh thêm, đều là tuỳ chọn)
 // ─────────────────────────────────────────────────────────────────
-const fmtVnd = (v) => v === null || v === undefined ? '—'
-  : v >= 1e9 ? `${(v / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`
-  : v >= 1e6 ? `${(v / 1e6).toFixed(1)} ${bi('tr', 'm')}`
-  : v.toLocaleString('vi-VN');
+const fmtVnd = (v) => numLang(v, null);
 const fmtPct = (v, d = 2) => v === null || v === undefined ? '—' : `${v.toFixed(d)}%`;
 // Giá trị có thể rất lớn (dải trần–sàn khi giá sàn = 10 VND) — vẫn in bình thường, chỉ thêm
 // dấu phân cách nghìn để đọc được; KHÔNG cắt bớt hay đổi đơn vị.
@@ -745,13 +745,13 @@ function renderLiquidity() {
     ${barList(tiers, 'tier', 'valueVND', v => (v === null || v === undefined || v === 0)
       ? bi('không có', 'none') : fmtVnd(v))}
     ${simpleTable(['Nhóm', 'Số mã', 'Tỷ trọng', 'Giá trị (VND)', 'Spread trung vị'], tiers,
-      t => `<tr><td>${esc(t.tier)}</td><td>${t.count}</td><td>${fmtPct(t.sharePct, 1)}</td><td>${fmtVnd(t.valueVND)}</td><td>${fmtPct(t.medianSpreadPct)}</td></tr>`)}
+      t => `<tr><td>${esc(t.tier)}</td><td>${num(t.count)}</td><td>${fmtPct(t.sharePct, 1)}</td><td>${fmtVnd(t.valueVND)}</td><td>${fmtPct(t.medianSpreadPct)}</td></tr>`)}
     <h2>${bi('Xếp hạng theo giá trị giao dịch', 'Ranked by traded value')}</h2>
     <p class="caption">${bi(
       `Top 10 chiếm ${fmtPct(liq.concentration?.top10ValueSharePct, 1)} giá trị toàn bảng; HHI = ${liq.concentration?.hhi ?? '—'}. Mã không khớp lệnh không được xếp hạng.`,
       `The top 10 account for ${fmtPct(liq.concentration?.top10ValueSharePct, 1)} of total board value; HHI = ${liq.concentration?.hhi ?? '—'}. Untraded warrants are not ranked.`)}</p>
     ${simpleTable(['#', 'Mã', 'Cơ sở', 'Giá', '%Ngày', 'KL', 'Giá trị', 'Tỷ trọng', 'Spread', 'Nhóm'], ranking,
-      r => `<tr><td>${r.rank}</td><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.price ?? '—'}</td>`
+      r => `<tr><td>${num(r.rank)}</td><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${num(r.price)}</td>`
         + `<td class="${tierClass(r.chgPct)}">${fmtPct(r.chgPct)}</td><td>${fmtVnd(r.volume)}</td>`
         + `<td>${fmtVnd(r.valueVND)}</td><td>${fmtPct(r.valueSharePct)}</td><td>${fmtPct(r.spreadPct)}</td>`
         + `<td>${esc(r.tier)}</td></tr>`)}
@@ -770,9 +770,9 @@ function renderUnderlyings() {
     ${barList(rows.slice(0, 12), 'underlying', 'valueSharePct', (v) => fmtPct(v, 1),
       { useShares: true })}
     ${simpleTable(['Cơ sở', 'Số CW', 'Có khớp', 'Giá trị', 'Tỷ trọng', 'KL', 'Spread TV', 'Giá TV', 'Tốt nhất', 'Xấu nhất'], rows,
-      r => `<tr><td>${esc(r.underlying)}</td><td>${r.warrants}</td><td>${r.traded}</td><td>${fmtVnd(r.valueVND)}</td>`
+      r => `<tr><td>${esc(r.underlying)}</td><td>${num(r.warrants)}</td><td>${num(r.traded)}</td><td>${fmtVnd(r.valueVND)}</td>`
         + `<td>${fmtPct(r.valueSharePct)}</td><td>${fmtVnd(r.volume)}</td><td>${fmtPct(r.medianSpreadPct)}</td>`
-        + `<td>${r.medianPriceVND ?? '—'}</td><td class="${tierClass(r.bestChangePct)}">${fmtPct(r.bestChangePct)}</td>`
+        + `<td>${num(r.medianPriceVND)}</td><td class="${tierClass(r.bestChangePct)}">${fmtPct(r.bestChangePct)}</td>`
         + `<td class="${tierClass(r.worstChangePct)}">${fmtPct(r.worstChangePct)}</td></tr>`)}
   `;
 }
@@ -790,20 +790,20 @@ function renderStale() {
     return flag;
   }).join(' · ');
   host.innerHTML = `
-    <h2>${bi('Không giao dịch trong phiên', 'Not traded this session')}: ${stale.count} ${bi('mã', 'warrants')} (${fmtPct(stale.sharePct, 1)})</h2>
+    <h2>${bi('Không giao dịch trong phiên', 'Not traded this session')}: ${num(stale.count)} ${bi('mã', 'warrants')} (${fmtPct(stale.sharePct, 1)})</h2>
     <p class="caption">${stale.historyAvailable
       ? bi('Số phiên im lặng đếm trên kho lịch sử đã tích luỹ.', 'Idle sessions are counted from the accumulated history archive.')
       : bi('Chưa đủ lịch sử để đếm số phiên im lặng — chỉ biết trạng thái phiên này.', 'There is not enough history to count idle sessions; only the current session status is known.')} ${bi(
         stale.note,
         'An untraded warrant has no session close. RefP is the reference price, shown for context only and never used as a substitute for a traded price.')}</p>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá tham chiếu', 'Giá mua', 'Giá bán', 'Số phiên im lặng', 'Cảnh báo'], stale.rows,
-      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.refPrice ?? '—'}</td>`
-        + `<td>${r.bid ?? '—'}</td><td>${r.ask ?? '—'}</td><td>${r.sessionsIdle ?? bi('chưa xác định', 'unknown')}</td>`
+      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${num(r.refPrice)}</td>`
+        + `<td>${num(r.bid)}</td><td>${num(r.ask)}</td><td>${r.sessionsIdle === null || r.sessionsIdle === undefined ? bi('chưa xác định', 'unknown') : num(r.sessionsIdle)}</td>`
         + `<td class="flag">${esc(flagsEn(r.flags))}</td></tr>`, bi('Không có mã nào không giao dịch', 'No untraded warrants'))}
-    <h2>${bi('Vừa giao dịch lại sau chuỗi im lặng', 'Recently resumed trading after an idle streak')} ≥ ${stale.thresholdSessions} ${bi('phiên', 'sessions')}: ${stale.recoveredCount || 0} ${bi('mã', 'warrants')}</h2>
+    <h2>${bi('Vừa giao dịch lại sau chuỗi im lặng', 'Recently resumed trading after an idle streak')} ≥ ${num(stale.thresholdSessions)} ${bi('phiên', 'sessions')}: ${num(stale.recoveredCount || 0)} ${bi('mã', 'warrants')}</h2>
     ${simpleTable(['Mã', 'Cơ sở', 'Giá', 'Giá trị', 'Chuỗi im lặng dài nhất', 'Độ phủ'], recovered,
-      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${r.lastPrice ?? '—'}</td>`
-        + `<td>${fmtVnd(r.valueVND)}</td><td>${r.longestGapSessions}</td><td>${fmtPct(r.coveragePct, 1)}</td></tr>`,
+      r => `<tr><td>${esc(r.t)}</td><td>${esc(r.u || '—')}</td><td>${num(r.lastPrice)}</td>`
+        + `<td>${fmtVnd(r.valueVND)}</td><td>${num(r.longestGapSessions)}</td><td>${fmtPct(r.coveragePct, 1)}</td></tr>`,
       bi('Chưa có mã nào hồi phục thanh khoản', 'No warrants have recovered liquidity yet'))}
   `;
 }
@@ -840,15 +840,15 @@ function renderHistory() {
   const withSeries = codes.slice(0, 6);
   host.innerHTML = `
     <h2>Độ phủ lịch sử</h2>
-    <p class="caption">${cov?.sessions || 0} phiên (${esc(cov?.first || '—')} → ${esc(cov?.last || '—')}), ${cov?.tickers || 0} mã, ${cov?.rows || 0} dòng, ${fmtPct(cov?.tradedSharePct, 1)} dòng có khớp lệnh${cov?.provisionalRows ? ` · ${cov.provisionalRows} dòng dở dang` : ''}.</p>
+    <p class="caption">${num(cov?.sessions || 0)} phiên (${esc(cov?.first || '—')} → ${esc(cov?.last || '—')}), ${num(cov?.tickers || 0)} mã, ${num(cov?.rows || 0)} dòng, ${fmtPct(cov?.tradedSharePct, 1)} dòng có khớp lệnh${cov?.provisionalRows ? ` · ${num(cov.provisionalRows)} dòng dở dang` : ''}.</p>
     ${missing.length
       ? `<p class="caption flag">Thiếu ${missing.length} phiên trong khoảng dữ liệu: ${esc(missing.slice(0, 12).join(', '))}${missing.length > 12 ? '…' : ''}. Không nội suy — các phiên này không có bar.</p>`
       : '<p class="caption">Không có phiên nào bị thiếu trong khoảng dữ liệu đã có.</p>'}
     ${cmp?.available
       ? simpleTable(['Phiên', 'Mã', 'Có khớp', 'Giá trị', 'KL', 'Tăng/Giảm/Đứng'], cmp.sessions,
-          s2 => `<tr><td>${esc(s2.session)}</td><td>${s2.tickers}</td><td>${s2.traded}</td>`
+          s2 => `<tr><td>${esc(s2.session)}</td><td>${num(s2.tickers)}</td><td>${num(s2.traded)}</td>`
             + `<td>${fmtVnd(s2.valueVND)}</td><td>${fmtVnd(s2.volume)}</td>`
-            + `<td>${s2.gainers}/${s2.losers}/${s2.unchanged}${s2.provisional ? ' *' : ''}</td></tr>`)
+            + `<td>${num(s2.gainers)}/${num(s2.losers)}/${num(s2.unchanged)}${s2.provisional ? ' *' : ''}</td></tr>`)
       : `<div class="empty">${esc(cmp?.reason || 'Chưa đủ phiên để so sánh.')}</div>`}
     <h2>Chuỗi giá (mẫu)</h2>
     <p class="caption">Đường nối chỉ qua các phiên thực sự có giá khớp; phiên không giao dịch để trống thay vì lặp giá cũ.</p>
@@ -856,7 +856,7 @@ function renderHistory() {
       const t = tickers[code];
       return `<h3>${esc(code)}${t.gaps?.length ? ` <span class="flag">(thiếu ${t.gaps.length} phiên)</span>` : ''}</h3>`
         + sparkline(t.c, t.dates)
-        + `<p class="caption">${t.dates.length} phiên · ${t.traded.filter(Boolean).length} phiên có khớp lệnh · ${fmtVnd(t.val[t.val.length - 1])} VND phiên cuối</p>`;
+        + `<p class="caption">${num(t.dates.length)} phiên · ${num(t.traded.filter(Boolean).length)} phiên có khớp lệnh · ${fmtVnd(t.val[t.val.length - 1])} VND phiên cuối</p>`;
     }).join('')}
   `;
 }
@@ -1301,7 +1301,7 @@ function renderScoring() {
 
     <h2>${bi('CW tốt nhất theo từng cổ phiếu cơ sở', 'Top warrants by underlying')}</h2>
     ${simpleTable(['Cơ sở', 'Số CW', 'Mã điểm cao nhất', 'Điểm', 'Trung vị nhóm', 'Giá trị nhóm'], sc.byUnderlying || [],
-      r => `<tr><td><strong>${esc(r.u || '—')}</strong></td><td class="num">${r.count}</td>`
+      r => `<tr><td><strong>${esc(r.u || '—')}</strong></td><td class="num">${num(r.count)}</td>`
         + `<td>${esc(r.bestTicker)}</td><td class="num"><strong>${num(r.bestScore, 1)}</strong></td>`
         + `<td class="num">${num(r.medianScore, 1)}</td><td class="num">${fmtVnd(r.valueVND)}</td></tr>`)}
   `;

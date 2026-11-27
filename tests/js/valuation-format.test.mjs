@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { num } from '../../docs/assets/ui.js';
+import { money, num } from '../../docs/assets/ui.js';
 
 const cases = [
   [20018.709, 0, '20.019'],
@@ -16,4 +16,10 @@ for (const [value, digits, expected] of cases) {
   assert.equal(num(value, digits), expected, `num(${value}, ${digits})`);
 }
 
-console.log(`valuation format: OK — ${cases.length} cases`);
+assert.equal(num(1_000_000_000, 0, 'vi-VN'), '1.000.000.000');
+assert.equal(num(1_000_000_000, 0, 'en-US'), '1,000,000,000');
+assert.equal(money(1_000_000_000, 'vi-VN'), '1.000.000.000');
+assert.equal(money(1_000_000_000, 'en-US'), '1,000,000,000');
+assert.equal(money(null), '—');
+
+console.log(`valuation format: OK — ${cases.length + 5} cases`);
