@@ -193,6 +193,8 @@ export const STRINGS = {
 
   // Overview and analytics views
   'Mã CW niêm yết': 'Listed warrants',
+  'Chỉ số chính': 'Primary market indicators',
+  'Chỉ số định lượng': 'Quantitative indicators',
   'Khớp lệnh': 'Traded',
   'Không GD': 'Untraded',
   'Bình quân / mã khớp lệnh': 'Average per traded warrant',

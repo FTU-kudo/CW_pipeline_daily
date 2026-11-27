@@ -207,15 +207,19 @@ def test_10_overview_is_the_first_thing_on_the_page():
     assert HTML.index('id="overview"') < HTML.index('id="rows"')
 
 
-def test_10_overview_has_exactly_two_rows_of_four_cards():
-    """The overview always renders eight cards, in four desktop columns."""
+def test_10_overview_has_three_primary_and_five_secondary_cards():
+    """All eight dynamic KPIs are grouped in the requested two-tier bento hierarchy."""
     block = HTML.split('function renderOverview', 1)[1]
     block = block.split('function ', 1)[0]
     assert block.count("k: '") == 8
+    assert block.count("tier: 'primary'") == 3
+    assert block.count("tier: 'secondary'") == 5
     for label in ('Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở',
                   'Tăng / giảm / đứng', 'Phân bố trạng thái tiền', 'IV trung vị',
                   'IV − HV', 'Spread trung vị'):
         assert label in block, f"thiếu thẻ KPI: {label}"
+    assert 'class="ov-tier ov-tier-primary"' in block
+    assert 'class="ov-tier ov-tier-secondary"' in block
 
 
 def test_10_kpi_cards_use_the_shared_outline_icon_set():
@@ -233,14 +237,17 @@ def test_10_change_and_moneyness_cards_have_dynamic_progress_bars():
     assert 'ov-distribution' in HTML
     overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
     assert "['Tăng', upCount, 'up', upPct]" in overview
-    assert "['ITM', counts.ITM, 'itm', itmPct]" in overview
+    assert "['ITM', moneynessDataAvailable ? counts.ITM : null, 'itm', itmPct]" in overview
     assert "kpiShare(value, denominator)" in HTML
 
 
 def test_10_change_values_are_coloured_green_and_red():
     """Up/down splits retain semantic colors and current-session counts."""
     overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
-    assert "split: [['up', kpiNum(upCount)], ['down', kpiNum(downCount)]" in overview
+    assert "['up', kpiNum(upCount), 'Tăng', upPct]" in overview
+    assert "['down', kpiNum(downCount), 'Giảm', downPct]" in overview
+    assert ".ov-split-item.up .ov-split-value" in CSS
+    assert ".ov-split-item.down .ov-split-value" in CSS
     assert "--up-text" in CSS and "--down-text" in CSS
 
 
@@ -249,7 +256,9 @@ def test_10_overview_always_renders_eight_cards_and_uses_dashes_for_missing_metr
     block = HTML.split("function renderOverview", 1)[1].split("function renderStats", 1)[0]
     assert "const cards = [" in block
     assert "k: 'Mã CW niêm yết'" in block and "k: 'Spread trung vị'" in block
-    assert "kpiPct(valSummary.medianIv)" in block
+    assert "const medianIv = kpiValue(valSummary.medianIv)" in block
+    assert "v: kpiPct(medianIv)" in block
+    assert "moneynessDataAvailable" in block
     assert "kpiPct(s.medianSpreadPct, 1)" in block
     assert "if (priced)" not in block
     assert "if (ivhv.available" not in block

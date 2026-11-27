@@ -82,11 +82,29 @@ def test_invalid_years_returns_none():
 
 
 # ── chọn phiên ─────────────────────────────────────────────────────────
-def test_curve_on_missing_session_returns_none_not_previous_day():
-    """Không có phiên thì trả None. Lặng lẽ lấy phiên trước là che mất lỗ hổng dữ liệu."""
+def test_curve_on_uses_latest_available_date_not_after_valuation_session():
+    """Chưa có curve trong ngày thì dùng ngày nguồn mới nhất đã được publish trước đó."""
     curve = _curve(REAL_2026_11_13)
-    assert yc.curve_on(curve, "2026-11-13") is not None
-    assert yc.curve_on(curve, "2026-11-14") is None       # thứ Bảy, không có phiên
+    same_day = yc.curve_on(curve, "2026-11-13")
+    previous_day = yc.curve_on(curve, "2026-11-14")  # ngày tiếp theo; nguồn chưa cập nhật
+    before_any_data = yc.curve_on(curve, "2026-11-12")
+
+    assert same_day is not None
+    assert previous_day is not None
+    assert previous_day["date"].dt.strftime("%Y-%m-%d").unique().tolist() == ["2026-11-13"]
+    assert before_any_data is None
+
+
+def test_curve_on_prefers_same_day_over_older_curve():
+    older = _curve(REAL_2026_11_13)
+    newer = older.copy()
+    newer["date"] = pd.Timestamp("2026-11-14")
+    curve = pd.concat([older, newer], ignore_index=True)
+
+    selected = yc.curve_on(curve, "2026-11-14")
+
+    assert selected is not None
+    assert selected["date"].dt.strftime("%Y-%m-%d").unique().tolist() == ["2026-11-14"]
 
 
 def test_risk_free_falls_back_with_explicit_label():
@@ -145,3 +163,12 @@ def test_price_warrants_uses_per_tenor_rate_from_curve():
     assert row["riskFree"] < 0.038
     assert "nội suy" in row["riskFreeSource"]
     assert diag["yieldCurve"]["available"] is True
+
+    # CW pipeline chạy trước khi bond repo cập nhật: dùng curve ngày 13 cho phiên CW ngày 14.
+    priced_previous, diag_previous = price_warrants(
+        frame, term, session="2026-11-14", yield_curve=curve)
+    assert len(priced_previous) == 1
+    assert diag_previous["riskFreeByTenor"] is True
+    assert diag_previous["yieldCurve"]["session"] == "2026-11-13"
+    assert diag_previous["yieldCurve"]["valuationSession"] == "2026-11-14"
+    assert "ngày 2026-11-13" in priced_previous.iloc[0]["riskFreeSource"]
