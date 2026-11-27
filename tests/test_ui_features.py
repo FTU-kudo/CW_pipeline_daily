@@ -53,7 +53,7 @@ def test_light_theme_is_not_a_hair_darker_dark_theme():
     root = css[css.index(":root,"):]
     root = root[: root.index("}")]
     assert "--bg: #0b1118" in root, "nền dark phải tối"
-    assert "--text: #e6edf5" in root, "chữ dark phải sáng"
+    assert "--text: #f8fafc" in root, "chữ dark phải sáng"
 
 
 def test_theme_persists_and_respects_system_preference():

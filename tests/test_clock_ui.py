@@ -24,10 +24,12 @@ def test_board_explains_how_history_is_obtained():
 
 
 def test_board_exposes_raw_market_fields_and_download():
+    detail = (Path(__file__).resolve().parents[1] / "docs" / "assets" / "detail.js").read_text(encoding="utf-8")
     for field in ("StockCode", "RefP", "LastMP", "TotalVol", "TotalVal", "B1P", "S1P"):
-        assert field in HTML
+        assert field in HTML + detail
     assert "Tải JSON snapshot" in HTML
-    assert "JSON gốc" in HTML
+    assert "bi('Trường gốc từ API', 'Raw API fields')" in detail
+    assert "function rawSection(row)" in detail
 
 
 def test_board_uses_static_snapshot_not_browser_api_calls():
