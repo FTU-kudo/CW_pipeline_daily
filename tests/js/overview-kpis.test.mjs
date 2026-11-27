@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {metricNumber, metricPercent, safeDivide, safeRatioPercent} from '../../docs/assets/kpi-metrics.mjs';
+
+const html = readFileSync(new URL('../../docs/index.html', import.meta.url), 'utf8');
+const translations = readFileSync(new URL('../../docs/assets/ui.js', import.meta.url), 'utf8');
+
+test('safe KPI arithmetic handles zero, missing, and non-finite inputs', () => {
+  assert.equal(safeDivide(18_000, 0), null);
+  assert.equal(safeDivide(null, 4), null);
+  assert.equal(safeDivide(18_000, 3), 6_000);
+  assert.equal(safeRatioPercent(0, 0), '0.0');
+  assert.equal(safeRatioPercent(1, 4), '25.0');
+  assert.equal(safeRatioPercent(null, 4), '—');
+  assert.equal(safeRatioPercent(Infinity, 2), '—');
+  assert.equal(safeRatioPercent(Number.MAX_VALUE, Number.MIN_VALUE), '—');
+  assert.equal(safeDivide(Number.MAX_VALUE, Number.MIN_VALUE), null);
+});
+
+test('all KPI number formatting uses a decimal point consistently', () => {
+  assert.equal(metricNumber(1234.56, 1), '1,234.6');
+  assert.equal(metricPercent(52.63), '52.6%');
+  assert.equal(metricPercent(null), '—');
+  assert.doesNotMatch(metricNumber(3.25, 2), /\d,\d/);
+});
+
+test('overview always builds the full eight-card, current-session KPI deck', () => {
+  const block = html.split('const cards = [', 2)[1].split('\n  ];', 1)[0];
+  const labels = [...block.matchAll(/k: '([^']+)'/g)].map(match => match[1]);
+  assert.deepEqual(labels, [
+    'Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở', 'Tăng / giảm / đứng',
+    'Phân bố trạng thái tiền', 'IV trung vị', 'IV − HV', 'Spread trung vị',
+  ]);
+  for (const metric of ['activePct', 'inactivePct', 'avgValuePerActiveCW', 'avgCWPerUnderlying',
+    'upPct', 'downPct', 'unchangedPct', 'itmPct', 'atmPct', 'otmPct', 'validSpreadCount',
+    'abovePct', 'belowPct', 'medianSpreadTicks', 'medianSpreadAbsVND']) {
+    assert.ok(block.includes(metric) || html.includes(`const ${metric}`), `missing dynamic ${metric}`);
+  }
+  assert.match(html, /grid\.style\.setProperty\('--overview-columns', '4'\)/);
+});
+
+test('every new KPI footer label has a VI to EN dictionary entry', () => {
+  for (const key of ['Khớp lệnh', 'Không GD', 'Bình quân / mã khớp lệnh', 'Mật độ phân bổ',
+    'CW / cổ phiếu cơ sở', 'Đã định giá', 'Phiên hiện tại', 'Biên độ IQR (Q1–Q3)',
+    'IV > HV', 'IV < HV', 'Chênh lệch bid-ask', 'bước giá', 'điểm']) {
+    assert.ok(translations.includes(`'${key}':`), `missing EN translation for ${key}`);
+  }
+});

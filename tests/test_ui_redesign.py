@@ -204,11 +204,10 @@ def test_10_overview_is_the_first_thing_on_the_page():
 
 
 def test_10_overview_has_exactly_two_rows_of_four_cards():
-    """Yêu cầu: tối đa 8–10 chỉ số, chia hai hàng bốn thẻ."""
+    """The overview always renders eight cards, in four desktop columns."""
     block = HTML.split('function renderOverview', 1)[1]
     block = block.split('function ', 1)[0]
-    # Tám thẻ được push vào mảng, trong đó hai thẻ có điều kiện (IV, IV − HV).
-    assert block.count("{k: '") == 8
+    assert block.count("k: '") == 8
     for label in ('Mã CW niêm yết', 'Giá trị giao dịch', 'Cổ phiếu cơ sở',
                   'Tăng / giảm / đứng', 'Phân bố trạng thái tiền', 'IV trung vị',
                   'IV − HV', 'Spread trung vị'):
@@ -221,32 +220,35 @@ def test_10_kpi_cards_use_the_shared_outline_icon_set():
     assert block.count(':') >= 8, "bộ icon phải có đủ hình cho các thẻ"
     assert not any(0x1F300 <= ord(ch) <= 0x1FAFF for ch in block), "còn emoji trong bộ icon"
     overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
-    assert "icon(c.icon)" in overview
+    assert "icon(card.icon)" in overview
 
 
-def test_10_change_and_moneyness_cards_have_progress_bars():
-    """Yêu cầu 2.c: thanh tiến trình nhỏ cho hai thẻ phân bố."""
+def test_10_change_and_moneyness_cards_have_dynamic_progress_bars():
+    """Breadth and moneyness bars use current-session counts and safe dynamic shares."""
     assert "function miniBars" in HTML
-    assert "mini-bars" in HTML
+    assert 'ov-distribution' in HTML
     overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
-    assert "bars: [['Tăng'" in overview
-    assert "bars: [['ITM'" in overview
+    assert "['Tăng', upCount, 'up', upPct]" in overview
+    assert "['ITM', counts.ITM, 'itm', itmPct]" in overview
+    assert "kpiShare(value, denominator)" in HTML
 
 
 def test_10_change_values_are_coloured_green_and_red():
-    """Yêu cầu 2.b: tăng xanh, giảm đỏ thay vì toàn bộ chữ đen."""
+    """Up/down splits retain semantic colors and current-session counts."""
     overview = HTML.split('function renderOverview', 1)[1].split('function renderStats', 1)[0]
-    assert "['up', num(s.gainers)]" in overview
-    assert "['down', num(s.losers)]" in overview
+    assert "split: [['up', kpiNum(upCount)], ['down', kpiNum(downCount)]" in overview
     assert "--up-text" in CSS and "--down-text" in CSS
 
 
-def test_10_overview_omits_cards_whose_data_is_missing():
-    """Không in số 0 giả: chỉ số nào không tính được thì bỏ hẳn ô đó."""
+def test_10_overview_always_renders_eight_cards_and_uses_dashes_for_missing_metrics():
+    """The fixed 4x2 deck stays complete; unavailable inputs show dashes, not fabricated zeroes."""
     block = HTML.split("function renderOverview", 1)[1].split("function renderStats", 1)[0]
-    assert "if (priced)" in block
-    assert "if (sum.medianIv !== undefined" in block
-    assert "if (ivhv.available" in block
+    assert "const cards = [" in block
+    assert "k: 'Mã CW niêm yết'" in block and "k: 'Spread trung vị'" in block
+    assert "kpiPct(valSummary.medianIv)" in block
+    assert "kpiPct(s.medianSpreadPct, 1)" in block
+    assert "if (priced)" not in block
+    assert "if (ivhv.available" not in block
 
 
 # ── chốt chặn dữ liệu ──────────────────────────────────────────────────
