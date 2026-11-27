@@ -326,9 +326,9 @@ function renderOverview(){
   const curve = val?.yieldCurve || {};
   const totalChange = s.gainers + s.losers + s.unchanged;
 
-  // ĐÚNG HAI HÀNG × bốn thẻ. Hàng thống kê thứ ba trước đây lặp lại đúng những chỉ số
-  // này (CW trong snapshot, Giá trị giao dịch, Spread trung vị, Cổ phiếu cơ sở,
-  // Tăng/giảm) nên đã bỏ hẳn — xem renderStats() bên dưới.
+  // Lưới KPI dùng năm cột trên desktop và tự co theo breakpoint ở tablet/mobile.
+  // Hàng thống kê thứ ba trước đây lặp lại đúng những chỉ số này nên đã bỏ hẳn —
+  // xem renderStats() bên dưới.
   const cards = [
     {k: 'Mã CW niêm yết', v: num(s.rows), icon: 'layers', help: 'Tổng mã trong snapshot phiên; mã không giao dịch vẫn được tính.',
      n: `<b>${num(s.traded)}</b> mã có khớp lệnh · <b>${num(s.untraded)}</b> không`},

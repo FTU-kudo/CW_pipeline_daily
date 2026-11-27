@@ -1652,3 +1652,24 @@ html[data-theme="dark"] #view-glossary { --g-green:#4ade80; --g-yellow:#fbbf24; 
   .formula-box { align-items:flex-start; }
   .formula-equation .katex { font-size:.95em; }
 }
+
+/* ── Overview KPI row: align the five headline cards ─────────── */
+.overview .ov-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.overview .ov-card { height: 100%; padding: 14px; gap: 7px; }
+.overview .ov-k { min-height: 20px; gap: 7px; }
+.overview .ov-v { font-size: clamp(22px, 1.8vw, 26px); }
+.overview .ov-v.split { font-size: clamp(22px, 1.8vw, 26px); gap: 4px; }
+.overview .ov-n { margin-top: auto; }
+.overview .stack-wrap { margin-top: auto; gap: 5px; }
+.overview .stack-track { height: 7px; }
+.overview .stack-legend { gap: 4px; }
+.overview .legend-pill { padding: 2px 5px; font-size: 10px; }
+@media (max-width: 1100px) {
+  .overview .ov-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .overview .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .overview .ov-grid { grid-template-columns: 1fr; }
+}
