@@ -205,6 +205,7 @@ import {
 import { initDetail, openDetail } from './assets/detail.js';
 import katex from './assets/katex/katex.mjs';
 import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
+import { finiteMetric as kpiValue, metricNumber as kpiNum, metricPercent as kpiPct, safeRatioPercent as kpiShare, safeDivide } from './assets/kpi-metrics.mjs';
 import { sortBoardRows } from './assets/board-sort.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
@@ -290,26 +291,30 @@ const ICONS = {
 // Nét vẽ đồng nhất 1.75, màu theo currentColor → mỗi chế độ tự có màu đúng.
 const icon = (name, cls = 'ov-ico') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-const KPI_HELP_EN = {
-  'Tổng mã trong snapshot phiên; mã không giao dịch vẫn được tính.': 'Total tickers in the session snapshot, including untraded warrants.',
-  'Tổng giá trị khớp lệnh trong phiên, không phải thanh khoản bình quân ngày.': 'Total value matched this session, not average daily value.',
-  'Số cổ phiếu cơ sở có chứng quyền trong snapshot.': 'Underlying stocks represented in this snapshot.',
-  'Phân loại theo biến động giá so với giá tham chiếu; phần xám là chưa xác định.': 'Change versus reference price; the grey portion is unclassified.',
-  'ITM/ATM/OTM chỉ tính trên các mã có dữ liệu định giá hợp lệ; phần xám chưa phân loại.': 'ITM/ATM/OTM includes only warrants with valid valuation data; grey is unclassified.',
-  'Trung vị độ biến động hàm ý của các chứng quyền đã được định giá.': 'Median implied volatility across valued warrants.',
-  'Chênh lệch biến động hàm ý và biến động lịch sử, tính theo điểm phần trăm; không phải tín hiệu giao dịch.': 'Implied minus historical volatility, in percentage points; not a trading signal.',
-  'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.': 'Median bid–ask spread expressed as a percentage.',
+// Compact VND amounts retain a decimal point in both languages.
+const kpiShortVnd = value => {
+  const amount = kpiValue(value);
+  if (amount === null) return '—';
+  if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)} ${bi('tỷ', 'bn')}`;
+  if (amount >= 1e6) return `${(amount / 1e6).toFixed(1)} ${bi('tr', 'm')}`;
+  return kpiNum(amount);
 };
 
-// Thanh chồng dùng cùng một mẫu số với toàn bộ niêm yết; phần chưa phân loại còn lại
-// được để trung tính thay vì âm thầm chuẩn hoá các nhóm đã biết thành 100%.
+// Stacked distributions always use their stated denominator; unavailable segments are 0 wide.
 function miniBars(items, total){
-  const segments = items.map(([label, value, variant]) => {
-    const width = total > 0 ? Math.max(0, Math.min(100, value / total * 100)) : 0;
-    return `<span class="stack-segment ${variant}" style="width:${width}%" title="${esc(tx(label))}: ${num(value)} (${num(width, 1)}%)"></span>`;
+  const denominator = kpiValue(total);
+  const segments = items.map(([label, value, variant, pctValue]) => {
+    const count = kpiValue(value);
+    const pct = pctValue ?? kpiShare(value, denominator);
+    const width = count !== null && denominator !== null && denominator > 0
+      ? Math.max(0, Math.min(100, count / denominator * 100)) : 0;
+    return `<span class="stack-segment ${variant}" style="width:${width}%" title="${esc(tx(label))}: ${kpiNum(count)} (${pct}%)"></span>`;
   }).join('');
-  return `<div class="stack-wrap"><div class="stack-track" role="img" aria-label="${items.map(([label, value]) => `${tx(label)}: ${value}`).join(', ')}">${segments}</div>
-    <div class="stack-legend">${items.map(([label, value, variant]) => `<span class="legend-pill ${variant}"><i></i>${esc(tx(label))} <b>${num(value)}</b></span>`).join('')}</div></div>`;
+  const legend = items.map(([label, value, variant, pctValue]) => {
+    const pct = pctValue ?? kpiShare(value, denominator);
+    return `<span class="legend-pill ${variant}"><i></i>${esc(tx(label))} <b>${kpiNum(value)} (${pct}%)</b></span>`;
+  }).join('');
+  return `<div class="ov-distribution"><div class="stack-track" role="img" aria-label="${items.map(([label, value, , pctValue]) => `${tx(label)}: ${kpiNum(value)} (${pctValue ?? kpiShare(value, denominator)}%)`).join(', ')}">${segments}</div><div class="stack-legend">${legend}</div></div>`;
 }
 
 function renderOverview(){
@@ -321,69 +326,103 @@ function renderOverview(){
   const rows = snapshot?.rows || [];
   if (!s || !rows.length) { host.hidden = true; return; }
 
-  // ITM/ATM/OTM đếm từ chi tiết từng mã (chỉ 350/407 mã có định giá).
+  const totalCW = rows.length;
+  const activeCW = kpiValue(s.traded);
+  const inactiveCW = kpiValue(s.untraded);
+  const activePct = kpiShare(activeCW, totalCW);
+  const inactivePct = kpiShare(inactiveCW, totalCW);
+  const totalValue = kpiValue(s.totalValueVND);
+  const avgValuePerActiveCW = safeDivide(totalValue, activeCW);
+  const totalUnderlyings = kpiValue(s.underlyings);
+  const avgCWPerUnderlying = safeDivide(totalCW, totalUnderlyings);
+
+  // ITM/ATM/OTM is counted from the loaded valuation state for this snapshot only.
   const counts = {ITM: 0, ATM: 0, OTM: 0};
-  for (const r of rows) {
-    const m = moneynessOf(String(r.StockCode).toUpperCase());
-    if (m && counts[m] !== undefined) counts[m] += 1;
+  for (const row of rows) {
+    const moneyness = moneynessOf(String(row.StockCode).toUpperCase());
+    if (moneyness && Object.hasOwn(counts, moneyness)) counts[moneyness] += 1;
   }
-  const priced = counts.ITM + counts.ATM + counts.OTM;
-  const sum = val?.summary || {};
+  const pricedCount = counts.ITM + counts.ATM + counts.OTM;
+  const itmPct = kpiShare(counts.ITM, pricedCount);
+  const atmPct = kpiShare(counts.ATM, pricedCount);
+  const otmPct = kpiShare(counts.OTM, pricedCount);
+  const valSummary = val?.summary || {};
   const ivhv = val?.ivVsHv || {};
-  const curve = val?.yieldCurve || {};
-  const totalChange = s.gainers + s.losers + s.unchanged;
+  const medianIvSpread = kpiValue(ivhv.medianIvMinusHv);
+  const upCount = kpiValue(s.gainers);
+  const downCount = kpiValue(s.losers);
+  const unchangedCount = kpiValue(s.unchanged);
+  const activeChangeCW = upCount !== null && downCount !== null && unchangedCount !== null
+    ? upCount + downCount + unchangedCount : null;
+  const upPct = kpiShare(upCount, activeChangeCW);
+  const downPct = kpiShare(downCount, activeChangeCW);
+  const unchangedPct = kpiShare(unchangedCount, activeChangeCW);
+  const ivAboveCount = kpiValue(ivhv.countIvAboveHv);
+  const ivBelowCount = kpiValue(ivhv.countIvBelowHv);
+  const validSpreadCount = ivAboveCount !== null && ivBelowCount !== null
+    ? ivAboveCount + ivBelowCount : null;
+  const abovePct = kpiShare(ivAboveCount, validSpreadCount);
+  const belowPct = kpiShare(ivBelowCount, validSpreadCount);
 
-  // Lưới KPI dùng năm cột trên desktop và tự co theo breakpoint ở tablet/mobile.
-  // Hàng thống kê thứ ba trước đây lặp lại đúng những chỉ số này nên đã bỏ hẳn —
-  // xem renderStats() bên dưới.
   const cards = [
-    {k: 'Mã CW niêm yết', v: num(s.rows), icon: 'layers', help: 'Tổng mã trong snapshot phiên; mã không giao dịch vẫn được tính.',
-     n: `<b>${num(s.traded)}</b> mã có khớp lệnh · <b>${num(s.untraded)}</b> không`},
-    {k: 'Giá trị giao dịch', v: fmtVnd(s.totalValueVND), icon: 'coins', help: 'Tổng giá trị khớp lệnh trong phiên, không phải thanh khoản bình quân ngày.',
-     n: 'VND trong phiên · không phải ADV'},
-    {k: 'Cổ phiếu cơ sở', v: num(s.underlyings), icon: 'bank', help: 'Số cổ phiếu cơ sở có chứng quyền trong snapshot.',
-     n: 'nhóm cổ phiếu có mã CW'},
-    {k: 'Tăng / giảm / đứng', icon: 'trending', help: 'Phân loại theo biến động giá so với giá tham chiếu; phần xám là chưa xác định.', split: [
-        ['up', num(s.gainers)], ['down', num(s.losers)], ['flat', num(s.unchanged)]],
-     bars: [['Tăng', s.gainers, 'up'], ['Giảm', s.losers, 'down'], ['Đứng', s.unchanged, 'flat']],
-     total: s.rows},
+    {
+      k: 'Mã CW niêm yết', v: kpiNum(totalCW), icon: 'layers',
+      footer: miniBars([
+        ['Khớp lệnh', activeCW, 'up', activePct],
+        ['Không GD', inactiveCW, 'inactive', inactivePct],
+      ], totalCW),
+    },
+    {
+      k: 'Giá trị giao dịch', v: kpiShortVnd(totalValue), icon: 'coins',
+      badge: `VND · ${tx('Phiên hiện tại')}`,
+      footer: `<span>${tx('Bình quân / mã khớp lệnh')}</span><b>${kpiShortVnd(avgValuePerActiveCW)}</b>`,
+    },
+    {
+      k: 'Cổ phiếu cơ sở', v: kpiNum(totalUnderlyings), icon: 'bank',
+      footer: `<span>${tx('Mật độ phân bổ')}:</span><b>~${kpiNum(avgCWPerUnderlying, 1)} ${tx('CW / cổ phiếu cơ sở')}</b>`,
+    },
+    {
+      k: 'Tăng / giảm / đứng', icon: 'trending',
+      split: [['up', kpiNum(upCount)], ['down', kpiNum(downCount)], ['flat', kpiNum(unchangedCount)]],
+      footer: miniBars([
+        ['Tăng', upCount, 'up', upPct], ['Giảm', downCount, 'down', downPct],
+        ['Đứng', unchangedCount, 'flat', unchangedPct],
+      ], activeChangeCW),
+    },
+    {
+      k: 'Phân bố trạng thái tiền', icon: 'target',
+      badge: `${tx('Đã định giá')}: ${kpiNum(pricedCount)}/${kpiNum(totalCW)}`,
+      split: [['up', kpiNum(counts.ITM)], ['flat', kpiNum(counts.ATM)], ['down', kpiNum(counts.OTM)]],
+      footer: miniBars([
+        ['ITM', counts.ITM, 'itm', itmPct], ['ATM', counts.ATM, 'atm', atmPct],
+        ['OTM', counts.OTM, 'otm', otmPct],
+      ], pricedCount),
+    },
+    {
+      k: 'IV trung vị', v: kpiPct(valSummary.medianIv), icon: 'activity',
+      footer: `<span>${tx('Biên độ IQR (Q1–Q3)')}:</span><b>${kpiPct(valSummary.p25Iv)} – ${kpiPct(valSummary.p75Iv)}</b>`,
+    },
+    {
+      k: 'IV − HV', v: medianIvSpread === null ? '—'
+        : `${medianIvSpread > 0 ? '+' : ''}${kpiNum(medianIvSpread, 1)} ${tx('điểm')}`,
+      icon: 'scale', tone: medianIvSpread === null ? '' : medianIvSpread >= 0 ? 'up' : 'down',
+      footer: `<span>${tx('IV > HV')}: <b>${kpiNum(ivAboveCount)}</b> (${abovePct}%)</span><span>${tx('IV < HV')}: <b>${kpiNum(ivBelowCount)}</b> (${belowPct}%)</span>`,
+    },
+    {
+      k: 'Spread trung vị', v: kpiPct(s.medianSpreadPct, 1), icon: 'arrows',
+      footer: `<span>${tx('Chênh lệch bid-ask')}:</span><b>${kpiNum(s.medianSpreadTicks, 1)} ${tx('bước giá')} (${kpiNum(s.medianSpreadAbsVND, 1)} VND)</b>`,
+    },
   ];
-  if (priced) {
-    cards.push({k: 'Phân bố trạng thái tiền', icon: 'target', help: 'ITM/ATM/OTM chỉ tính trên các mã có dữ liệu định giá hợp lệ; phần xám chưa phân loại.',
-      split: [['up', num(counts.ITM)], ['flat', num(counts.ATM)], ['down', num(counts.OTM)]],
-      bars: [['ITM', counts.ITM, 'itm'], ['ATM', counts.ATM, 'atm'], ['OTM', counts.OTM, 'otm']],
-      total: s.rows,
-      n: `trên ${num(priced)} mã định giá được`});
-  }
-  if (sum.medianIv !== undefined && sum.medianIv !== null) {
-    cards.push({k: 'IV trung vị', v: fmtPct(sum.medianIv, 1), icon: 'activity', help: 'Trung vị độ biến động hàm ý của các chứng quyền đã được định giá.',
-      n: `p25–p75: ${fmtPct(sum.p25Iv, 1)} – ${fmtPct(sum.p75Iv, 1)}`});
-  }
-  if (ivhv.available && ivhv.medianIvMinusHv !== null) {
-    cards.push({k: 'IV − HV', v: `${ivhv.medianIvMinusHv > 0 ? '+' : ''}${numLang(ivhv.medianIvMinusHv, 1)} ${bi('điểm','pts')}`,
-      icon: 'scale', help: 'Chênh lệch biến động hàm ý và biến động lịch sử, tính theo điểm phần trăm; không phải tín hiệu giao dịch.', tone: ivhv.medianIvMinusHv >= 0 ? 'up' : 'down',
-      n: `<b>${num(ivhv.countIvAboveHv)}</b> ${bi('mã IV trên HV','warrants with IV above HV')} · <b>${num(ivhv.countIvBelowHv)}</b> ${bi('ngược lại','below HV')}`});
-  }
-  cards.push({k: 'Spread trung vị', v: fmtPct(s.medianSpreadPct), icon: 'arrows', help: 'Chênh lệch giá mua–bán trung vị, quy đổi theo tỷ lệ phần trăm.',
-    n: `${num(s.medianSpreadTicks, 1)} bước giá (10 VND)`});
 
-  // Chọn số cột theo số KPI để giữ các hàng cân đối: tối đa 5 thẻ vẫn một hàng,
-  // từ 6–10 thẻ chia đều thành hai hàng thay vì để hàng cuối chỉ còn vài thẻ.
-  const desktopColumns = cards.length <= 5 ? Math.max(1, cards.length)
-    : Math.min(5, Math.ceil(cards.length / 2));
-  grid.style.setProperty('--overview-columns', String(desktopColumns));
-
-  // Thanh tiến trình chỉ dành cho hai thẻ phân bố — nơi tỷ lệ mới là thông tin.
-  grid.innerHTML = cards.map(c => {
-    const value = c.split
-      ? `<div class="ov-v split">${c.split.map(([cls, v]) => `<span class="${cls}">${v}</span>`).join('<span class="sep">/</span>')}</div>`
-      : `<div class="ov-v${c.tone ? ` ${c.tone}` : ''}">${esc(c.v)}</div>`;
-    return `<div class="ov-card">`
-      + `<div class="ov-k">${icon(c.icon)}<span>${esc(tx(c.k))}</span>${c.help ? `<button class="help-tip" type="button" aria-label="${esc(getLang()==='en' ? (KPI_HELP_EN[c.help] || c.help) : c.help)}" title="${esc(getLang()==='en' ? (KPI_HELP_EN[c.help] || c.help) : c.help)}">?</button>` : ''}</div>`
-      + value
-      + (c.bars ? miniBars(c.bars, c.total) : '')
-      + (c.n ? `<div class="ov-n">${c.n}</div>` : '')
-      + `</div>`;
+  // Eight cards: four columns by two rows on desktop, responsive columns on narrow screens.
+  grid.style.setProperty('--overview-columns', '4');
+  grid.innerHTML = cards.map(card => {
+    const value = card.split
+      ? `<div class="ov-v split">${card.split.map(([cls, text]) => `<span class="${cls}">${text}</span>`).join('<span class="sep">/</span>')}</div>`
+      : `<div class="ov-v${card.tone ? ` ${card.tone}` : ''}">${esc(card.v)}</div>`;
+    const badge = card.badge ? `<span class="ov-badge">${esc(card.badge)}</span>` : '';
+    return `<div class="ov-card"><div class="ov-k">${icon(card.icon)}<span>${esc(tx(card.k))}</span>${badge}</div>`
+      + value + `<div class="ov-footer${card.footer.startsWith('<div') ? ' ov-footer-stack' : ''}">${card.footer}</div></div>`;
   }).join('');
   host.hidden = false;
 }
