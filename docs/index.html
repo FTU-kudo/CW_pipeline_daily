@@ -207,6 +207,7 @@ import katex from './assets/katex/katex.mjs';
 import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
 import { finiteMetric as kpiValue, metricNumber, metricPercent as kpiPct, safeRatioPercent as kpiShare, safeDivide } from './assets/kpi-metrics.mjs';
 import { sortBoardRows } from './assets/board-sort.mjs';
+import { activeValuationFilterCount, filterValuationRows, valuationRangeFilters } from './assets/valuation-filter.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
@@ -965,7 +966,7 @@ function emptyNotice(what) {
 }
 
 // ── Định giá: Black–Scholes + IV, từ điều khoản Vietstock ──
-const valuationTableState = {query: '', page: 0, size: 25, sort: 'ivResidualPct', dir: 'asc'};
+const valuationTableState = {query: '', filters: {}, filtersExpanded: true, page: 0, size: 25, sort: 'ivResidualPct', dir: 'asc'};
 let valuationRowsCache = [];
 const valuationColumns = [
   ['ticker','Mã'], ['underlying','Cơ sở'], ['iv','IV'], ['ivGroupMedian','IV nhóm'],
@@ -1002,13 +1003,28 @@ function valuationRow(r){
     <td class="num">${fmtPct(r.premiumPct,1)}</td>
   </tr>`;
 }
+function valuationFilterPanel(rows, state){
+  const underlyings = [...new Set(rows.map(row => row.underlying).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const activeCount = activeValuationFilterCount(state.filters);
+  const select = (key, label, options) => `<label class="valuation-filter-field"><span>${label}</span><select data-val-filter="${key}" aria-label="${label}">${options}</select></label>`;
+  const range = (key, label) => {
+    const step = key === 'delta' ? '0.001' : ['daysToMaturity','strike','underlyingPrice','cwPrice'].includes(key) ? '1' : '0.1';
+    const value = state.filters[key] || {};
+    return `<fieldset class="valuation-filter-range"><legend>${label}</legend><label><span>${bi('Từ','Min')}</span><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="min" value="${escAttr(value.min ?? '')}" aria-label="${escAttr(label)} ${bi('từ','minimum')}"></label><label><span>${bi('Đến','Max')}</span><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="max" value="${escAttr(value.max ?? '')}" aria-label="${escAttr(label)} ${bi('đến','maximum')}"></label></fieldset>`;
+  };
+  const underlyingOptions = `<option value="">${bi('Tất cả cơ sở','All underlyings')}</option>` + underlyings.map(value => `<option value="${escAttr(value)}"${state.filters.underlying === value ? ' selected' : ''}>${esc(value)}</option>`).join('');
+  const moneyOptions = `<option value="">${bi('Tất cả trạng thái','All moneyness')}</option>` + ['ITM','ATM','OTM','—'].map(value => `<option value="${value}"${state.filters.moneyness === value ? ' selected' : ''}>${value === '—' ? bi('Chưa xác định','Unknown') : value}</option>`).join('');
+  return `<details class="valuation-filters"${state.filtersExpanded ? ' open' : ''}><summary><span><b>${bi('Bộ lọc định giá','Valuation filters')}</b><small>${bi('Lọc theo cơ sở, trạng thái tiền và các chỉ số định giá','Filter by underlying, moneyness and valuation metrics')}</small></span><span class="filter-count">${activeCount ? `${activeCount} ${bi('đang lọc','active')}` : bi('Tất cả CW','All warrants')}</span></summary><div class="valuation-filter-grid">
+    ${select('underlying',bi('Cổ phiếu cơ sở','Underlying'),underlyingOptions)}${select('moneyness',bi('ITM / ATM / OTM','Moneyness'),moneyOptions)}
+    ${valuationRangeFilters.map(([key,label]) => range(key,bi(label,({ivGroupMedian:'Peer IV',ivResidualPct:'IV vs peers',ivMinusHv:'IV − HV',underlyingPrice:'Underlying price (S)',cwPrice:'Warrant price',daysToMaturity:'Days to maturity'})[key] || label))).join('')}
+  </div></details>`;
+}
 function renderValuationTable(rows){
   const host = document.querySelector('#valuation-table');
   if (!host) return;
   valuationRowsCache = rows || [];
   const state = valuationTableState;
-  const q = state.query.trim().toLowerCase();
-  let filtered = valuationRowsCache.filter(r => !q || valuationColumns.some(([key]) => String(valCell(r,key) ?? '').toLowerCase().includes(q)));
+  let filtered = filterValuationRows(valuationRowsCache, state.query, state.filters);
   filtered.sort((a,b) => {
     const av=valCell(a,state.sort), bv=valCell(b,state.sort);
     const an=Number(av), bn=Number(bv);
@@ -1019,7 +1035,8 @@ function renderValuationTable(rows){
   const pages = Math.max(1,Math.ceil(filtered.length/state.size));
   state.page = Math.min(state.page,pages-1);
   const start=state.page*state.size, pageRows=filtered.slice(start,start+state.size);
-  host.innerHTML = `<div class="quant-table-toolbar"><label class="quant-search"><span aria-hidden="true">⌕</span><input id="valuation-search" type="search" value="${escAttr(state.query)}" placeholder="${bi('Tìm mã CW hoặc cổ phiếu cơ sở…','Search warrant or underlying…')}" aria-label="${bi('Tìm mã CW hoặc cổ phiếu cơ sở','Search warrant or underlying')}"></label><span class="quant-result-count">${num(filtered.length)} ${bi('mã','warrants')}</span></div>
+  host.innerHTML = `<div class="quant-table-toolbar"><label class="quant-search"><span aria-hidden="true">⌕</span><input id="valuation-search" type="search" value="${escAttr(state.query)}" placeholder="${bi('Tìm mã CW hoặc cổ phiếu cơ sở…','Search warrant or underlying…')}" aria-label="${bi('Tìm mã CW hoặc cổ phiếu cơ sở','Search warrant or underlying')}"></label><span class="quant-result-count">${num(filtered.length)} ${bi('mã phù hợp','matching warrants')}</span><button type="button" class="valuation-filter-clear" data-val-filter-reset>${bi('Đặt lại','Reset')}</button></div>
+    ${valuationFilterPanel(valuationRowsCache,state)}
     <div class="table-wrap quant-table-wrap"><table class="quant-table"><thead><tr>${valuationColumns.map(([key,label]) => `<th class="${['ticker','underlying','moneyness','underlyingSource'].includes(key)?'text-head':'num'}"><button type="button" data-val-sort="${key}" class="sort-head">${esc(tx(label))}<span>${state.sort===key?(state.dir==='asc'?' ↑':' ↓'):'↕'}</span></button></th>`).join('')}</tr></thead><tbody>${pageRows.map(valuationRow).join('') || `<tr><td colspan="14" class="empty-cell">${bi('Không tìm thấy mã phù hợp.','No matching warrants.')}</td></tr>`}</tbody></table></div>
     <div class="quant-pagination"><span>${filtered.length ? `${num(start+1)}–${num(Math.min(start+state.size,filtered.length))} / ${num(filtered.length)}` : '0'}</span><div><button type="button" data-val-page="prev" ${state.page===0?'disabled':''}>${bi('Trước','Previous')}</button><span>${state.page+1} / ${pages}</span><button type="button" data-val-page="next" ${state.page>=pages-1?'disabled':''}>${bi('Sau','Next')}</button></div></div>`;
 }
@@ -1751,17 +1768,43 @@ window.addEventListener('popstate', () => {
 
 // Delegated controls keep search, sorting, pagination and the detail drawer working after
 // each local table repaint.
-document.addEventListener('input', event => {
-  if (event.target.id !== 'valuation-search') return;
-  const input = event.target, start = input.selectionStart;
-  valuationTableState.query = input.value;
+function applyValuationFilterInput(event){
+  const target = event.target;
+  if (target.id !== 'valuation-search' && !target.matches('[data-val-filter]')) return;
+  const activeId = target.id || `${target.dataset.valFilter}-${target.dataset.valBound || 'select'}`;
+  const start = typeof target.selectionStart === 'number' ? target.selectionStart : null;
+  valuationTableState.query = document.querySelector('#valuation-search')?.value || '';
+  valuationTableState.filtersExpanded = document.querySelector('.valuation-filters')?.open ?? valuationTableState.filtersExpanded;
+  const filters = {};
+  document.querySelectorAll('[data-val-filter]').forEach(input => {
+    const key = input.dataset.valFilter;
+    if (input.dataset.valBound) {
+      filters[key] ||= {};
+      filters[key][input.dataset.valBound] = input.value;
+    } else if (input.value) filters[key] = input.value;
+  });
+  valuationTableState.filters = filters;
   valuationTableState.page = 0;
   renderValuationTable(valuationRowsCache);
-  const next = document.querySelector('#valuation-search');
+  const next = target.id ? document.getElementById(activeId) : document.querySelector(`[data-val-filter="${target.dataset.valFilter}"]${target.dataset.valBound ? `[data-val-bound="${target.dataset.valBound}"]` : ''}`);
   next?.focus();
   if (start !== null) next?.setSelectionRange(start, start);
-});
+}
+document.addEventListener('input', applyValuationFilterInput);
+document.addEventListener('change', applyValuationFilterInput);
+document.addEventListener('toggle', event => {
+  if (event.target.matches('.valuation-filters')) valuationTableState.filtersExpanded = event.target.open;
+}, true);
 document.addEventListener('click', event => {
+  if (event.target.closest('[data-val-filter-reset]')) {
+    valuationTableState.query = '';
+    valuationTableState.filters = {};
+    valuationTableState.filtersExpanded = true;
+    valuationTableState.page = 0;
+    renderValuationTable(valuationRowsCache);
+    document.querySelector('#valuation-search')?.focus();
+    return;
+  }
   const boardHeader = event.target.closest('button[data-board-sort]');
   if (boardHeader) {
     const key = boardHeader.dataset.boardSort;
