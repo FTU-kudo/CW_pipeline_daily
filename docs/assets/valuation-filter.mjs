@@ -11,13 +11,15 @@ export const valuationRangeFilters = [
   ['premiumPct', 'Premium'],
 ];
 
+export function activeValuationAdvancedCount(filters = {}) {
+  return valuationRangeFilters.reduce((count, [key]) => count + Number(
+    (filters[key]?.min !== '' && filters[key]?.min != null) ||
+    (filters[key]?.max !== '' && filters[key]?.max != null),
+  ), 0);
+}
+
 export function activeValuationFilterCount(filters = {}) {
-  let count = Number(Boolean(filters.underlying)) + Number(Boolean(filters.moneyness));
-  for (const [key] of valuationRangeFilters) {
-    if (filters[key]?.min !== '' && filters[key]?.min != null) count++;
-    if (filters[key]?.max !== '' && filters[key]?.max != null) count++;
-  }
-  return count;
+  return Number(Boolean(filters.underlying)) + Number(Boolean(filters.moneyness)) + activeValuationAdvancedCount(filters);
 }
 
 export function filterValuationRows(rows, query = '', filters = {}) {
@@ -31,6 +33,7 @@ export function filterValuationRows(rows, query = '', filters = {}) {
       const min = range.min === '' || range.min == null ? null : Number(range.min);
       const max = range.max === '' || range.max == null ? null : Number(range.max);
       if (min === null && max === null) continue;
+      if (row[key] === null || row[key] === undefined || row[key] === '') return false;
       const value = Number(row[key]);
       if (!Number.isFinite(value) || (min !== null && value < min) || (max !== null && value > max)) return false;
     }

@@ -207,7 +207,7 @@ import katex from './assets/katex/katex.mjs';
 import { VIEW_SLUGS, urlForView, viewFromSearch } from './assets/navigation.mjs';
 import { finiteMetric as kpiValue, metricNumber, metricPercent as kpiPct, safeRatioPercent as kpiShare, safeDivide } from './assets/kpi-metrics.mjs';
 import { sortBoardRows } from './assets/board-sort.mjs';
-import { activeValuationFilterCount, filterValuationRows, valuationRangeFilters } from './assets/valuation-filter.mjs';
+import { activeValuationAdvancedCount, activeValuationFilterCount, filterValuationRows, valuationRangeFilters } from './assets/valuation-filter.mjs';
 
 const DETAILS_URL = 'data/yuanta_details.json';
 const SNAPSHOT_URL = 'data/yuanta_snapshot.json';
@@ -966,7 +966,7 @@ function emptyNotice(what) {
 }
 
 // ── Định giá: Black–Scholes + IV, từ điều khoản Vietstock ──
-const valuationTableState = {query: '', filters: {}, filtersExpanded: true, page: 0, size: 25, sort: 'ivResidualPct', dir: 'asc'};
+const valuationTableState = {query: '', filters: {}, filtersExpanded: false, page: 0, size: 25, sort: 'ivResidualPct', dir: 'asc'};
 let valuationRowsCache = [];
 const valuationColumns = [
   ['ticker','Mã'], ['underlying','Cơ sở'], ['iv','IV'], ['ivGroupMedian','IV nhóm'],
@@ -1003,21 +1003,36 @@ function valuationRow(r){
     <td class="num">${fmtPct(r.premiumPct,1)}</td>
   </tr>`;
 }
-function valuationFilterPanel(rows, state){
-  const underlyings = [...new Set(rows.map(row => row.underlying).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-  const activeCount = activeValuationFilterCount(state.filters);
-  const select = (key, label, options) => `<label class="valuation-filter-field"><span>${label}</span><select data-val-filter="${key}" aria-label="${label}">${options}</select></label>`;
-  const range = (key, label) => {
+function valuationFilterPanel(state){
+  const ranges = valuationRangeFilters.map(([key,label]) => {
     const step = key === 'delta' ? '0.001' : ['daysToMaturity','strike','underlyingPrice','cwPrice'].includes(key) ? '1' : '0.1';
     const value = state.filters[key] || {};
-    return `<fieldset class="valuation-filter-range"><legend>${label}</legend><label><span>${bi('Từ','Min')}</span><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="min" value="${escAttr(value.min ?? '')}" aria-label="${escAttr(label)} ${bi('từ','minimum')}"></label><label><span>${bi('Đến','Max')}</span><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="max" value="${escAttr(value.max ?? '')}" aria-label="${escAttr(label)} ${bi('đến','maximum')}"></label></fieldset>`;
-  };
-  const underlyingOptions = `<option value="">${bi('Tất cả cơ sở','All underlyings')}</option>` + underlyings.map(value => `<option value="${escAttr(value)}"${state.filters.underlying === value ? ' selected' : ''}>${esc(value)}</option>`).join('');
-  const moneyOptions = `<option value="">${bi('Tất cả trạng thái','All moneyness')}</option>` + ['ITM','ATM','OTM','—'].map(value => `<option value="${value}"${state.filters.moneyness === value ? ' selected' : ''}>${value === '—' ? bi('Chưa xác định','Unknown') : value}</option>`).join('');
-  return `<details class="valuation-filters"${state.filtersExpanded ? ' open' : ''}><summary><span><b>${bi('Bộ lọc định giá','Valuation filters')}</b><small>${bi('Lọc theo cơ sở, trạng thái tiền và các chỉ số định giá','Filter by underlying, moneyness and valuation metrics')}</small></span><span class="filter-count">${activeCount ? `${activeCount} ${bi('đang lọc','active')}` : bi('Tất cả CW','All warrants')}</span></summary><div class="valuation-filter-grid">
-    ${select('underlying',bi('Cổ phiếu cơ sở','Underlying'),underlyingOptions)}${select('moneyness',bi('ITM / ATM / OTM','Moneyness'),moneyOptions)}
-    ${valuationRangeFilters.map(([key,label]) => range(key,bi(label,({ivGroupMedian:'Peer IV',ivResidualPct:'IV vs peers',ivMinusHv:'IV − HV',underlyingPrice:'Underlying price (S)',cwPrice:'Warrant price',daysToMaturity:'Days to maturity'})[key] || label))).join('')}
-  </div></details>`;
+    const english = {iv:'IV (%)',ivGroupMedian:'Peer IV (%)',ivResidualPct:'IV vs peers (%)',ivMinusHv:'IV − HV (pts)',delta:'Delta',strike:'Strike (VND)',underlyingPrice:'Underlying price S (VND)',cwPrice:'Warrant price (VND)',daysToMaturity:'Days to maturity',premiumPct:'Premium (%)'}[key];
+    const title = bi(label, english || label);
+    return `<fieldset class="valuation-filter-range"><legend>${title}</legend><div class="valuation-range-inputs"><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="min" value="${escAttr(value.min ?? '')}" placeholder="${bi('Từ','Min')}" aria-label="${escAttr(title)} · ${bi('Từ','minimum')}"><span aria-hidden="true">–</span><input type="number" step="${step}" data-val-filter="${key}" data-val-bound="max" value="${escAttr(value.max ?? '')}" placeholder="${bi('Đến','Max')}" aria-label="${escAttr(title)} · ${bi('Đến','maximum')}"></div></fieldset>`;
+  }).join('');
+  return `<div class="valuation-filter-drawer"${state.filtersExpanded ? '' : ' hidden'}><div class="valuation-filter-grid">${ranges}</div></div>`;
+}
+function valuationFilterChips(state){
+  const filters = state.filters || {};
+  const active = [];
+  if (state.query.trim()) active.push(['query',`${bi('Tìm kiếm','Search')}: ${state.query.trim()}`]);
+  if (filters.underlying) active.push(['underlying',`${bi('Cơ sở','Underlying')}: ${filters.underlying}`]);
+  if (filters.moneyness) active.push(['moneyness',`${bi('Trạng thái','Moneyness')}: ${filters.moneyness === '—' ? bi('Chưa xác định','Unknown') : filters.moneyness}`]);
+  const units = {iv:'%',ivGroupMedian:'%',ivResidualPct:'%',ivMinusHv:` ${bi('điểm','pts')}`,delta:'',strike:' VND',underlyingPrice:' VND',cwPrice:' VND',daysToMaturity:` ${bi('ngày','days')}`,premiumPct:'%'};
+  const english = {iv:'IV',ivGroupMedian:'Peer IV',ivResidualPct:'IV vs peers',ivMinusHv:'IV − HV',delta:'Delta',strike:'Strike',underlyingPrice:'Underlying S',cwPrice:'Warrant price',daysToMaturity:'Maturity',premiumPct:'Premium'};
+  const display = value => Number(value).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN', {maximumFractionDigits:3});
+  for (const [key,label] of valuationRangeFilters){
+    const range = filters[key] || {};
+    const min = range.min !== '' && range.min != null ? Number(range.min) : null;
+    const max = range.max !== '' && range.max != null ? Number(range.max) : null;
+    if (min === null && max === null) continue;
+    const unit = units[key] || '';
+    const value = min !== null && max !== null ? `${display(min)}–${display(max)}${unit}` : min !== null ? `≥ ${display(min)}${unit}` : `≤ ${display(max)}${unit}`;
+    active.push([key,`${bi(label,english[key] || label)}: ${value}`]);
+  }
+  if (!active.length) return '';
+  return `<div class="valuation-active-chips" aria-label="${bi('Điều kiện đang lọc','Active filters')}">${active.map(([key,label]) => `<span class="valuation-chip"><span class="valuation-chip-label">${esc(label)}</span><button type="button" data-val-chip-clear="${key}" aria-label="${bi('Xóa điều kiện','Remove filter')}: ${escAttr(label)}">×</button></span>`).join('')}<button type="button" class="valuation-clear-all" data-val-filter-reset>${bi('Xóa tất cả','Clear all')}</button></div>`;
 }
 function renderValuationTable(rows){
   const host = document.querySelector('#valuation-table');
@@ -1035,8 +1050,17 @@ function renderValuationTable(rows){
   const pages = Math.max(1,Math.ceil(filtered.length/state.size));
   state.page = Math.min(state.page,pages-1);
   const start=state.page*state.size, pageRows=filtered.slice(start,start+state.size);
-  host.innerHTML = `<div class="quant-table-toolbar"><label class="quant-search"><span aria-hidden="true">⌕</span><input id="valuation-search" type="search" value="${escAttr(state.query)}" placeholder="${bi('Tìm mã CW hoặc cổ phiếu cơ sở…','Search warrant or underlying…')}" aria-label="${bi('Tìm mã CW hoặc cổ phiếu cơ sở','Search warrant or underlying')}"></label><span class="quant-result-count">${num(filtered.length)} ${bi('mã phù hợp','matching warrants')}</span><button type="button" class="valuation-filter-clear" data-val-filter-reset>${bi('Đặt lại','Reset')}</button></div>
-    ${valuationFilterPanel(valuationRowsCache,state)}
+  const underlyings = [...new Set(valuationRowsCache.map(row => row.underlying).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const activeFilters = activeValuationFilterCount(state.filters);
+  const hasActiveFilters = Boolean(state.query.trim()) || activeFilters > 0;
+  const advancedCount = activeValuationAdvancedCount(state.filters);
+  const underlyingOptions = `<option value="">${bi('Tất cả cơ sở','All underlyings')}</option>` + underlyings.map(value => `<option value="${escAttr(value)}"${state.filters.underlying === value ? ' selected' : ''}>${esc(value)}</option>`).join('');
+  const moneynessButtons = [['','Tất cả','All'],['ITM','ITM','ITM'],['ATM','ATM','ATM'],['OTM','OTM','OTM']].map(([value,vi,en]) => `<button type="button" data-val-moneyness="${value}" class="valuation-segment${(state.filters.moneyness || '') === value ? ' active' : ''}" aria-pressed="${(state.filters.moneyness || '') === value}">${bi(vi,en)}</button>`).join('');
+  host.innerHTML = `<div class="valuation-unified-toolbar"><div class="valuation-toolbar-controls"><div class="quant-search" role="search"><span aria-hidden="true">⌕</span><input id="valuation-search" type="search" value="${escAttr(state.query)}" placeholder="${bi('Tìm mã CW hoặc cơ sở…','Search warrant or underlying…')}" aria-label="${bi('Tìm mã CW hoặc cơ sở','Search warrant or underlying')}"><button type="button" class="valuation-search-clear" data-val-query-clear aria-label="${bi('Xóa tìm kiếm','Clear search')}"${state.query ? '' : ' hidden'}>×</button></div>
+    <label class="valuation-underlying-control"><span class="sr-only">${bi('Cổ phiếu cơ sở','Underlying')}</span><select data-val-filter="underlying" aria-label="${bi('Cổ phiếu cơ sở','Underlying')}">${underlyingOptions}</select></label><div class="valuation-segments" role="group" aria-label="${bi('Trạng thái tiền','Moneyness')}">${moneynessButtons}</div>
+    <button type="button" class="valuation-advanced-toggle${state.filtersExpanded ? ' expanded' : ''}" data-val-advanced-toggle aria-expanded="${state.filtersExpanded}">${bi('Bộ lọc nâng cao','Advanced filters')} <span class="advanced-count">${advancedCount}</span><span aria-hidden="true">${state.filtersExpanded ? '▴' : '▾'}</span></button></div>
+    <div class="valuation-toolbar-actions"><span class="quant-result-count" role="status" aria-live="polite"><b>${num(filtered.length)}</b> ${bi('mã phù hợp','matching warrants')}</span><button type="button" class="valuation-filter-clear" data-val-filter-reset${hasActiveFilters ? '' : ' disabled'}>${bi('Đặt lại','Reset')}</button></div></div>
+    ${valuationFilterChips(state)}${valuationFilterPanel(state)}
     <div class="table-wrap quant-table-wrap"><table class="quant-table"><thead><tr>${valuationColumns.map(([key,label]) => `<th class="${['ticker','underlying','moneyness','underlyingSource'].includes(key)?'text-head':'num'}"><button type="button" data-val-sort="${key}" class="sort-head">${esc(tx(label))}<span>${state.sort===key?(state.dir==='asc'?' ↑':' ↓'):'↕'}</span></button></th>`).join('')}</tr></thead><tbody>${pageRows.map(valuationRow).join('') || `<tr><td colspan="14" class="empty-cell">${bi('Không tìm thấy mã phù hợp.','No matching warrants.')}</td></tr>`}</tbody></table></div>
     <div class="quant-pagination"><span>${filtered.length ? `${num(start+1)}–${num(Math.min(start+state.size,filtered.length))} / ${num(filtered.length)}` : '0'}</span><div><button type="button" data-val-page="prev" ${state.page===0?'disabled':''}>${bi('Trước','Previous')}</button><span>${state.page+1} / ${pages}</span><button type="button" data-val-page="next" ${state.page>=pages-1?'disabled':''}>${bi('Sau','Next')}</button></div></div>`;
 }
@@ -1771,6 +1795,8 @@ window.addEventListener('popstate', () => {
 function applyValuationFilterInput(event){
   const target = event.target;
   if (target.id !== 'valuation-search' && !target.matches('[data-val-filter]')) return;
+  const isSelect = target.matches('select[data-val-filter]');
+  if (isSelect ? event.type !== 'change' : event.type !== 'input') return;
   const activeId = target.id || `${target.dataset.valFilter}-${target.dataset.valBound || 'select'}`;
   const start = typeof target.selectionStart === 'number' ? target.selectionStart : null;
   valuationTableState.query = document.querySelector('#valuation-search')?.value || '';
@@ -1792,14 +1818,43 @@ function applyValuationFilterInput(event){
 }
 document.addEventListener('input', applyValuationFilterInput);
 document.addEventListener('change', applyValuationFilterInput);
-document.addEventListener('toggle', event => {
-  if (event.target.matches('.valuation-filters')) valuationTableState.filtersExpanded = event.target.open;
-}, true);
 document.addEventListener('click', event => {
+  const queryClear = event.target.closest('[data-val-query-clear]');
+  if (queryClear) {
+    valuationTableState.query = '';
+    valuationTableState.page = 0;
+    renderValuationTable(valuationRowsCache);
+    document.querySelector('#valuation-search')?.focus();
+    return;
+  }
+  const chipClear = event.target.closest('[data-val-chip-clear]');
+  if (chipClear) {
+    const key = chipClear.dataset.valChipClear;
+    if (key === 'query') valuationTableState.query = '';
+    else delete valuationTableState.filters[key];
+    valuationTableState.page = 0;
+    renderValuationTable(valuationRowsCache);
+    return;
+  }
+  const advancedToggle = event.target.closest('[data-val-advanced-toggle]');
+  if (advancedToggle) {
+    valuationTableState.filtersExpanded = !valuationTableState.filtersExpanded;
+    renderValuationTable(valuationRowsCache);
+    document.querySelector('[data-val-advanced-toggle]')?.focus();
+    return;
+  }
+  const moneySegment = event.target.closest('[data-val-moneyness]');
+  if (moneySegment) {
+    if (moneySegment.dataset.valMoneyness) valuationTableState.filters.moneyness = moneySegment.dataset.valMoneyness;
+    else delete valuationTableState.filters.moneyness;
+    valuationTableState.page = 0;
+    renderValuationTable(valuationRowsCache);
+    document.querySelector(`[data-val-moneyness="${moneySegment.dataset.valMoneyness}"]`)?.focus();
+    return;
+  }
   if (event.target.closest('[data-val-filter-reset]')) {
     valuationTableState.query = '';
     valuationTableState.filters = {};
-    valuationTableState.filtersExpanded = true;
     valuationTableState.page = 0;
     renderValuationTable(valuationRowsCache);
     document.querySelector('#valuation-search')?.focus();
